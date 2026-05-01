@@ -2,13 +2,15 @@
 
 Public surface: load a ``RoutingConfig`` from YAML and (in later slices) call
 ``route()`` on a ``RoutedRequest`` to obtain a ``RouteDecision`` or
-``RouteError``. The matchers, rewrites, engine, and dispatcher are
-implemented in subsequent slices.
+``RouteError``. The engine and dispatcher are implemented in subsequent
+slices; matchers and rewrites are pure helpers exposed here for tests and
+the engine to import.
 """
 
 from __future__ import annotations
 
 from magos.routing.loader import RoutingConfigError, load_config
+from magos.routing.matchers import matches
 from magos.routing.models import (
     Action,
     AddHeader,
@@ -35,6 +37,7 @@ from magos.routing.models import (
     SetModel,
 )
 from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
+from magos.routing.rewrites import RewriteError, apply_rewrites
 
 __all__ = [
     "ENDPOINTS",
@@ -58,11 +61,14 @@ __all__ = [
     "RegexMatcher",
     "RemoveHeader",
     "Rewrite",
+    "RewriteError",
     "RoutedRequest",
     "RoutingConfig",
     "RoutingConfigError",
     "Rule",
     "SetHeader",
     "SetModel",
+    "apply_rewrites",
     "load_config",
+    "matches",
 ]

@@ -27,7 +27,9 @@ from pydantic import BaseModel, ConfigDict, Field
 class _Frozen(BaseModel):
     """Frozen + extra-forbidding base, shared by every routing schema."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    # ``populate_by_name`` lets Python callers write ``Not(not_=...)`` since
+    # the alias ``"not"`` is a reserved keyword and can't be a kwarg.
+    model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
 
 class LiteralMatcher(_Frozen):
