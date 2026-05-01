@@ -1,14 +1,25 @@
 """Declarative rule-based routing.
 
-Public surface: load a ``RoutingConfig`` from YAML and (in later slices) call
-``route()`` on a ``RoutedRequest`` to obtain a ``RouteDecision`` or
-``RouteError``. The engine and dispatcher are implemented in subsequent
-slices; matchers and rewrites are pure helpers exposed here for tests and
-the engine to import.
+Public surface: load a ``RoutingConfig`` from YAML, then call ``route()`` on
+a ``RoutedRequest`` to obtain a ``RouteDecision`` or ``RouteError``. The
+dispatcher cutover (slice 5) is the consumer that ties this layer to the
+existing ``server.py`` / ``proxy.py`` / ``passthrough.py`` modules.
 """
 
 from __future__ import annotations
 
+from magos.routing.engine import (
+    RouteDecision,
+    apply_post_rewrites,
+    apply_pre_rewrites,
+    route,
+)
+from magos.routing.errors import (
+    RouteError,
+    error_envelope,
+    format_dispatch_error_message,
+    format_unmatched_message,
+)
 from magos.routing.loader import RoutingConfigError, load_config
 from magos.routing.matchers import matches
 from magos.routing.models import (
@@ -62,13 +73,21 @@ __all__ = [
     "RemoveHeader",
     "Rewrite",
     "RewriteError",
+    "RouteDecision",
+    "RouteError",
     "RoutedRequest",
     "RoutingConfig",
     "RoutingConfigError",
     "Rule",
     "SetHeader",
     "SetModel",
+    "apply_post_rewrites",
+    "apply_pre_rewrites",
     "apply_rewrites",
+    "error_envelope",
+    "format_dispatch_error_message",
+    "format_unmatched_message",
     "load_config",
     "matches",
+    "route",
 ]
