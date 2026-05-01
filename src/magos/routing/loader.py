@@ -67,6 +67,7 @@ def load_config(path: str | Path) -> RoutingConfig:
         raise RoutingConfigError(f"{p}: invalid routing config: {exc}") from exc
     _validate_compiled(cfg, source=str(p))
     _validate_count_tokens(cfg, source=str(p))
+    _validate_passthrough_base_url(cfg, source=str(p))
     _warn_passthrough_body_touch(cfg)
     return cfg
 
@@ -163,6 +164,21 @@ def _validate_count_tokens(cfg: RoutingConfig, *, source: str) -> None:
                 f"{source}: {label}: count_tokens_mode='passthrough' is not "
                 f"implemented for provider={rule.action.provider!r} "
                 f"(supported: {sorted(supported)})"
+            )
+
+
+def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
+    """Reject ``mode: passthrough`` rules that omit ``base_url``.
+
+    Passthrough forwards raw bytes to ``action.base_url``; without one we
+    have no upstream to send to. Translate mode goes through litellm which
+    knows the upstream from the provider, so it does not need ``base_url``.
+    """
+    for idx, rule in enumerate(cfg.rules):
+        if rule.action.mode == "passthrough" and not rule.action.base_url:
+            label = _rule_label(rule, idx)
+            raise RoutingConfigError(
+                f"{source}: {label}: mode='passthrough' requires action.base_url"
             )
 
 

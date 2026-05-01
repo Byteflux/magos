@@ -118,6 +118,22 @@ def test_invalid_jq_patch_in_rewrites(tmp_path: Path) -> None:
         load_config(p)
 
 
+def test_passthrough_mode_requires_base_url(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        """
+        rules:
+          - name: pt-no-base
+            match: { endpoint: { literal: /v1/messages } }
+            action:
+              provider: anthropic
+              mode: passthrough
+        """,
+    )
+    with pytest.raises(RoutingConfigError, match="base_url"):
+        load_config(p)
+
+
 def test_count_tokens_passthrough_only_for_supported_provider(tmp_path: Path) -> None:
     p = _write(
         tmp_path,
@@ -144,6 +160,7 @@ def test_count_tokens_passthrough_anthropic_ok(tmp_path: Path) -> None:
             action:
               provider: anthropic
               mode: passthrough
+              base_url: https://api.anthropic.com
               count_tokens_mode: passthrough
               api_key_env: ANTHROPIC_API_KEY
         """,
@@ -168,6 +185,7 @@ def test_body_touch_warns_under_passthrough(
             action:
               provider: anthropic
               mode: passthrough
+              base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
     )
@@ -195,6 +213,7 @@ def test_header_only_rewrites_under_passthrough_silent(
             action:
               provider: anthropic
               mode: passthrough
+              base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
     )
@@ -219,6 +238,7 @@ def test_pre_rewrite_body_touch_warns_per_passthrough_rule(
             action:
               provider: anthropic
               mode: passthrough
+              base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
           - name: tr
             match: { endpoint: { literal: /v1/chat/completions } }

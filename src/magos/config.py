@@ -1,21 +1,36 @@
-"""Declarative configuration for magos.
+"""Declarative process-level configuration for magos.
 
-All runtime knobs live in ``MagosSettings``, populated from environment
-variables (prefix ``MAGOS_``) and an optional ``.env`` file. Pydantic enforces
-types and ranges at startup so a bad config fails fast instead of surfacing
-as a confusing runtime error later.
+``MagosSettings`` covers the small set of knobs that belong in the process
+environment: bind address, log/trace setup, and the path to ``magos.yaml``.
+Routing decisions (passthrough toggling, count_tokens mode, provider lookup)
+moved to the rule-based config in ``magos.yaml`` and live on
+``app.state.routing``.
 
 Example::
 
-    MAGOS_PORT=9000 MAGOS_LOG_JSON=1 python -m magos
+    MAGOS_PORT=9000 MAGOS_LOG_JSON=1 MAGOS_CONFIG_PATH=/etc/magos.yaml \\
+      python -m magos
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+import os
 
-from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from magos.obs import get_logger
+
+log = get_logger("magos.config")
+
+# Env vars that controlled routing in pre-rule-based magos. ``extra="ignore"``
+# silently drops them, so we explicitly warn on startup if any are still set —
+# operators upgrading should move the equivalent intent into ``magos.yaml``.
+_REMOVED_ENV_VARS: tuple[str, ...] = (
+    "MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED",
+    "MAGOS_ANTHROPIC_UPSTREAM_URL",
+    "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS",
+)
 
 
 class MagosSettings(BaseSettings):
@@ -40,43 +55,28 @@ class MagosSettings(BaseSettings):
         default=None, description="OTLP HTTP endpoint; default uses OTel SDK fallback"
     )
 
-    anthropic_upstream_url: str = Field(
-        default="https://api.anthropic.com",
+    config_path: str = Field(
+        default="./magos.yaml",
         description=(
-            "Base URL for the upstream Anthropic API used by same-shape "
-            "passthrough mode (Anthropic client + anthropic provider)."
+            "Path to the routing config YAML. The file must exist; ship a copy "
+            "of magos.example.yaml as a starting point."
         ),
     )
-    anthropic_passthrough_enabled: bool = Field(
-        default=True,
-        description=(
-            "When True, /v1/messages requests whose model resolves to the "
-            "anthropic provider are forwarded verbatim to the upstream "
-            "(preserving OAuth bearer auth, anthropic-beta flags, and "
-            "billing surface). When False, the translate-and-dispatch path "
-            "is used unconditionally."
-        ),
-    )
-
-    count_tokens_passthrough_providers: Annotated[frozenset[str], NoDecode] = Field(
-        default=frozenset({"anthropic"}),
-        description=(
-            "LiteLLM provider names whose native count_tokens endpoint is used by "
-            "/v1/messages/count_tokens instead of the local estimator. Empty disables "
-            "passthrough entirely. Set via comma-separated env var, e.g. "
-            "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS=anthropic,openai"
-        ),
-    )
-
-    @field_validator("count_tokens_passthrough_providers", mode="before")
-    @classmethod
-    def _parse_providers(cls, v: Any) -> Any:
-        """Accept comma-separated env strings as well as JSON / native sets."""
-        if isinstance(v, str):
-            return frozenset(p.strip() for p in v.split(",") if p.strip())
-        return v
 
 
 def get_settings() -> MagosSettings:
     """Construct fresh settings from the current environment."""
-    return MagosSettings()
+    settings = MagosSettings()
+    _warn_on_removed_env_vars()
+    return settings
+
+
+def _warn_on_removed_env_vars() -> None:
+    """Log a warning when env vars from the pre-rule-based config persist."""
+    for name in _REMOVED_ENV_VARS:
+        if name in os.environ:
+            log.warning(
+                "config.removed_env_var",
+                name=name,
+                hint="moved into magos.yaml; this env var is now ignored",
+            )

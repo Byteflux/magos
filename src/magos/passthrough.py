@@ -16,22 +16,15 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any
 
 import httpx
 
 from magos.obs import get_logger
-from magos.tokens import resolve_provider
 
 log = get_logger("magos.passthrough")
 
 _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 _HTTP_ERROR_THRESHOLD = 400
-
-
-def should_anthropic_passthrough(body: dict[str, Any]) -> bool:
-    """True if the request body's resolved provider is anthropic."""
-    return resolve_provider(str(body.get("model", ""))) == "anthropic"
 
 
 def _make_client(transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClient:

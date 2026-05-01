@@ -1,16 +1,16 @@
-"""Tests for magos.tokens.
+"""Tests for the surviving token-counting strategies in ``magos.tokens``.
 
-Exercises the local estimator against a small fixture, the passthrough
-dispatch (mocked Anthropic SDK), provider gating, and the fallback behaviour
-when passthrough raises.
+The orchestrator and provider-resolution table moved to the routing layer;
+the strategies (``count_locally``, ``_anthropic_passthrough``) and the
+registry (``PASSTHROUGH_DISPATCH``) stay here and are unit-tested below.
 """
 
 from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import patch
 
+import anthropic
 import pytest
 
 from magos import tokens
@@ -19,11 +19,6 @@ SIMPLE_REQUEST: dict[str, Any] = {
     "model": "claude-3-5-sonnet-20241022",
     "max_tokens": 16,
     "messages": [{"role": "user", "content": "Hello, world."}],
-}
-
-OPENAI_MODEL_REQUEST: dict[str, Any] = {
-    **SIMPLE_REQUEST,
-    "model": "gpt-4o-mini",
 }
 
 
@@ -44,100 +39,53 @@ def test_count_locally_works_without_max_tokens() -> None:
 
 
 @pytest.mark.unit
-def test_count_input_tokens_local_when_passthrough_disabled() -> None:
-    n = asyncio.run(tokens.count_input_tokens(SIMPLE_REQUEST))
-    assert n == tokens.count_locally(SIMPLE_REQUEST)
+def test_passthrough_dispatch_registers_anthropic() -> None:
+    assert "anthropic" in tokens.PASSTHROUGH_DISPATCH
+    assert callable(tokens.PASSTHROUGH_DISPATCH["anthropic"])
 
 
 @pytest.mark.unit
-def test_count_input_tokens_passthrough_for_allowed_provider() -> None:
+def test_anthropic_passthrough_invokes_sdk(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``_anthropic_passthrough`` calls ``messages.count_tokens`` on the SDK."""
     captured: dict[str, Any] = {}
 
-    async def fake_passthrough(
-        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
-    ) -> int:
-        captured["called"] = True
-        captured["model"] = req["model"]
-        captured["forward_headers"] = forward_headers
-        return 999
+    class _FakeResult:
+        input_tokens = 42
 
-    with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}):
-        n = asyncio.run(
-            tokens.count_input_tokens(
-                SIMPLE_REQUEST, passthrough_providers=frozenset({"anthropic"})
-            )
-        )
+    class _FakeMessages:
+        async def count_tokens(self, **kwargs: Any) -> Any:
+            captured.update(kwargs)
+            return _FakeResult()
 
-    assert n == 999
-    assert captured["called"] is True
-    assert captured["model"] == "claude-3-5-sonnet-20241022"
-    assert captured["forward_headers"] is None
+    class _FakeAnthropic:
+        def __init__(self) -> None:
+            self.messages = _FakeMessages()
 
+        async def __aenter__(self) -> _FakeAnthropic:
+            return self
 
-@pytest.mark.unit
-def test_count_input_tokens_forwards_headers() -> None:
-    captured: dict[str, Any] = {}
+        async def __aexit__(self, *exc: Any) -> None:
+            return None
 
-    async def fake_passthrough(
-        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
-    ) -> int:
-        captured["forward_headers"] = forward_headers
-        return 7
-
-    with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}):
-        asyncio.run(
-            tokens.count_input_tokens(
-                SIMPLE_REQUEST,
-                passthrough_providers=frozenset({"anthropic"}),
-                forward_headers={"authorization": "Bearer abc", "anthropic-beta": "x,y"},
-            )
-        )
-
-    assert captured["forward_headers"] == {
-        "authorization": "Bearer abc",
-        "anthropic-beta": "x,y",
-    }
-
-
-@pytest.mark.unit
-def test_count_input_tokens_falls_back_to_local_when_provider_not_allowed() -> None:
-    """Anthropic in dispatch but not in allow-list -> local path."""
-
-    async def should_not_be_called(
-        _: dict[str, Any], *, forward_headers: dict[str, str] | None = None
-    ) -> int:
-        raise AssertionError("passthrough should not have been invoked")
-
-    with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": should_not_be_called}):
-        n = asyncio.run(
-            tokens.count_input_tokens(SIMPLE_REQUEST, passthrough_providers=frozenset({"openai"}))
-        )
-
-    assert n == tokens.count_locally(SIMPLE_REQUEST)
-
-
-@pytest.mark.unit
-def test_count_input_tokens_falls_back_to_local_for_unsupported_provider() -> None:
-    """OpenAI model with anthropic-only dispatch -> local path."""
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", _FakeAnthropic)
     n = asyncio.run(
-        tokens.count_input_tokens(
-            OPENAI_MODEL_REQUEST,
-            passthrough_providers=frozenset({"anthropic"}),
+        tokens._anthropic_passthrough(
+            SIMPLE_REQUEST,
+            forward_headers={
+                "authorization": "Bearer x",
+                "x-api-key": "should-be-filtered",
+                "content-type": "application/json",
+                "anthropic-beta": "feature-x",
+                "anthropic-version": "2023-06-01",
+            },
         )
     )
-    assert n == tokens.count_locally(OPENAI_MODEL_REQUEST)
-
-
-@pytest.mark.unit
-def test_count_input_tokens_falls_back_to_local_on_passthrough_error() -> None:
-    async def boom(_: dict[str, Any], *, forward_headers: dict[str, str] | None = None) -> int:
-        raise RuntimeError("network down")
-
-    with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": boom}):
-        n = asyncio.run(
-            tokens.count_input_tokens(
-                SIMPLE_REQUEST, passthrough_providers=frozenset({"anthropic"})
-            )
-        )
-
-    assert n == tokens.count_locally(SIMPLE_REQUEST)
+    assert n == 42
+    assert captured["model"] == "claude-3-5-sonnet-20241022"
+    # Only ``anthropic-*`` knobs survive: auth duplicates the SDK's own
+    # header, and transport headers (content-type/accept/etc) interfere
+    # with the SDK's HTTP machinery.
+    assert captured["extra_headers"] == {
+        "anthropic-beta": "feature-x",
+        "anthropic-version": "2023-06-01",
+    }

@@ -1,0 +1,54 @@
+# Routing fixture used by unit and integration tests.
+#
+# Mirrors today's translate-path behavior so existing tests that mock the
+# completion callable still see the expected (provider-prefixed) model and
+# headers. Passthrough is enabled for claude- only on /v1/messages, which
+# the passthrough tests bypass entirely by exercising passthrough.py
+# directly with httpx.MockTransport.
+
+pre_rewrites: []
+
+rules:
+  - name: anthropic-passthrough
+    match:
+      all_of:
+        - endpoint: { literal: /v1/messages }
+        - model: { regex: "^claude-.*" }
+    action:
+      provider: anthropic
+      mode: passthrough
+      base_url: https://api.anthropic.com
+      api_key_env: ANTHROPIC_API_KEY
+
+  - name: anthropic-count-tokens-passthrough
+    match:
+      all_of:
+        - endpoint: { literal: /v1/messages/count_tokens }
+        - model: { regex: "^claude-.*" }
+    action:
+      provider: anthropic
+      mode: passthrough
+      base_url: https://api.anthropic.com
+      count_tokens_mode: passthrough
+
+  - name: openai-translate-messages
+    match:
+      endpoint: { literal: /v1/messages }
+    action:
+      provider: openai
+      mode: translate
+
+  - name: openai-translate-chat
+    match:
+      endpoint: { literal: /v1/chat/completions }
+    action:
+      provider: openai
+      mode: translate
+
+  - name: count-tokens-local
+    match:
+      endpoint: { literal: /v1/messages/count_tokens }
+    action:
+      provider: openai
+      mode: translate
+      count_tokens_mode: local

@@ -3,6 +3,10 @@
 Pure function. The ``completion`` argument is the seam for tests and routing:
 production wires ``litellm.acompletion``; tests inject a fake. Anything that
 returns a dict-like or pydantic ``model_dump``-able response works.
+
+Caller (``magos.routing.dispatch``) supplies ``dispatch_model`` already in
+the form LiteLLM expects (``<provider>/<name>`` for unprefixed inputs); this
+module no longer infers a provider from the model name.
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ from typing import Any, Protocol
 import litellm
 
 from magos.obs import get_logger, traced
-from magos.tokens import count_locally, resolve_provider
+from magos.tokens import count_locally
 from magos.translation import (
     AnthropicStreamTranslator,
     request_anthropic_to_openai,
@@ -52,23 +56,25 @@ def _sse_event(data: str) -> bytes:
     return f"data: {data}\n\n".encode()
 
 
-def _normalize_dispatch_payload(
-    payload: dict[str, Any], forward_headers: dict[str, str] | None
+def _build_payload(
+    request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    forward_headers: dict[str, str] | None,
+    api_key: str | None,
 ) -> dict[str, Any]:
-    """Add provider prefix to bare model names and merge forward_headers.
+    """Compose the kwargs handed to ``litellm.acompletion``.
 
-    LiteLLM rejects bare names like ``claude-3-5-sonnet-...`` without a
-    ``<provider>/`` prefix; we infer the provider so the proxy works for
-    clients that send the unprefixed names. ``forward_headers`` are merged
-    into ``extra_headers`` so upstream sees client auth, version pins, and
-    beta flags verbatim, preserving Anthropic's billing shape.
+    ``dispatch_model`` overrides ``request["model"]`` because the routing
+    layer has already chosen the LiteLLM-prefixed identifier; the inbound
+    body's model may be a bare alias the operator declared.
+    ``forward_headers`` are merged into ``extra_headers`` so upstream sees
+    client auth, version pins, and beta flags verbatim, preserving the
+    provider's billing shape. ``api_key`` is forwarded to LiteLLM when set
+    so a rule's ``api_key_env`` can route across multiple keys per provider.
     """
-    out = dict(payload)
-    model = str(out.get("model", ""))
-    if model and "/" not in model:
-        provider = resolve_provider(model)
-        if provider:
-            out["model"] = f"{provider}/{model}"
+    out = dict(request)
+    out["model"] = dispatch_model
     if forward_headers:
         safe = {
             k: v for k, v in forward_headers.items() if k.lower() not in _DISPATCH_BLOCKED_HEADERS
@@ -76,6 +82,8 @@ def _normalize_dispatch_payload(
         if safe:
             existing = out.get("extra_headers") or {}
             out["extra_headers"] = {**existing, **safe}
+    if api_key is not None:
+        out["api_key"] = api_key
     return out
 
 
@@ -88,14 +96,21 @@ def _sse_named_event(event: dict[str, Any]) -> bytes:
 async def proxy_anthropic_messages(
     anthropic_request: dict[str, Any],
     *,
+    dispatch_model: str,
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
 ) -> dict[str, Any]:
     """Round-trip an Anthropic Messages request through an OpenAI-shape upstream."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
     openai_request = request_anthropic_to_openai(anthropic_request)
-    payload = _normalize_dispatch_payload(openai_request, forward_headers)
-    log.info("dispatch", shape="anthropic->openai", model=payload.get("model"))
+    payload = _build_payload(
+        openai_request,
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="anthropic->openai", model=dispatch_model)
     raw_response = await dispatch(**payload)
     openai_response = _coerce_to_dict(raw_response)
     return response_openai_to_anthropic(openai_response)
@@ -105,13 +120,20 @@ async def proxy_anthropic_messages(
 async def proxy_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
+    dispatch_model: str,
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
 ) -> dict[str, Any]:
     """Pass an OpenAI Chat Completions request through litellm without translation."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    payload = _normalize_dispatch_payload(openai_request, forward_headers)
-    log.info("dispatch", shape="openai", model=payload.get("model"))
+    payload = _build_payload(
+        openai_request,
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai", model=dispatch_model)
     raw_response = await dispatch(**payload)
     return _coerce_to_dict(raw_response)
 
@@ -119,8 +141,10 @@ async def proxy_openai_chat_completions(
 def stream_anthropic_messages(
     anthropic_request: dict[str, Any],
     *,
+    dispatch_model: str,
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Async iterator of Anthropic-shape SSE bytes for an Anthropic Messages request.
 
@@ -141,11 +165,16 @@ def stream_anthropic_messages(
     except Exception as exc:
         log.warning("stream.token_count_failed", error=str(exc), error_type=type(exc).__name__)
         input_tokens = 0
-    payload = _normalize_dispatch_payload({**openai_request, "stream": True}, forward_headers)
+    payload = _build_payload(
+        {**openai_request, "stream": True},
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
     log.info(
         "dispatch",
         shape="anthropic->openai",
-        model=payload.get("model"),
+        model=dispatch_model,
         stream=True,
         input_tokens=input_tokens,
     )
@@ -187,8 +216,10 @@ async def _anthropic_stream_iter(
 async def stream_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
+    dispatch_model: str,
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream OpenAI Chat Completions chunks as SSE bytes.
 
@@ -197,8 +228,13 @@ async def stream_openai_chat_completions(
     matching OpenAI's wire format so existing OpenAI clients work unchanged.
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    request = _normalize_dispatch_payload({**openai_request, "stream": True}, forward_headers)
-    log.info("dispatch", shape="openai", model=request.get("model"), stream=True)
+    request = _build_payload(
+        {**openai_request, "stream": True},
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai", model=dispatch_model, stream=True)
     stream = await dispatch(**request)
     async for chunk in stream:
         yield _sse_event(json.dumps(_coerce_to_dict(chunk)))

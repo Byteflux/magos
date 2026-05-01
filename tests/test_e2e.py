@@ -161,23 +161,36 @@ def test_anthropic_count_tokens_real() -> None:
     assert data["input_tokens"] > 0
 
 
-def test_anthropic_shape_anthropic_upstream_translated_real(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_anthropic_shape_anthropic_upstream_translated_real() -> None:
     """Anthropic-shape request -> Anthropic upstream via the translated path.
 
-    Disables the byte-exact passthrough so the request takes the
-    forward.py + litellm + reverse.py round-trip with a real Anthropic
-    upstream, exercising the same path as the OpenAI-upstream tests but
-    with provider=anthropic resolution and ``ANTHROPIC_API_KEY`` auth.
+    The shipped magos.example.yaml routes claude-* to passthrough; this
+    test injects an alternative routing config that forces ``mode:
+    translate`` so the request takes the forward.py + litellm + reverse.py
+    round-trip with a real Anthropic upstream.
     """
-    monkeypatch.setenv("MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED", "0")
+    from magos.routing import RoutingConfig  # noqa: PLC0415
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {
+                        "provider": "anthropic",
+                        "mode": "translate",
+                        "api_key_env": "ANTHROPIC_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
     body = {
         "model": ANTHROPIC_MODEL,
         "max_tokens": 16,
         "messages": [{"role": "user", "content": PROMPT}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(routing=cfg)) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -209,11 +222,19 @@ def test_openai_shape_anthropic_upstream_real() -> None:
 def test_anthropic_count_tokens_anthropic_passthrough_real() -> None:
     """count_tokens via the Anthropic native passthrough endpoint.
 
-    With the default ``count_tokens_passthrough_providers={'anthropic'}``,
-    a claude model routes to ``_anthropic_passthrough`` which calls
-    ``anthropic.AsyncAnthropic().messages.count_tokens`` directly. Returns
-    a provider-billed count rather than the local estimator.
+    A claude-* model on /v1/messages/count_tokens hits the rule with
+    ``count_tokens_mode: passthrough``, which calls
+    ``anthropic.AsyncAnthropic().messages.count_tokens`` via the SDK. The
+    SDK reads ``ANTHROPIC_API_KEY`` from the env and sends it as
+    ``x-api-key``; OAuth tokens (``sk-ant-oat*``) are rejected by this
+    endpoint, so we skip in that case rather than fail spuriously.
     """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if api_key.startswith("sk-ant-oat"):
+        pytest.skip(
+            "ANTHROPIC_API_KEY is an OAuth access token; count_tokens API "
+            "requires a regular sk-ant-api03-* key"
+        )
     body = {
         "model": ANTHROPIC_MODEL,
         "messages": [{"role": "user", "content": "Hello world, count me."}],

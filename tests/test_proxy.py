@@ -47,15 +47,18 @@ def test_proxy_pipeline_round_trip(case_dir: Path) -> None:
         received.update(kwargs)
         return openai_response
 
-    actual = asyncio.run(proxy_anthropic_messages(anthropic_request, completion=fake_completion))
+    dispatch_model = f"anthropic/{expected_openai_request['model']}"
+    actual = asyncio.run(
+        proxy_anthropic_messages(
+            anthropic_request,
+            dispatch_model=dispatch_model,
+            completion=fake_completion,
+        )
+    )
 
-    # Dispatch normalises the model name to a LiteLLM-recognised prefix; the
-    # fixtures store the unprefixed shape that translation produces, so add
-    # the expected ``anthropic/`` prefix when comparing.
-    expected_normalised = {
-        **expected_openai_request,
-        "model": f"anthropic/{expected_openai_request['model']}",
-    }
+    # The router supplies dispatch_model; proxy uses it verbatim instead
+    # of inferring from a bare model name.
+    expected_normalised = {**expected_openai_request, "model": dispatch_model}
     assert received == expected_normalised
 
     expected_no_id = {k: v for k, v in expected_anthropic_response.items() if k != "id"}
@@ -79,6 +82,12 @@ def test_proxy_pipeline_accepts_pydantic_like_response() -> None:
     async def fake_completion(**kwargs: Any) -> _PydanticLike:
         return _PydanticLike(openai_response)
 
-    result = asyncio.run(proxy_anthropic_messages(anthropic_request, completion=fake_completion))
+    result = asyncio.run(
+        proxy_anthropic_messages(
+            anthropic_request,
+            dispatch_model="anthropic/dummy",
+            completion=fake_completion,
+        )
+    )
     assert result["type"] == "message"
     assert result["role"] == "assistant"

@@ -16,22 +16,8 @@ import pytest
 
 from magos.passthrough import (
     call_anthropic_passthrough,
-    should_anthropic_passthrough,
     stream_anthropic_passthrough,
 )
-
-
-@pytest.mark.unit
-def test_should_anthropic_passthrough_for_claude_model() -> None:
-    assert should_anthropic_passthrough({"model": "claude-sonnet-4-6"}) is True
-    assert should_anthropic_passthrough({"model": "claude-3-5-sonnet-20241022"}) is True
-
-
-@pytest.mark.unit
-def test_should_anthropic_passthrough_false_for_others() -> None:
-    assert should_anthropic_passthrough({"model": "gpt-4"}) is False
-    assert should_anthropic_passthrough({"model": "unknown-model"}) is False
-    assert should_anthropic_passthrough({}) is False
 
 
 @pytest.mark.unit

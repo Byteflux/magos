@@ -1,8 +1,10 @@
 """FastAPI endpoint tests for the magos server.
 
-Drives the server with TestClient and overrides the completion dependency so
-no real upstream is contacted. Covers both endpoints, basic error paths, and
-the streaming-not-yet-implemented gate.
+Drives the server with TestClient. Each test injects a routing config via
+``create_app(routing=...)`` and overrides the completion dependency so no
+real upstream is contacted. Passthrough tests build a minimal config that
+forces the matched rule's mode; passthrough wire behavior itself is unit-
+tested in ``test_passthrough.py``.
 """
 
 from __future__ import annotations
@@ -14,11 +16,10 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from magos import tokens
-from magos.config import MagosSettings, get_settings
+from magos.routing import RoutingConfig
 from magos.server import create_app, get_completion
 
 FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "translation"
@@ -28,17 +29,40 @@ def _load(case_dir: Path, name: str) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads((case_dir / name).read_text(encoding="utf-8")))
 
 
-def _client_with(app: FastAPI, completion: Any) -> Iterator[TestClient]:
-    """TestClient with a stub completion and passthrough disabled.
+def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:
+    """A minimal config where every endpoint translates through litellm.
 
-    Passthrough is disabled here so the existing translate-path tests keep
-    exercising the seam they were written for; passthrough has its own tests.
+    Used by the bulk of the server tests so the existing seam (a faked
+    completion callable) keeps exercising the same code paths.
     """
-    app.dependency_overrides[get_completion] = lambda: completion
-    app.dependency_overrides[get_settings] = lambda: MagosSettings(
-        anthropic_passthrough_enabled=False,
-        _env_file=None,  # type: ignore[call-arg]
+    return RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": provider, "mode": "translate"},
+                },
+                {
+                    "match": {"endpoint": {"literal": "/v1/chat/completions"}},
+                    "action": {"provider": provider, "mode": "translate"},
+                },
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages/count_tokens"}},
+                    "action": {
+                        "provider": provider,
+                        "mode": "translate",
+                        "count_tokens_mode": "local",
+                    },
+                },
+            ]
+        }
     )
+
+
+def _client_with(completion: Any, *, routing: RoutingConfig | None = None) -> Iterator[TestClient]:
+    cfg = routing if routing is not None else _translate_only_cfg()
+    app = create_app(routing=cfg)
+    app.dependency_overrides[get_completion] = lambda: completion
     try:
         with TestClient(app) as client:
             yield client
@@ -60,8 +84,19 @@ def test_messages_endpoint_round_trip() -> None:
         received.update(kwargs)
         return openai_response
 
-    app = create_app()
-    for client in _client_with(app, fake_completion):
+    # The fixture has a literal claude- model; route to anthropic translate
+    # so the dispatch_model gets the anthropic/ prefix as before.
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    for client in _client_with(fake_completion, routing=cfg):
         resp = client.post("/v1/messages", json=anthropic_request)
 
     assert resp.status_code == 200
@@ -70,9 +105,6 @@ def test_messages_endpoint_round_trip() -> None:
         **expected_openai_request,
         "model": f"anthropic/{expected_openai_request['model']}",
     }
-    # extra_headers is added by the dispatch normaliser when client headers
-    # are forwarded; assert separately so the test stays robust to the exact
-    # headers TestClient happens to set (host, accept, user-agent, etc.).
     received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
     assert received_no_headers == expected_dispatched
     assert "extra_headers" in received
@@ -110,8 +142,7 @@ def test_chat_completions_endpoint_passes_through() -> None:
         received.update(kwargs)
         return openai_response
 
-    app = create_app()
-    for client in _client_with(app, fake_completion):
+    for client in _client_with(fake_completion):
         resp = client.post("/v1/chat/completions", json=openai_request)
 
     assert resp.status_code == 200
@@ -155,15 +186,23 @@ def test_messages_streams_anthropic_events() -> None:
     async def fake_completion(**_: Any) -> Any:
         return fake_iter()
 
-    app = create_app()
     body = {
         "model": "claude-3-5-sonnet-20241022",
         "max_tokens": 16,
         "messages": [{"role": "user", "content": "hi"}],
         "stream": True,
     }
-
-    for client in _client_with(app, fake_completion):
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    for client in _client_with(fake_completion, routing=cfg):
         with client.stream("POST", "/v1/messages", json=body) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")
@@ -184,14 +223,13 @@ def test_messages_streams_anthropic_events() -> None:
     parsed = [json.loads(line) for line in data_lines]
     assert parsed[2]["delta"] == {"type": "text_delta", "text": "hi"}
     assert parsed[4]["delta"]["stop_reason"] == "end_turn"
-    # message_start.usage.input_tokens is seeded by the local LiteLLM
-    # estimator, so it should be a positive integer for a non-empty request.
     assert parsed[0]["message"]["usage"]["input_tokens"] > 0
 
 
 @pytest.mark.unit
 def test_messages_streaming_returns_400_on_invalid_request() -> None:
-    app = create_app()
+    cfg = _translate_only_cfg()
+    app = create_app(routing=cfg)
     body = {"model": "x", "stream": True}  # missing required fields
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json=body)
@@ -200,22 +238,16 @@ def test_messages_streaming_returns_400_on_invalid_request() -> None:
 
 @pytest.mark.integration
 def test_count_tokens_endpoint_local_path() -> None:
-    """Empty passthrough set forces the local estimator."""
-    app = create_app()
-    app.dependency_overrides[get_settings] = lambda: MagosSettings(
-        count_tokens_passthrough_providers=frozenset(),
-        _env_file=None,  # type: ignore[call-arg]
-    )
+    """count_tokens_mode=local triggers the local estimator."""
+    cfg = _translate_only_cfg()  # default for /v1/messages/count_tokens is local
     body = {
         "model": "claude-3-5-sonnet-20241022",
         "max_tokens": 16,
         "messages": [{"role": "user", "content": "hello there"}],
     }
-    try:
-        with TestClient(app) as client:
-            resp = client.post("/v1/messages/count_tokens", json=body)
-    finally:
-        app.dependency_overrides.clear()
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.post("/v1/messages/count_tokens", json=body)
     assert resp.status_code == 200
     payload = resp.json()
     assert isinstance(payload["input_tokens"], int)
@@ -223,8 +255,8 @@ def test_count_tokens_endpoint_local_path() -> None:
 
 
 @pytest.mark.integration
-def test_count_tokens_endpoint_uses_passthrough_when_allowed() -> None:
-    """anthropic in allow-list + claude- model -> patched passthrough is hit."""
+def test_count_tokens_endpoint_uses_passthrough_when_rule_says_so() -> None:
+    """count_tokens_mode=passthrough on an anthropic rule -> registered impl."""
     captured: dict[str, Any] = {}
 
     async def fake_passthrough(
@@ -234,24 +266,32 @@ def test_count_tokens_endpoint_uses_passthrough_when_allowed() -> None:
         captured["forward_headers"] = forward_headers
         return 4242
 
-    app = create_app()
-    app.dependency_overrides[get_settings] = lambda: MagosSettings(
-        count_tokens_passthrough_providers=frozenset({"anthropic"}),
-        _env_file=None,  # type: ignore[call-arg]
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages/count_tokens"}},
+                    "action": {
+                        "provider": "anthropic",
+                        "mode": "passthrough",
+                        "base_url": "https://api.anthropic.com",
+                        "count_tokens_mode": "passthrough",
+                    },
+                }
+            ]
+        }
     )
     body = {
         "model": "claude-3-5-sonnet-20241022",
         "max_tokens": 16,
         "messages": [{"role": "user", "content": "hi"}],
     }
-    try:
-        with (
-            patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}),
-            TestClient(app) as client,
-        ):
-            resp = client.post("/v1/messages/count_tokens", json=body)
-    finally:
-        app.dependency_overrides.clear()
+    app = create_app(routing=cfg)
+    with (
+        patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}),
+        TestClient(app) as client,
+    ):
+        resp = client.post("/v1/messages/count_tokens", json=body)
 
     assert resp.status_code == 200
     assert resp.json() == {"input_tokens": 4242}
@@ -260,7 +300,8 @@ def test_count_tokens_endpoint_uses_passthrough_when_allowed() -> None:
 
 @pytest.mark.unit
 def test_count_tokens_endpoint_returns_400_on_invalid_request() -> None:
-    app = create_app()
+    cfg = _translate_only_cfg()
+    app = create_app(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/messages/count_tokens", json={"model": "x"})
     assert resp.status_code == 400
@@ -279,8 +320,17 @@ def test_messages_forwards_inbound_headers_to_dispatch() -> None:
         received.update(kwargs)
         return openai_response
 
-    app = create_app()
-    for client in _client_with(app, fake_completion):
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    for client in _client_with(fake_completion, routing=cfg):
         resp = client.post(
             "/v1/messages",
             json=anthropic_request,
@@ -298,9 +348,6 @@ def test_messages_forwards_inbound_headers_to_dispatch() -> None:
     assert forwarded["anthropic-beta"] == "feature-x,feature-y"
     assert forwarded["anthropic-version"] == "2023-06-01"
     assert forwarded["x-custom-trace"] == "abc123"
-    # Hop-by-hop / content-shaping headers must NOT be forwarded. ``content-type``
-    # in particular collides with the SDK's body serializer (regression: real
-    # OpenAI replied "you must provide a model parameter" when forwarded).
     forwarded_keys = {k.lower() for k in forwarded}
     assert "host" not in forwarded_keys
     assert "content-length" not in forwarded_keys
@@ -335,8 +382,7 @@ def test_chat_completions_forwards_inbound_headers_to_dispatch() -> None:
         received.update(kwargs)
         return openai_response
 
-    app = create_app()
-    for client in _client_with(app, fake_completion):
+    for client in _client_with(fake_completion):
         resp = client.post(
             "/v1/chat/completions",
             json=openai_request,
@@ -386,10 +432,9 @@ def test_chat_completions_streams_sse() -> None:
         received.update(kwargs)
         return fake_iter()
 
-    app = create_app()
     body = {"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}], "stream": True}
 
-    for client in _client_with(app, fake_completion):
+    for client in _client_with(fake_completion):
         with client.stream("POST", "/v1/chat/completions", json=body) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")
@@ -406,7 +451,8 @@ def test_chat_completions_streams_sse() -> None:
 
 @pytest.mark.unit
 def test_messages_returns_400_on_invalid_request() -> None:
-    app = create_app()
+    cfg = _translate_only_cfg()
+    app = create_app(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json={"model": "x"})  # missing required fields
     assert resp.status_code == 400
@@ -420,9 +466,72 @@ def test_messages_returns_502_on_upstream_failure() -> None:
     async def boom(**_: Any) -> dict[str, Any]:
         raise RuntimeError("upstream exploded")
 
-    app = create_app()
-    for client in _client_with(app, boom):
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    for client in _client_with(boom, routing=cfg):
         resp = client.post("/v1/messages", json=anthropic_request)
 
     assert resp.status_code == 502
     assert "upstream exploded" in resp.json()["detail"]
+
+
+@pytest.mark.unit
+def test_unmatched_request_returns_404_with_anthropic_envelope() -> None:
+    """Routing returns 404 with an Anthropic-shape error body for /v1/messages."""
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"model": {"literal": "only-this-model"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    body = {
+        "model": "gpt-4",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "x"}],
+    }
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.post("/v1/messages", json=body)
+    assert resp.status_code == 404
+    payload = resp.json()
+    assert payload["type"] == "error"
+    assert payload["error"]["type"] == "not_found_error"
+    assert "gpt-4" in payload["error"]["message"]
+
+
+@pytest.mark.unit
+def test_unmatched_request_returns_404_with_openai_envelope() -> None:
+    """Routing returns 404 with an OpenAI-shape error body for /v1/chat/completions."""
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"model": {"literal": "only-this-model"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    body = {
+        "model": "gpt-4",
+        "messages": [{"role": "user", "content": "x"}],
+    }
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.post("/v1/chat/completions", json=body)
+    assert resp.status_code == 404
+    payload = resp.json()
+    assert payload["error"]["type"] == "invalid_request_error"
+    assert payload["error"]["code"] == "no_route_matched"

@@ -21,7 +21,8 @@ def main() -> None:
     configure_logging(level=settings.log_level, json=settings.log_json)
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
     uvicorn.run(
-        "magos.server:app",
+        "magos.server:create_app",
+        factory=True,
         host=settings.host,
         port=settings.port,
         log_config=None,

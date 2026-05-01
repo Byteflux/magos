@@ -1,7 +1,7 @@
 """Unit tests for MagosSettings.
 
-Verifies defaults, env-var overrides, validation bounds, and that the
-settings object is frozen so callers cannot mutate config at runtime.
+Verifies defaults, env-var overrides, validation bounds, frozen-immutability,
+and the deprecation warning for env vars that moved into magos.yaml.
 """
 
 from __future__ import annotations
@@ -11,10 +11,13 @@ import dataclasses
 import pytest
 from pydantic import ValidationError
 
-from magos.config import MagosSettings
+from magos.config import MagosSettings, get_settings
 
 
-def test_defaults() -> None:
+def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    # conftest.py sets MAGOS_CONFIG_PATH so create_app() finds the test
+    # fixture; clear it here to verify the field default in isolation.
+    monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
     assert s.host == "127.0.0.1"
     assert s.port == 8000
@@ -22,6 +25,7 @@ def test_defaults() -> None:
     assert s.log_json is False
     assert s.otel_enabled is False
     assert s.otel_endpoint is None
+    assert s.config_path == "./magos.yaml"
 
 
 def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,6 +34,7 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAGOS_LOG_JSON", "1")
     monkeypatch.setenv("MAGOS_OTEL_ENABLED", "1")
     monkeypatch.setenv("MAGOS_OTEL_ENDPOINT", "http://collector.local:4318/v1/traces")
+    monkeypatch.setenv("MAGOS_CONFIG_PATH", "/etc/magos.yaml")
 
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
     assert s.host == "0.0.0.0"
@@ -37,6 +42,7 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.log_json is True
     assert s.otel_enabled is True
     assert s.otel_endpoint == "http://collector.local:4318/v1/traces"
+    assert s.config_path == "/etc/magos.yaml"
 
 
 def test_invalid_port_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -57,18 +63,14 @@ def test_unknown_env_vars_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     MagosSettings(_env_file=None)  # type: ignore[call-arg]
 
 
-def test_count_tokens_passthrough_default() -> None:
-    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    assert s.count_tokens_passthrough_providers == frozenset({"anthropic"})
-
-
-def test_count_tokens_passthrough_csv_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "anthropic, openai , vertex_ai")
-    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    assert s.count_tokens_passthrough_providers == frozenset({"anthropic", "openai", "vertex_ai"})
-
-
-def test_count_tokens_passthrough_disabled_via_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "")
-    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    assert s.count_tokens_passthrough_providers == frozenset()
+def test_get_settings_warns_on_removed_env_vars(
+    monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED", "1")
+    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "anthropic")
+    capfd.readouterr()  # discard prior output
+    get_settings()
+    out = capfd.readouterr().out
+    assert "config.removed_env_var" in out
+    assert "MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED" in out
+    assert "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS" in out

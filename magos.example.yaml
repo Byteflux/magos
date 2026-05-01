@@ -1,0 +1,92 @@
+# magos routing config — declarative rule-based dispatch.
+#
+# Copy this file to ``magos.yaml`` (or set ``MAGOS_CONFIG_PATH``) and edit
+# rules to match your deployment. Rules are evaluated in order; the first
+# match wins. An unmatched request returns 404 with an endpoint-shaped
+# error envelope.
+#
+# Match expression grammar:
+#   - atoms: model / header / endpoint / jq
+#   - matchers (for non-jq atoms): { literal: ... } | { glob: ... } | { regex: ... }
+#   - combinators: all_of / any_of / not (recursive)
+# Rewrite ops:
+#   - set_model / set_header / add_header / remove_header / jq_patch
+# Action fields:
+#   - provider, mode (translate|passthrough), base_url, api_key_env,
+#     count_tokens_mode (local|passthrough)
+
+pre_rewrites: []
+
+rules:
+  # Anthropic-shape requests for claude-* models -> byte-exact passthrough
+  # to api.anthropic.com. Preserves OAuth bearers, anthropic-beta flags,
+  # version pins, and prompt-cache hashes.
+  - name: anthropic-messages-passthrough
+    match:
+      all_of:
+        - endpoint: { literal: /v1/messages }
+        - model: { regex: "^(anthropic/)?claude-.*" }
+    action:
+      provider: anthropic
+      mode: passthrough
+      base_url: https://api.anthropic.com
+      api_key_env: ANTHROPIC_API_KEY
+
+  # Anthropic count_tokens for claude-* uses the native passthrough
+  # endpoint via the anthropic SDK; provider-billed count.
+  - name: anthropic-count-tokens-passthrough
+    match:
+      all_of:
+        - endpoint: { literal: /v1/messages/count_tokens }
+        - model: { regex: "^(anthropic/)?claude-.*" }
+    action:
+      provider: anthropic
+      mode: passthrough
+      base_url: https://api.anthropic.com
+      api_key_env: ANTHROPIC_API_KEY
+      count_tokens_mode: passthrough
+
+  # Anthropic-shape requests targeting OpenAI / o-series models -> translate.
+  - name: openai-via-anthropic-shape
+    match:
+      all_of:
+        - endpoint: { literal: /v1/messages }
+        - model: { regex: "^(openai/)?(gpt-|o[134]-).*" }
+    action:
+      provider: openai
+      mode: translate
+      api_key_env: OPENAI_API_KEY
+
+  # OpenAI-shape requests pass through litellm with whatever provider the
+  # rule declares. Default rule: route by model prefix to OpenAI.
+  - name: openai-chat-completions
+    match:
+      all_of:
+        - endpoint: { literal: /v1/chat/completions }
+        - model: { regex: "^(openai/)?(gpt-|o[134]-).*" }
+    action:
+      provider: openai
+      mode: translate
+      api_key_env: OPENAI_API_KEY
+
+  # OpenAI-shape requests for claude-* go to anthropic via litellm
+  # (litellm handles the OpenAI -> Anthropic translation internally).
+  - name: anthropic-via-openai-shape
+    match:
+      all_of:
+        - endpoint: { literal: /v1/chat/completions }
+        - model: { regex: "^(anthropic/)?claude-.*" }
+    action:
+      provider: anthropic
+      mode: translate
+      api_key_env: ANTHROPIC_API_KEY
+
+  # Anthropic count_tokens fallback for non-claude models: use the local
+  # litellm-based estimator, which works for any LiteLLM-recognised model.
+  - name: count-tokens-local-fallback
+    match:
+      endpoint: { literal: /v1/messages/count_tokens }
+    action:
+      provider: openai
+      mode: translate
+      count_tokens_mode: local
