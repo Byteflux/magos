@@ -1,0 +1,18 @@
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 512,
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is 2+2?"
+    },
+    {
+      "role": "assistant",
+      "content": "4"
+    },
+    {
+      "role": "user",
+      "content": "And 3+3?"
+    }
+  ]
+}

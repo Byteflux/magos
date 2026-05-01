@@ -1,0 +1,14 @@
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 256,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are a terse assistant."
+    },
+    {
+      "role": "user",
+      "content": "Ping"
+    }
+  ]
+}
