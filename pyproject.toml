@@ -138,6 +138,20 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
 ]
+filterwarnings = [
+    # LiteLLM still accesses pydantic v2.11+ attributes via instances. Tracked
+    # upstream; surfaces under every streaming test and obscures real failures.
+    "ignore:Accessing the 'model_computed_fields' attribute on the instance is deprecated:pydantic.warnings.PydanticDeprecatedSince211",
+    "ignore:Accessing the 'model_fields' attribute on the instance is deprecated:pydantic.warnings.PydanticDeprecatedSince211",
+    # anyio MemoryObjectReceiveStream emits ResourceWarning on GC under the
+    # uvicorn-in-thread fixture; httpx/anthropic similarly leaves socket FDs
+    # for the OS to reap. Both are out-of-scope cleanup, not bugs in magos.
+    "ignore::ResourceWarning",
+    # uvicorn still imports websockets.legacy and WebSocketServerProtocol;
+    # we do not use websockets, but the import path triggers the warning.
+    "ignore:websockets.legacy is deprecated:DeprecationWarning",
+    "ignore:websockets.server.WebSocketServerProtocol is deprecated:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src"]
