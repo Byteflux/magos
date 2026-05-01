@@ -7,7 +7,8 @@ returns a dict-like or pydantic ``model_dump``-able response works.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import json
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, Protocol
 
 import litellm
@@ -34,6 +35,10 @@ def _coerce_to_dict(resp: Any) -> dict[str, Any]:
     raise TypeError(f"completion returned unsupported type: {type(resp).__name__}")
 
 
+def _sse_event(data: str) -> bytes:
+    return f"data: {data}\n\n".encode()
+
+
 @traced("proxy.anthropic_messages")
 async def proxy_anthropic_messages(
     anthropic_request: dict[str, Any],
@@ -43,7 +48,40 @@ async def proxy_anthropic_messages(
     """Round-trip an Anthropic Messages request through an OpenAI-shape upstream."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
     openai_request = request_anthropic_to_openai(anthropic_request)
-    log.info("dispatch", model=openai_request.get("model"))
+    log.info("dispatch", shape="anthropic->openai", model=openai_request.get("model"))
     raw_response = await dispatch(**openai_request)
     openai_response = _coerce_to_dict(raw_response)
     return response_openai_to_anthropic(openai_response)
+
+
+@traced("proxy.openai_chat_completions")
+async def proxy_openai_chat_completions(
+    openai_request: dict[str, Any],
+    *,
+    completion: _CompletionFn | None = None,
+) -> dict[str, Any]:
+    """Pass an OpenAI Chat Completions request through litellm without translation."""
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
+    log.info("dispatch", shape="openai", model=openai_request.get("model"))
+    raw_response = await dispatch(**openai_request)
+    return _coerce_to_dict(raw_response)
+
+
+async def stream_openai_chat_completions(
+    openai_request: dict[str, Any],
+    *,
+    completion: _CompletionFn | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream OpenAI Chat Completions chunks as SSE bytes.
+
+    Forces ``stream=True`` on the upstream call. Each chunk is JSON-encoded into
+    a ``data: ...`` SSE event; the stream terminates with ``data: [DONE]``,
+    matching OpenAI's wire format so existing OpenAI clients work unchanged.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
+    request = {**openai_request, "stream": True}
+    log.info("dispatch", shape="openai", model=request.get("model"), stream=True)
+    stream = await dispatch(**request)
+    async for chunk in stream:
+        yield _sse_event(json.dumps(_coerce_to_dict(chunk)))
+    yield _sse_event("[DONE]")
