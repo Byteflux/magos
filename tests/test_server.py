@@ -11,11 +11,14 @@ import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from magos import tokens
+from magos.config import MagosSettings, get_settings
 from magos.server import create_app, get_completion
 
 FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "translation"
@@ -171,6 +174,71 @@ def test_messages_streaming_returns_400_on_invalid_request() -> None:
     body = {"model": "x", "stream": True}  # missing required fields
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json=body)
+    assert resp.status_code == 400
+
+
+@pytest.mark.integration
+def test_count_tokens_endpoint_local_path() -> None:
+    """Empty passthrough set forces the local estimator."""
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: MagosSettings(
+        count_tokens_passthrough_providers=frozenset(),
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    body = {
+        "model": "claude-3-5-sonnet-20241022",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hello there"}],
+    }
+    try:
+        with TestClient(app) as client:
+            resp = client.post("/v1/messages/count_tokens", json=body)
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert isinstance(payload["input_tokens"], int)
+    assert payload["input_tokens"] > 0
+
+
+@pytest.mark.integration
+def test_count_tokens_endpoint_uses_passthrough_when_allowed() -> None:
+    """anthropic in allow-list + claude- model -> patched passthrough is hit."""
+    captured: dict[str, Any] = {}
+
+    async def fake_passthrough(req: dict[str, Any]) -> int:
+        captured["model"] = req["model"]
+        return 4242
+
+    app = create_app()
+    app.dependency_overrides[get_settings] = lambda: MagosSettings(
+        count_tokens_passthrough_providers=frozenset({"anthropic"}),
+        _env_file=None,  # type: ignore[call-arg]
+    )
+    body = {
+        "model": "claude-3-5-sonnet-20241022",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    try:
+        with (
+            patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}),
+            TestClient(app) as client,
+        ):
+            resp = client.post("/v1/messages/count_tokens", json=body)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert resp.json() == {"input_tokens": 4242}
+    assert captured["model"] == "claude-3-5-sonnet-20241022"
+
+
+@pytest.mark.unit
+def test_count_tokens_endpoint_returns_400_on_invalid_request() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        resp = client.post("/v1/messages/count_tokens", json={"model": "x"})
     assert resp.status_code == 400
 
 

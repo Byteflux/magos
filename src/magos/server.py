@@ -20,6 +20,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from magos import __version__
+from magos.config import MagosSettings, get_settings
 from magos.obs import get_logger
 from magos.proxy import (
     proxy_anthropic_messages,
@@ -27,6 +28,7 @@ from magos.proxy import (
     stream_anthropic_messages,
     stream_openai_chat_completions,
 )
+from magos.tokens import count_input_tokens
 
 log = get_logger("magos.server")
 
@@ -39,6 +41,7 @@ def get_completion() -> CompletionFn:
 
 
 CompletionDep = Annotated[CompletionFn, Depends(get_completion)]
+SettingsDep = Annotated[MagosSettings, Depends(get_settings)]
 
 
 def create_app() -> FastAPI:
@@ -69,6 +72,20 @@ def create_app() -> FastAPI:
                 error_type=type(exc).__name__,
             )
             raise HTTPException(status_code=502, detail=f"upstream failure: {exc}") from exc
+
+    @app.post("/v1/messages/count_tokens")
+    async def anthropic_count_tokens(
+        body: dict[str, Any],
+        settings: SettingsDep,
+    ) -> dict[str, int]:
+        try:
+            n = await count_input_tokens(
+                body,
+                passthrough_providers=settings.count_tokens_passthrough_providers,
+            )
+        except ValidationError as exc:
+            raise HTTPException(status_code=400, detail=exc.errors()) from exc
+        return {"input_tokens": n}
 
     @app.post("/v1/chat/completions")
     async def openai_chat_completions(
