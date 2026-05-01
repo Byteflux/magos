@@ -1,57 +1,98 @@
-"""mitmproxy addon: routes Anthropic /v1/messages traffic through the proxy pipeline.
+"""mitmproxy addon: structured observability for outbound LLM provider traffic.
 
-Run with::
+Run alongside the magos FastAPI server::
 
-    mitmdump -s src/magos/addon.py
+    mitmdump -s src/magos/addon.py --listen-port 8080
 
-This is intentionally thin. All translation and dispatch logic lives in
-``magos.proxy``; this module only adapts the mitmproxy flow API.
+Then point magos's outbound calls at it::
+
+    HTTPS_PROXY=http://localhost:8080 python -m magos
+
+LiteLLM uses ``httpx`` under the hood and ``httpx`` honours ``HTTPS_PROXY``
+automatically. mitmproxy must be trusted as a CA in the runtime environment
+for TLS interception to succeed (``mitmdump`` prints the cert path on first
+run).
+
+The addon does not modify traffic. It only logs structured request/response
+events for any flow whose host matches a known LLM provider, which feeds the
+"strong observability" goal without adding latency or coupling.
+
+The previous addon implementation translated inbound Anthropic Messages
+requests through ``proxy.proxy_anthropic_messages``. That responsibility now
+lives in the FastAPI server (``magos.server``) so mitmproxy can do what it is
+actually good at.
 """
 
 from __future__ import annotations
 
-import json
+import time
 
 from mitmproxy import http
 
 from magos.obs import get_logger
-from magos.proxy import proxy_anthropic_messages
 
 log = get_logger("magos.addon")
 
-_ANTHROPIC_MESSAGES_PATH = "/v1/messages"
+LLM_PROVIDER_HOSTS: frozenset[str] = frozenset(
+    {
+        "api.openai.com",
+        "api.anthropic.com",
+        "generativelanguage.googleapis.com",
+        "api.cohere.ai",
+        "api.cohere.com",
+        "api.mistral.ai",
+        "api.groq.com",
+        "api.together.xyz",
+        "api.deepseek.com",
+        "api.fireworks.ai",
+        "api.perplexity.ai",
+    }
+)
+
+_START_KEY = "magos_request_started_at"
 
 
-def _error_response(status: int, message: str) -> http.Response:
-    body = json.dumps({"type": "error", "error": {"type": "proxy_error", "message": message}})
-    return http.Response.make(status, body, {"content-type": "application/json"})
+def _is_llm_host(host: str) -> bool:
+    """Return True for known LLM provider hosts and their subdomains."""
+    if host in LLM_PROVIDER_HOSTS:
+        return True
+    return any(host.endswith(f".{h}") for h in LLM_PROVIDER_HOSTS)
 
 
-class MagosAddon:
-    async def request(self, flow: http.HTTPFlow) -> None:
-        if flow.request.method != "POST" or flow.request.path != _ANTHROPIC_MESSAGES_PATH:
+class MagosObserverAddon:
+    """Logs request/response metadata for outbound LLM provider traffic."""
+
+    def request(self, flow: http.HTTPFlow) -> None:
+        host = flow.request.pretty_host
+        if not _is_llm_host(host):
             return
+        flow.metadata[_START_KEY] = time.monotonic()
+        log.info(
+            "egress.request",
+            host=host,
+            method=flow.request.method,
+            path=flow.request.path,
+            scheme=flow.request.scheme,
+            content_length=len(flow.request.raw_content or b""),
+        )
 
-        raw = flow.request.get_text() or ""
-        try:
-            anthropic_request = json.loads(raw)
-        except json.JSONDecodeError:
-            log.warning("invalid_json_body", path=flow.request.path)
-            flow.response = _error_response(400, "invalid JSON body")
+    def response(self, flow: http.HTTPFlow) -> None:
+        host = flow.request.pretty_host
+        if not _is_llm_host(host) or flow.response is None:
             return
-
-        try:
-            anthropic_response = await proxy_anthropic_messages(anthropic_request)
-        except Exception as exc:
-            log.error("upstream_failure", error=str(exc), error_type=type(exc).__name__)
-            flow.response = _error_response(502, f"upstream failure: {exc}")
-            return
-
-        flow.response = http.Response.make(
-            200,
-            json.dumps(anthropic_response),
-            {"content-type": "application/json"},
+        start = flow.metadata.get(_START_KEY)
+        latency_ms: float | None = None
+        if isinstance(start, float):
+            latency_ms = round((time.monotonic() - start) * 1000.0, 2)
+        log.info(
+            "egress.response",
+            host=host,
+            method=flow.request.method,
+            path=flow.request.path,
+            status=flow.response.status_code,
+            latency_ms=latency_ms,
+            content_length=len(flow.response.raw_content or b""),
         )
 
 
-addons = [MagosAddon()]
+addons = [MagosObserverAddon()]
