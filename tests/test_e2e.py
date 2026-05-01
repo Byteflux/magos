@@ -30,6 +30,7 @@ pytestmark = [
 ]
 
 MODEL = os.environ.get("MAGOS_E2E_MODEL", "gpt-4o-mini")
+ANTHROPIC_MODEL = os.environ.get("MAGOS_E2E_ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 PROMPT = "Reply with the single word: pong"
 
 
@@ -158,3 +159,167 @@ def test_anthropic_count_tokens_real() -> None:
     data = resp.json()
     assert isinstance(data["input_tokens"], int)
     assert data["input_tokens"] > 0
+
+
+def test_anthropic_shape_anthropic_upstream_translated_real(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Anthropic-shape request -> Anthropic upstream via the translated path.
+
+    Disables the byte-exact passthrough so the request takes the
+    forward.py + litellm + reverse.py round-trip with a real Anthropic
+    upstream, exercising the same path as the OpenAI-upstream tests but
+    with provider=anthropic resolution and ``ANTHROPIC_API_KEY`` auth.
+    """
+    monkeypatch.setenv("MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED", "0")
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": PROMPT}],
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/messages", json=body)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["type"] == "message"
+    assert data["role"] == "assistant"
+    assert data["content"] and data["content"][0]["type"] == "text"
+
+
+def test_openai_shape_anthropic_upstream_real() -> None:
+    """OpenAI-shape request -> Anthropic upstream via litellm.
+
+    LiteLLM owns the OpenAI -> Anthropic conversion here; magos contributes
+    provider-prefix resolution and header forwarding. Closes the cross-
+    direction cell of the (shape x upstream) matrix.
+    """
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "messages": [{"role": "user", "content": PROMPT}],
+        "max_tokens": 16,
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/chat/completions", json=body)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["object"] == "chat.completion"
+    assert data["choices"][0]["message"]["role"] == "assistant"
+
+
+def test_anthropic_count_tokens_anthropic_passthrough_real() -> None:
+    """count_tokens via the Anthropic native passthrough endpoint.
+
+    With the default ``count_tokens_passthrough_providers={'anthropic'}``,
+    a claude model routes to ``_anthropic_passthrough`` which calls
+    ``anthropic.AsyncAnthropic().messages.count_tokens`` directly. Returns
+    a provider-billed count rather than the local estimator.
+    """
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "messages": [{"role": "user", "content": "Hello world, count me."}],
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/messages/count_tokens", json=body)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert isinstance(data["input_tokens"], int)
+    assert data["input_tokens"] > 0
+
+
+def test_anthropic_streaming_tool_use_real() -> None:
+    """Tool definitions survive translation in streaming mode.
+
+    Asserts the SSE stream contains a ``content_block_start`` with
+    ``type=tool_use`` and at least one ``input_json_delta``, the part of
+    ``streaming.py`` not exercised by ``test_anthropic_streaming_real``.
+    """
+    body = {
+        "model": MODEL,
+        "max_tokens": 64,
+        "stream": True,
+        "tools": [
+            {
+                "name": "get_weather",
+                "description": "Get the current weather for a city.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"city": {"type": "string"}},
+                    "required": ["city"],
+                },
+            }
+        ],
+        "tool_choice": {"type": "any"},
+        "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}],
+    }
+    with (
+        TestClient(create_app()) as client,
+        client.stream("POST", "/v1/messages", json=body) as resp,
+    ):
+        assert resp.status_code == 200
+        text = b"".join(resp.iter_bytes()).decode()
+    assert "event: message_start" in text
+    assert '"type": "tool_use"' in text or '"type":"tool_use"' in text
+    assert "input_json_delta" in text
+    assert "event: message_stop" in text
+
+
+def test_anthropic_tool_result_followup_real() -> None:
+    """Full agent-loop turn: tool_use -> tool_result -> final text.
+
+    Sends an initial tools-enabled request, captures the ``tool_use`` block,
+    then sends a follow-up turn with the assistant's tool_use plus a
+    matching ``tool_result`` user message, and asserts the model produces a
+    final text response. Validates that translation preserves tool_use_id
+    correlation across turns.
+    """
+    tools = [
+        {
+            "name": "get_weather",
+            "description": "Get the current weather for a city.",
+            "input_schema": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        }
+    ]
+    first = {
+        "model": MODEL,
+        "max_tokens": 64,
+        "tools": tools,
+        "tool_choice": {"type": "any"},
+        "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}],
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/messages", json=first)
+        assert resp.status_code == 200, resp.text
+        first_data = resp.json()
+        tool_uses = [b for b in first_data["content"] if b.get("type") == "tool_use"]
+        assert tool_uses, f"expected tool_use block, got {first_data['content']}"
+        tool_use = tool_uses[0]
+
+        followup = {
+            "model": MODEL,
+            "max_tokens": 64,
+            "tools": tools,
+            "messages": [
+                {"role": "user", "content": "What's the weather in Tokyo?"},
+                {"role": "assistant", "content": first_data["content"]},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_use["id"],
+                            "content": "Sunny, 22 degrees Celsius.",
+                        }
+                    ],
+                },
+            ],
+        }
+        resp = client.post("/v1/messages", json=followup)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    text_blocks = [b for b in data["content"] if b.get("type") == "text"]
+    assert text_blocks, data
+    assert text_blocks[0]["text"].strip(), "expected non-empty final text"
