@@ -52,6 +52,17 @@ rules:
       provider: openai
       mode: translate
 
+  - name: openai-responses-aux
+    match:
+      any_of:
+        - endpoint: { literal: "/v1/responses/{id}" }
+        - endpoint: { literal: "/v1/responses/{id}/input_items" }
+    action:
+      provider: openai
+      mode: passthrough
+      base_url: https://api.openai.com
+      api_key_env: OPENAI_API_KEY
+
   - name: count-tokens-local
     match:
       endpoint: { literal: /v1/messages/count_tokens }

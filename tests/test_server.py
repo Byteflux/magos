@@ -642,6 +642,197 @@ def test_unmatched_request_returns_404_with_anthropic_envelope() -> None:
     assert "gpt-4" in payload["error"]["message"]
 
 
+@pytest.mark.integration
+def test_responses_retrieve_passthrough_forwards_get(monkeypatch: pytest.MonkeyPatch) -> None:
+    """GET /v1/responses/{id} forwards verbatim under a passthrough rule."""
+    captured: dict[str, Any] = {}
+
+    async def fake_call_passthrough(
+        raw_body: bytes,
+        forward_headers: dict[str, str],
+        upstream_base_url: str,
+        *,
+        path: str,
+        method: str = "POST",
+        model_hint: str | None = None,
+        transport: Any = None,
+    ) -> tuple[int, bytes, str]:
+        captured["raw_body"] = raw_body
+        captured["headers"] = forward_headers
+        captured["base_url"] = upstream_base_url
+        captured["path"] = path
+        captured["method"] = method
+        return 200, b'{"id":"resp_abc","object":"response"}', "application/json"
+
+    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
+                    "action": {
+                        "provider": "openai",
+                        "mode": "passthrough",
+                        "base_url": "https://api.openai.com",
+                        "api_key_env": "OPENAI_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.get("/v1/responses/resp_abc")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"id": "resp_abc", "object": "response"}
+    assert captured["method"] == "GET"
+    assert captured["path"] == "/v1/responses/resp_abc"
+    assert captured["base_url"] == "https://api.openai.com"
+    assert captured["headers"]["x-api-key"] == "test-key"
+    assert captured["raw_body"] == b""
+
+
+@pytest.mark.integration
+def test_responses_cancel_passthrough_forwards_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DELETE /v1/responses/{id} forwards verbatim under a passthrough rule."""
+    captured: dict[str, Any] = {}
+
+    async def fake_call_passthrough(
+        raw_body: bytes,
+        forward_headers: dict[str, str],
+        upstream_base_url: str,
+        *,
+        path: str,
+        method: str = "POST",
+        model_hint: str | None = None,
+        transport: Any = None,
+    ) -> tuple[int, bytes, str]:
+        captured["path"] = path
+        captured["method"] = method
+        return 200, b'{"id":"resp_xyz","status":"cancelled"}', "application/json"
+
+    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
+                    "action": {
+                        "provider": "openai",
+                        "mode": "passthrough",
+                        "base_url": "https://api.openai.com",
+                        "api_key_env": "OPENAI_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.delete("/v1/responses/resp_xyz")
+
+    assert resp.status_code == 200
+    assert captured["method"] == "DELETE"
+    assert captured["path"] == "/v1/responses/resp_xyz"
+
+
+@pytest.mark.integration
+def test_responses_input_items_passthrough_forwards_get(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /v1/responses/{id}/input_items routes via the templated endpoint."""
+    captured: dict[str, Any] = {}
+
+    async def fake_call_passthrough(
+        raw_body: bytes,
+        forward_headers: dict[str, str],
+        upstream_base_url: str,
+        *,
+        path: str,
+        method: str = "POST",
+        model_hint: str | None = None,
+        transport: Any = None,
+    ) -> tuple[int, bytes, str]:
+        captured["path"] = path
+        captured["method"] = method
+        return 200, b'{"object":"list","data":[]}', "application/json"
+
+    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses/{id}/input_items"}},
+                    "action": {
+                        "provider": "openai",
+                        "mode": "passthrough",
+                        "base_url": "https://api.openai.com",
+                        "api_key_env": "OPENAI_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.get("/v1/responses/resp_abc/input_items")
+
+    assert resp.status_code == 200
+    assert captured["method"] == "GET"
+    assert captured["path"] == "/v1/responses/resp_abc/input_items"
+
+
+@pytest.mark.unit
+def test_responses_retrieve_unmatched_returns_404_openai_envelope() -> None:
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.get("/v1/responses/resp_nope")
+    assert resp.status_code == 404
+    payload = resp.json()
+    assert payload["error"]["type"] == "invalid_request_error"
+    assert payload["error"]["code"] == "no_route_matched"
+
+
+@pytest.mark.unit
+def test_responses_retrieve_translate_mode_returns_503(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Translate mode rejects non-POST methods at dispatch time."""
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.get("/v1/responses/resp_abc")
+    assert resp.status_code == 503
+    payload = resp.json()
+    assert payload["error"]["type"] == "server_error"
+
+
 @pytest.mark.unit
 def test_unmatched_request_returns_404_with_openai_envelope() -> None:
     """Routing returns 404 with an OpenAI-shape error body for /v1/chat/completions."""

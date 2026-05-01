@@ -92,6 +92,21 @@ rules:
       mode: translate
       api_key_env: OPENAI_API_KEY
 
+  # Auxiliary OpenAI Responses endpoints (retrieve / cancel / list input
+  # items). Passthrough-only: there is no litellm equivalent. Match
+  # expressions see the templated path; the dispatcher forwards the
+  # concrete inbound path so the upstream sees the real response id.
+  - name: openai-responses-aux
+    match:
+      any_of:
+        - endpoint: { literal: "/v1/responses/{id}" }
+        - endpoint: { literal: "/v1/responses/{id}/input_items" }
+    action:
+      provider: openai
+      mode: passthrough
+      base_url: https://api.openai.com
+      api_key_env: OPENAI_API_KEY
+
   # Anthropic count_tokens fallback for non-claude models: use the local
   # litellm-based estimator, which works for any LiteLLM-recognised model.
   - name: count-tokens-local-fallback

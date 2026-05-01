@@ -131,11 +131,56 @@ def create_app(routing: RoutingConfig | None = None) -> FastAPI:
     ) -> Any:
         return await _run("/v1/responses", request, completion)
 
+    # Auxiliary /v1/responses endpoints (passthrough-only): retrieve, cancel,
+    # list input items. Match expressions see the templated path so rules
+    # stay stable across response IDs; the dispatcher forwards the concrete
+    # path via ``RoutedRequest.actual_path``.
+    @app.get("/v1/responses/{response_id}")
+    async def retrieve_response(  # type: ignore[unused-ignore]
+        request: Request, response_id: str, completion: ResponsesCompletionDep
+    ) -> Any:
+        return await _run(
+            "/v1/responses/{id}",
+            request,
+            completion,
+            method="GET",
+            actual_path=f"/v1/responses/{response_id}",
+        )
+
+    @app.delete("/v1/responses/{response_id}")
+    async def cancel_response(  # type: ignore[unused-ignore]
+        request: Request, response_id: str, completion: ResponsesCompletionDep
+    ) -> Any:
+        return await _run(
+            "/v1/responses/{id}",
+            request,
+            completion,
+            method="DELETE",
+            actual_path=f"/v1/responses/{response_id}",
+        )
+
+    @app.get("/v1/responses/{response_id}/input_items")
+    async def list_response_input_items(  # type: ignore[unused-ignore]
+        request: Request, response_id: str, completion: ResponsesCompletionDep
+    ) -> Any:
+        return await _run(
+            "/v1/responses/{id}/input_items",
+            request,
+            completion,
+            method="GET",
+            actual_path=f"/v1/responses/{response_id}/input_items",
+        )
+
     return app
 
 
 async def _run(
-    endpoint: Endpoint, request: Request, completion: CompletionFn
+    endpoint: Endpoint,
+    request: Request,
+    completion: CompletionFn,
+    *,
+    method: str = "POST",
+    actual_path: str | None = None,
 ) -> Response | StreamingResponse | dict[str, Any]:
     """Shared routing + dispatch flow used by every handler."""
     raw_body = await request.body()
@@ -147,7 +192,14 @@ async def _run(
         raise HTTPException(status_code=400, detail="request body must be a JSON object")
 
     forward = _forwardable_headers(request.headers)
-    routed = RoutedRequest(endpoint=endpoint, headers=forward, body=body, raw_body=raw_body)
+    routed = RoutedRequest(
+        endpoint=endpoint,
+        headers=forward,
+        body=body,
+        raw_body=raw_body,
+        method=cast(Any, method),
+        actual_path=actual_path,
+    )
     cfg = cast(RoutingConfig, request.app.state.routing)
     decision_or_err = route(routed, cfg)
 

@@ -81,15 +81,17 @@ async def dispatch_decision(  # noqa: PLR0911
             raise DispatchError("passthrough rule has no base_url")
         body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
         model_hint = str(req.body.get("model", ""))
-        # Inbound endpoint becomes the upstream path; same-shape passthrough
-        # works for /v1/messages, /v1/responses, /v1/chat/completions, ...
+        # Templated endpoints (/v1/responses/{id}) keep the raw inbound path
+        # for forwarding via ``forward_path``; for fixed endpoints the two
+        # are identical.
         if is_streaming:
             return StreamingResponse(
                 stream_passthrough(
                     body_bytes,
                     forward_headers,
                     action.base_url,
-                    path=req.endpoint,
+                    path=req.forward_path,
+                    method=req.method,
                     model_hint=model_hint,
                 ),
                 media_type="text/event-stream",
@@ -98,12 +100,18 @@ async def dispatch_decision(  # noqa: PLR0911
             body_bytes,
             forward_headers,
             action.base_url,
-            path=req.endpoint,
+            path=req.forward_path,
+            method=req.method,
             model_hint=model_hint,
         )
         return Response(content=raw, status_code=status, media_type=content_type)
 
-    # mode: translate
+    # mode: translate -- only POST endpoints have litellm equivalents.
+    if req.method != "POST":
+        raise DispatchError(
+            f"mode='translate' does not support method={req.method!r}; "
+            "use mode='passthrough' for auxiliary GET/DELETE endpoints"
+        )
     api_key = _resolve_api_key(action.api_key_env)
 
     if req.endpoint == "/v1/messages":

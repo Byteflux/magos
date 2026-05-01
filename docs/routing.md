@@ -1,14 +1,23 @@
 # Routing
 
 Magos routes every inbound request through a declarative ruleset loaded
-from `magos.yaml`. Four wire shapes are supported today:
+from `magos.yaml`. The supported endpoints are:
 
-| Endpoint                       | Shape native to            |
-|--------------------------------|----------------------------|
-| `POST /v1/messages`            | Anthropic Messages         |
-| `POST /v1/messages/count_tokens` | Anthropic count_tokens   |
-| `POST /v1/chat/completions`    | OpenAI Chat Completions    |
-| `POST /v1/responses`           | OpenAI Responses (Phase A: passthrough/translate; no Anthropic <-> Responses translation yet) |
+| Endpoint                                  | Shape / purpose                                                                              |
+|-------------------------------------------|----------------------------------------------------------------------------------------------|
+| `POST /v1/messages`                       | Anthropic Messages                                                                           |
+| `POST /v1/messages/count_tokens`          | Anthropic count_tokens                                                                       |
+| `POST /v1/chat/completions`               | OpenAI Chat Completions                                                                      |
+| `POST /v1/responses`                      | OpenAI Responses (Phase A: passthrough/translate; no Anthropic <-> Responses translation yet) |
+| `GET /v1/responses/{id}`                  | Retrieve a stored response (passthrough-only)                                                |
+| `DELETE /v1/responses/{id}`               | Cancel an in-flight background response (passthrough-only)                                   |
+| `GET /v1/responses/{id}/input_items`      | List the input items used to produce a response (passthrough-only)                           |
+
+Auxiliary `/v1/responses/{id}*` endpoints have no litellm equivalent, so a
+matching rule must use `mode: passthrough`. Match expressions see the
+templated path (e.g. `/v1/responses/{id}`) so rules stay stable across
+response IDs; the dispatcher forwards the concrete inbound path so the
+upstream sees the real id.
 
 Rules choose:
 
@@ -70,7 +79,7 @@ Atoms (each is a single-key dict):
 |-------------|----------------------------------------------------|-------------------------|
 | `model`     | `{ model: <matcher> }`                             | `body.model` (string)   |
 | `header`    | `{ header: { name: <matcher>, value: <matcher> } }`| any inbound header pair |
-| `endpoint`  | `{ endpoint: <matcher> }`                          | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses` |
+| `endpoint`  | `{ endpoint: <matcher> }`                          | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`, `/v1/responses/{id}`, `/v1/responses/{id}/input_items` |
 | `jq`        | `{ jq: "<expr>" }`                                 | parsed body (truthy)    |
 
 `<matcher>` is exactly one of:
@@ -132,12 +141,14 @@ time, not config-load time (env state can change between deploys).
 
 Endpoint-shaped envelopes:
 
-| Endpoint                         | Shape    |
-|----------------------------------|----------|
-| `/v1/messages`                   | Anthropic|
-| `/v1/messages/count_tokens`      | Anthropic|
-| `/v1/chat/completions`           | OpenAI   |
-| `/v1/responses`                  | OpenAI   |
+| Endpoint                              | Shape    |
+|---------------------------------------|----------|
+| `/v1/messages`                        | Anthropic|
+| `/v1/messages/count_tokens`           | Anthropic|
+| `/v1/chat/completions`                | OpenAI   |
+| `/v1/responses`                       | OpenAI   |
+| `/v1/responses/{id}`                  | OpenAI   |
+| `/v1/responses/{id}/input_items`      | OpenAI   |
 
 ## Validation at config load
 
@@ -234,6 +245,34 @@ rules:
 Translate-mode rules go through `litellm.aresponses`, which handles
 provider-specific bridging (e.g. an OpenAI Responses request can be
 served by a non-OpenAI provider supported by litellm).
+
+### Auxiliary Responses endpoints (retrieve / cancel / list input items)
+
+The Responses API is stateful: clients chain follow-ups with
+`previous_response_id` and may want to retrieve, cancel, or inspect a
+prior response. These endpoints have no litellm equivalent, so they must
+be routed via `mode: passthrough`:
+
+```yaml
+rules:
+  - name: openai-responses-aux
+    match:
+      any_of:
+        - endpoint: { literal: "/v1/responses/{id}" }
+        - endpoint: { literal: "/v1/responses/{id}/input_items" }
+    action:
+      provider: openai
+      mode: passthrough
+      base_url: https://api.openai.com
+      api_key_env: OPENAI_API_KEY
+```
+
+Match expressions see the templated path; the dispatcher forwards the
+concrete inbound path (e.g. `/v1/responses/resp_abc`) and HTTP method
+(GET for retrieve / list, DELETE for cancel) verbatim. Pointing a
+`mode: translate` rule at one of these endpoints produces a `503
+dispatch_error` because the dispatcher cannot translate non-POST
+traffic.
 
 ### Reject streaming for a specific model
 

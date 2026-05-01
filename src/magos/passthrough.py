@@ -42,6 +42,7 @@ async def stream_passthrough(
     upstream_base_url: str,
     *,
     path: str,
+    method: str = "POST",
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[bytes]:
@@ -60,10 +61,12 @@ async def stream_passthrough(
     it unset so the real network is used.
     """
     url = f"{upstream_base_url.rstrip('/')}{path}"
-    log.info("passthrough.stream", url=url, model=model_hint, body_size=len(raw_body))
+    log.info(
+        "passthrough.stream", url=url, method=method, model=model_hint, body_size=len(raw_body)
+    )
     async with (
         _make_client(transport) as client,
-        client.stream("POST", url, content=raw_body, headers=forward_headers) as resp,
+        client.stream(method, url, content=raw_body, headers=forward_headers) as resp,
     ):
         if resp.status_code >= _HTTP_ERROR_THRESHOLD:
             preview = (await resp.aread())[:500]
@@ -89,6 +92,7 @@ async def call_passthrough(
     upstream_base_url: str,
     *,
     path: str,
+    method: str = "POST",
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[int, bytes, str]:
@@ -100,9 +104,10 @@ async def call_passthrough(
     content-type back to the client.
     """
     url = f"{upstream_base_url.rstrip('/')}{path}"
-    log.info("passthrough.call", url=url, model=model_hint, body_size=len(raw_body))
+    log.info("passthrough.call", url=url, method=method, model=model_hint, body_size=len(raw_body))
+    # GET/DELETE typically have no body; httpx accepts empty content cleanly.
     async with _make_client(transport) as client:
-        resp = await client.post(url, content=raw_body, headers=forward_headers)
+        resp = await client.request(method, url, content=raw_body, headers=forward_headers)
     return (
         resp.status_code,
         resp.content,
