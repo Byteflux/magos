@@ -124,6 +124,21 @@ class AnthropicRequest(_Frozen):
     metadata: AnthropicMetadata | None = None
 
 
+class AnthropicCountTokensRequest(_Frozen):
+    """Request body for ``POST /v1/messages/count_tokens``.
+
+    Mirrors Anthropic's public surface: ``max_tokens`` is **not** required (the
+    count_tokens endpoint estimates input tokens only and ignores generation
+    limits). Sampling params and ``stream`` are also out of scope.
+    """
+
+    model: str
+    messages: list[AnthropicMessage]
+    system: str | list[AnthropicTextBlock] | None = None
+    tools: list[AnthropicTool] | None = None
+    tool_choice: AnthropicToolChoice | None = None
+
+
 # ---------------------------------------------------------------------------
 # Anthropic response models
 # ---------------------------------------------------------------------------

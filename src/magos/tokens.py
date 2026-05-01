@@ -26,13 +26,24 @@ import litellm
 
 from magos.obs import get_logger
 from magos.translation import request_anthropic_to_openai
+from magos.translation._models import AnthropicCountTokensRequest
 
 log = get_logger("magos.tokens")
 
 
 def count_locally(anthropic_request: dict[str, Any]) -> int:
-    """Sync, in-process estimate via ``litellm.token_counter``."""
-    openai_req = request_anthropic_to_openai(anthropic_request)
+    """Sync, in-process estimate via ``litellm.token_counter``.
+
+    Validates against ``AnthropicCountTokensRequest`` (no ``max_tokens``
+    required) before reusing the standard request translator. A synthetic
+    ``max_tokens`` is injected solely so ``request_anthropic_to_openai``
+    accepts the dict; the value is irrelevant for token counting.
+    """
+    validated = AnthropicCountTokensRequest.model_validate(anthropic_request).model_dump(
+        exclude_none=True
+    )
+    validated["max_tokens"] = 1
+    openai_req = request_anthropic_to_openai(validated)
     return int(
         litellm.token_counter(
             model=openai_req["model"],
@@ -53,14 +64,13 @@ async def _anthropic_passthrough(
     upstream sees the client's auth, version pins, and beta flags verbatim,
     which preserves Anthropic's billing shape (e.g. ``anthropic-beta``).
     """
-    kwargs: dict[str, Any] = {
-        "model": anthropic_request["model"],
-        "messages": anthropic_request["messages"],
-    }
+    validated = AnthropicCountTokensRequest.model_validate(anthropic_request).model_dump(
+        exclude_none=True
+    )
+    kwargs: dict[str, Any] = {"model": validated["model"], "messages": validated["messages"]}
     for optional in ("system", "tools", "tool_choice"):
-        value = anthropic_request.get(optional)
-        if value is not None:
-            kwargs[optional] = value
+        if optional in validated:
+            kwargs[optional] = validated[optional]
     if forward_headers:
         kwargs["extra_headers"] = forward_headers
     async with anthropic.AsyncAnthropic() as client:

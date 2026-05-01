@@ -35,6 +35,15 @@ def test_count_locally_returns_positive_int() -> None:
 
 
 @pytest.mark.unit
+def test_count_locally_works_without_max_tokens() -> None:
+    """count_tokens body has no ``max_tokens`` field per Anthropic's spec."""
+    body = {k: v for k, v in SIMPLE_REQUEST.items() if k != "max_tokens"}
+    assert "max_tokens" not in body
+    n = tokens.count_locally(body)
+    assert n == tokens.count_locally(SIMPLE_REQUEST)
+
+
+@pytest.mark.unit
 def test_count_input_tokens_local_when_passthrough_disabled() -> None:
     n = asyncio.run(tokens.count_input_tokens(SIMPLE_REQUEST))
     assert n == tokens.count_locally(SIMPLE_REQUEST)
