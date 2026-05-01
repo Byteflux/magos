@@ -15,6 +15,7 @@ import litellm
 
 from magos.obs import get_logger, traced
 from magos.translation import (
+    AnthropicStreamTranslator,
     request_anthropic_to_openai,
     response_openai_to_anthropic,
 )
@@ -37,6 +38,11 @@ def _coerce_to_dict(resp: Any) -> dict[str, Any]:
 
 def _sse_event(data: str) -> bytes:
     return f"data: {data}\n\n".encode()
+
+
+def _sse_named_event(event: dict[str, Any]) -> bytes:
+    """Anthropic streaming uses ``event:`` + ``data:`` lines per chunk."""
+    return f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
 
 
 @traced("proxy.anthropic_messages")
@@ -65,6 +71,38 @@ async def proxy_openai_chat_completions(
     log.info("dispatch", shape="openai", model=openai_request.get("model"))
     raw_response = await dispatch(**openai_request)
     return _coerce_to_dict(raw_response)
+
+
+def stream_anthropic_messages(
+    anthropic_request: dict[str, Any],
+    *,
+    completion: _CompletionFn | None = None,
+) -> AsyncIterator[bytes]:
+    """Async iterator of Anthropic-shape SSE bytes for an Anthropic Messages request.
+
+    Returned as a regular function (not an async generator) so request
+    validation runs synchronously: a malformed request raises
+    ``pydantic.ValidationError`` before any response bytes are emitted, which
+    lets the endpoint return a clean 400 instead of a half-streamed reply.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
+    openai_request = request_anthropic_to_openai(anthropic_request)
+    payload = {**openai_request, "stream": True}
+    log.info("dispatch", shape="anthropic->openai", model=payload.get("model"), stream=True)
+    return _anthropic_stream_iter(payload, dispatch)
+
+
+async def _anthropic_stream_iter(
+    payload: dict[str, Any],
+    dispatch: Callable[..., Awaitable[Any]],
+) -> AsyncIterator[bytes]:
+    stream = await dispatch(**payload)
+    translator = AnthropicStreamTranslator()
+    async for chunk in stream:
+        for event in translator.feed(_coerce_to_dict(chunk)):
+            yield _sse_named_event(event)
+    for event in translator.finish():
+        yield _sse_named_event(event)
 
 
 async def stream_openai_chat_completions(

@@ -24,6 +24,7 @@ from magos.obs import get_logger
 from magos.proxy import (
     proxy_anthropic_messages,
     proxy_openai_chat_completions,
+    stream_anthropic_messages,
     stream_openai_chat_completions,
 )
 
@@ -40,11 +41,6 @@ def get_completion() -> CompletionFn:
 CompletionDep = Annotated[CompletionFn, Depends(get_completion)]
 
 
-def _reject_streaming(body: dict[str, Any]) -> None:
-    if body.get("stream") is True:
-        raise HTTPException(status_code=501, detail="streaming not yet implemented")
-
-
 def create_app() -> FastAPI:
     app = FastAPI(title="magos", version=__version__)
 
@@ -52,8 +48,13 @@ def create_app() -> FastAPI:
     async def anthropic_messages(
         body: dict[str, Any],
         completion: CompletionDep,
-    ) -> dict[str, Any]:
-        _reject_streaming(body)
+    ) -> Any:
+        if body.get("stream") is True:
+            try:
+                stream = stream_anthropic_messages(body, completion=completion)
+            except ValidationError as exc:
+                raise HTTPException(status_code=400, detail=exc.errors()) from exc
+            return StreamingResponse(stream, media_type="text/event-stream")
         try:
             return await proxy_anthropic_messages(body, completion=completion)
         except ValidationError as exc:

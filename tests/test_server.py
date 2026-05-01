@@ -98,8 +98,39 @@ def test_chat_completions_endpoint_passes_through() -> None:
     assert received == openai_request
 
 
-@pytest.mark.unit
-def test_messages_rejects_streaming() -> None:
+@pytest.mark.integration
+def test_messages_streams_anthropic_events() -> None:
+    chunks = [
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gpt-4",
+            "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
+        },
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gpt-4",
+            "choices": [{"index": 0, "delta": {"content": "hi"}, "finish_reason": None}],
+        },
+        {
+            "id": "chatcmpl-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gpt-4",
+            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+        },
+    ]
+
+    async def fake_iter() -> Any:
+        for chunk in chunks:
+            yield chunk
+
+    async def fake_completion(**_: Any) -> Any:
+        return fake_iter()
+
     app = create_app()
     body = {
         "model": "claude-3-5-sonnet-20241022",
@@ -107,10 +138,37 @@ def test_messages_rejects_streaming() -> None:
         "messages": [{"role": "user", "content": "hi"}],
         "stream": True,
     }
+
+    for client in _client_with(app, fake_completion):
+        with client.stream("POST", "/v1/messages", json=body) as resp:
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("text/event-stream")
+            text = b"".join(resp.iter_bytes()).decode()
+
+    event_types = [
+        line[len("event: ") :] for line in text.splitlines() if line.startswith("event: ")
+    ]
+    assert event_types == [
+        "message_start",
+        "content_block_start",
+        "content_block_delta",
+        "content_block_stop",
+        "message_delta",
+        "message_stop",
+    ]
+    data_lines = [line[len("data: ") :] for line in text.splitlines() if line.startswith("data: ")]
+    parsed = [json.loads(line) for line in data_lines]
+    assert parsed[2]["delta"] == {"type": "text_delta", "text": "hi"}
+    assert parsed[4]["delta"]["stop_reason"] == "end_turn"
+
+
+@pytest.mark.unit
+def test_messages_streaming_returns_400_on_invalid_request() -> None:
+    app = create_app()
+    body = {"model": "x", "stream": True}  # missing required fields
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json=body)
-    assert resp.status_code == 501
-    assert resp.json()["detail"] == "streaming not yet implemented"
+    assert resp.status_code == 400
 
 
 @pytest.mark.integration
