@@ -298,9 +298,13 @@ def test_messages_forwards_inbound_headers_to_dispatch() -> None:
     assert forwarded["anthropic-beta"] == "feature-x,feature-y"
     assert forwarded["anthropic-version"] == "2023-06-01"
     assert forwarded["x-custom-trace"] == "abc123"
-    # Hop-by-hop / content-shaping headers must NOT be forwarded.
-    assert "host" not in {k.lower() for k in forwarded}
-    assert "content-length" not in {k.lower() for k in forwarded}
+    # Hop-by-hop / content-shaping headers must NOT be forwarded. ``content-type``
+    # in particular collides with the SDK's body serializer (regression: real
+    # OpenAI replied "you must provide a model parameter" when forwarded).
+    forwarded_keys = {k.lower() for k in forwarded}
+    assert "host" not in forwarded_keys
+    assert "content-length" not in forwarded_keys
+    assert "content-type" not in forwarded_keys
 
 
 @pytest.mark.integration
@@ -343,6 +347,7 @@ def test_chat_completions_forwards_inbound_headers_to_dispatch() -> None:
     forwarded = received["extra_headers"]
     assert forwarded["authorization"] == "Bearer key"
     assert forwarded["openai-organization"] == "org_123"
+    assert "content-type" not in {k.lower() for k in forwarded}
 
 
 @pytest.mark.integration

@@ -23,6 +23,17 @@ from magos.translation import (
 
 log = get_logger("magos.proxy")
 
+# Headers that the upstream HTTP client (litellm/openai-sdk/httpx) generates
+# from the serialized request body. Forwarding the inbound values into
+# ``extra_headers`` conflicts with that machinery: e.g. an inbound
+# ``content-type: application/json`` overrides the SDK's own header and the
+# upstream sees a body it cannot parse, returning "you must provide a model
+# parameter". Server-level blocking (server._BLOCKED_FORWARD_HEADERS) is for
+# the byte-exact passthrough path which legitimately needs ``content-type``.
+_DISPATCH_BLOCKED_HEADERS: frozenset[str] = frozenset(
+    {"content-type", "content-length", "content-encoding", "accept-encoding"}
+)
+
 
 class _CompletionFn(Protocol):
     def __call__(self, **kwargs: Any) -> Awaitable[Any]: ...
@@ -59,8 +70,12 @@ def _normalize_dispatch_payload(
         if provider:
             out["model"] = f"{provider}/{model}"
     if forward_headers:
-        existing = out.get("extra_headers") or {}
-        out["extra_headers"] = {**existing, **forward_headers}
+        safe = {
+            k: v for k, v in forward_headers.items() if k.lower() not in _DISPATCH_BLOCKED_HEADERS
+        }
+        if safe:
+            existing = out.get("extra_headers") or {}
+            out["extra_headers"] = {**existing, **safe}
     return out
 
 
