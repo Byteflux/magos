@@ -57,7 +57,16 @@ def test_messages_endpoint_round_trip() -> None:
 
     assert resp.status_code == 200
     body = resp.json()
-    assert received == expected_openai_request
+    expected_dispatched = {
+        **expected_openai_request,
+        "model": f"anthropic/{expected_openai_request['model']}",
+    }
+    # extra_headers is added by the dispatch normaliser when client headers
+    # are forwarded; assert separately so the test stays robust to the exact
+    # headers TestClient happens to set (host, accept, user-agent, etc.).
+    received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
+    assert received_no_headers == expected_dispatched
+    assert "extra_headers" in received
 
     expected_no_id = {k: v for k, v in expected_anthropic_response.items() if k != "id"}
     body_no_id = {k: v for k, v in body.items() if k != "id"}
@@ -98,7 +107,10 @@ def test_chat_completions_endpoint_passes_through() -> None:
 
     assert resp.status_code == 200
     assert resp.json() == openai_response
-    assert received == openai_request
+    expected_dispatched = {**openai_request, "model": f"openai/{openai_request['model']}"}
+    received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
+    assert received_no_headers == expected_dispatched
+    assert "extra_headers" in received
 
 
 @pytest.mark.integration
@@ -206,8 +218,11 @@ def test_count_tokens_endpoint_uses_passthrough_when_allowed() -> None:
     """anthropic in allow-list + claude- model -> patched passthrough is hit."""
     captured: dict[str, Any] = {}
 
-    async def fake_passthrough(req: dict[str, Any]) -> int:
+    async def fake_passthrough(
+        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
+    ) -> int:
         captured["model"] = req["model"]
+        captured["forward_headers"] = forward_headers
         return 4242
 
     app = create_app()
@@ -240,6 +255,85 @@ def test_count_tokens_endpoint_returns_400_on_invalid_request() -> None:
     with TestClient(app) as client:
         resp = client.post("/v1/messages/count_tokens", json={"model": "x"})
     assert resp.status_code == 400
+
+
+@pytest.mark.integration
+def test_messages_forwards_inbound_headers_to_dispatch() -> None:
+    """authorization, anthropic-beta, anthropic-version flow into extra_headers."""
+    case_dir = FIXTURES_ROOT / "simple_text"
+    anthropic_request = _load(case_dir, "anthropic_request.json")
+    openai_response = _load(case_dir, "openai_response.json")
+
+    received: dict[str, Any] = {}
+
+    async def fake_completion(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return openai_response
+
+    app = create_app()
+    for client in _client_with(app, fake_completion):
+        resp = client.post(
+            "/v1/messages",
+            json=anthropic_request,
+            headers={
+                "Authorization": "Bearer test-oauth-token",
+                "anthropic-beta": "feature-x,feature-y",
+                "anthropic-version": "2023-06-01",
+                "x-custom-trace": "abc123",
+            },
+        )
+
+    assert resp.status_code == 200
+    forwarded = received["extra_headers"]
+    assert forwarded["authorization"] == "Bearer test-oauth-token"
+    assert forwarded["anthropic-beta"] == "feature-x,feature-y"
+    assert forwarded["anthropic-version"] == "2023-06-01"
+    assert forwarded["x-custom-trace"] == "abc123"
+    # Hop-by-hop / content-shaping headers must NOT be forwarded.
+    assert "host" not in {k.lower() for k in forwarded}
+    assert "content-length" not in {k.lower() for k in forwarded}
+
+
+@pytest.mark.integration
+def test_chat_completions_forwards_inbound_headers_to_dispatch() -> None:
+    openai_request = {
+        "model": "gpt-4",
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 16,
+    }
+    openai_response = {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 1,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hello"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+    }
+
+    received: dict[str, Any] = {}
+
+    async def fake_completion(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return openai_response
+
+    app = create_app()
+    for client in _client_with(app, fake_completion):
+        resp = client.post(
+            "/v1/chat/completions",
+            json=openai_request,
+            headers={"Authorization": "Bearer key", "openai-organization": "org_123"},
+        )
+
+    assert resp.status_code == 200
+    forwarded = received["extra_headers"]
+    assert forwarded["authorization"] == "Bearer key"
+    assert forwarded["openai-organization"] == "org_123"
 
 
 @pytest.mark.integration

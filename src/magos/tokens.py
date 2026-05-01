@@ -18,8 +18,8 @@ when the resolved provider is allow-listed in
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from typing import Any
+from collections.abc import Awaitable
+from typing import Any, Protocol
 
 import anthropic
 import litellm
@@ -42,8 +42,17 @@ def count_locally(anthropic_request: dict[str, Any]) -> int:
     )
 
 
-async def _anthropic_passthrough(anthropic_request: dict[str, Any]) -> int:
-    """Forward to Anthropic's native /v1/messages/count_tokens via the SDK."""
+async def _anthropic_passthrough(
+    anthropic_request: dict[str, Any],
+    *,
+    forward_headers: dict[str, str] | None = None,
+) -> int:
+    """Forward to Anthropic's native /v1/messages/count_tokens via the SDK.
+
+    ``forward_headers`` is merged into the call's ``extra_headers`` so the
+    upstream sees the client's auth, version pins, and beta flags verbatim,
+    which preserves Anthropic's billing shape (e.g. ``anthropic-beta``).
+    """
     kwargs: dict[str, Any] = {
         "model": anthropic_request["model"],
         "messages": anthropic_request["messages"],
@@ -52,12 +61,21 @@ async def _anthropic_passthrough(anthropic_request: dict[str, Any]) -> int:
         value = anthropic_request.get(optional)
         if value is not None:
             kwargs[optional] = value
+    if forward_headers:
+        kwargs["extra_headers"] = forward_headers
     async with anthropic.AsyncAnthropic() as client:
         result = await client.messages.count_tokens(**kwargs)
     return int(result.input_tokens)
 
 
-PassthroughFn = Callable[[dict[str, Any]], Awaitable[int]]
+class PassthroughFn(Protocol):
+    def __call__(
+        self,
+        anthropic_request: dict[str, Any],
+        *,
+        forward_headers: dict[str, str] | None = None,
+    ) -> Awaitable[int]: ...
+
 
 PASSTHROUGH_DISPATCH: dict[str, PassthroughFn] = {
     "anthropic": _anthropic_passthrough,
@@ -79,7 +97,8 @@ _BARE_MODEL_PROVIDER_FALLBACK: tuple[tuple[str, str], ...] = (
 )
 
 
-def _resolve_provider(model: str) -> str:
+def resolve_provider(model: str) -> str:
+    """Return the LiteLLM provider name for ``model``, or '' if unknown."""
     try:
         _, provider, _, _ = litellm.get_llm_provider(model)
         return str(provider)
@@ -94,24 +113,31 @@ def _resolve_provider(model: str) -> str:
     return ""
 
 
+# Backwards-compat alias for internal callers; prefer ``resolve_provider``.
+_resolve_provider = resolve_provider
+
+
 async def count_input_tokens(
     anthropic_request: dict[str, Any],
     *,
     passthrough_providers: frozenset[str] = frozenset(),
+    forward_headers: dict[str, str] | None = None,
 ) -> int:
     """Count input tokens for an Anthropic Messages request.
 
     Uses passthrough when the request's model resolves to a provider in
     ``passthrough_providers`` and a passthrough implementation is registered
-    in ``PASSTHROUGH_DISPATCH``. Falls back to ``count_locally`` on any error
-    so the endpoint stays available even if upstream credentials are missing.
+    in ``PASSTHROUGH_DISPATCH``. ``forward_headers`` is forwarded to the
+    passthrough call so upstream auth, version pins, and beta flags are
+    preserved. Falls back to ``count_locally`` on any error so the endpoint
+    stays available even if upstream credentials are missing.
     """
     if passthrough_providers:
-        provider = _resolve_provider(str(anthropic_request.get("model", "")))
+        provider = resolve_provider(str(anthropic_request.get("model", "")))
         impl = PASSTHROUGH_DISPATCH.get(provider) if provider in passthrough_providers else None
         if impl is not None:
             try:
-                return await impl(anthropic_request)
+                return await impl(anthropic_request, forward_headers=forward_headers)
             except Exception as exc:
                 log.warning(
                     "count_tokens.passthrough_failed",

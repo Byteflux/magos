@@ -15,9 +15,10 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, cast
 
 import litellm
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
+from starlette.datastructures import Headers
 
 from magos import __version__
 from magos.config import MagosSettings, get_settings
@@ -44,22 +45,54 @@ CompletionDep = Annotated[CompletionFn, Depends(get_completion)]
 SettingsDep = Annotated[MagosSettings, Depends(get_settings)]
 
 
+# Hop-by-hop headers (RFC 7230) plus a few that httpx must own. Everything
+# else is forwarded so upstream sees the client's auth, version pins, and
+# beta flags verbatim, which preserves provider billing shape.
+_BLOCKED_FORWARD_HEADERS: frozenset[str] = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailer",
+        "transfer-encoding",
+        "upgrade",
+        "host",
+        "content-length",
+        "content-encoding",
+        "accept-encoding",
+    }
+)
+
+
+def _forwardable_headers(headers: Headers) -> dict[str, str]:
+    """Return inbound headers minus hop-by-hop and content-shaping ones."""
+    return {k: v for k, v in headers.items() if k.lower() not in _BLOCKED_FORWARD_HEADERS}
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="magos", version=__version__)
 
     @app.post("/v1/messages")
     async def anthropic_messages(
         body: dict[str, Any],
+        request: Request,
         completion: CompletionDep,
     ) -> Any:
+        forward = _forwardable_headers(request.headers)
         if body.get("stream") is True:
             try:
-                stream = stream_anthropic_messages(body, completion=completion)
+                stream = stream_anthropic_messages(
+                    body, completion=completion, forward_headers=forward
+                )
             except ValidationError as exc:
                 raise HTTPException(status_code=400, detail=exc.errors()) from exc
             return StreamingResponse(stream, media_type="text/event-stream")
         try:
-            return await proxy_anthropic_messages(body, completion=completion)
+            return await proxy_anthropic_messages(
+                body, completion=completion, forward_headers=forward
+            )
         except ValidationError as exc:
             raise HTTPException(status_code=400, detail=exc.errors()) from exc
         except HTTPException:
@@ -76,12 +109,15 @@ def create_app() -> FastAPI:
     @app.post("/v1/messages/count_tokens")
     async def anthropic_count_tokens(
         body: dict[str, Any],
+        request: Request,
         settings: SettingsDep,
     ) -> dict[str, int]:
+        forward = _forwardable_headers(request.headers)
         try:
             n = await count_input_tokens(
                 body,
                 passthrough_providers=settings.count_tokens_passthrough_providers,
+                forward_headers=forward,
             )
         except ValidationError as exc:
             raise HTTPException(status_code=400, detail=exc.errors()) from exc
@@ -90,15 +126,21 @@ def create_app() -> FastAPI:
     @app.post("/v1/chat/completions")
     async def openai_chat_completions(
         body: dict[str, Any],
+        request: Request,
         completion: CompletionDep,
     ) -> Any:
+        forward = _forwardable_headers(request.headers)
         if body.get("stream") is True:
             return StreamingResponse(
-                stream_openai_chat_completions(body, completion=completion),
+                stream_openai_chat_completions(
+                    body, completion=completion, forward_headers=forward
+                ),
                 media_type="text/event-stream",
             )
         try:
-            return await proxy_openai_chat_completions(body, completion=completion)
+            return await proxy_openai_chat_completions(
+                body, completion=completion, forward_headers=forward
+            )
         except ValidationError as exc:
             raise HTTPException(status_code=400, detail=exc.errors()) from exc
         except HTTPException:

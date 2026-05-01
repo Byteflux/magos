@@ -44,9 +44,12 @@ def test_count_input_tokens_local_when_passthrough_disabled() -> None:
 def test_count_input_tokens_passthrough_for_allowed_provider() -> None:
     captured: dict[str, Any] = {}
 
-    async def fake_passthrough(req: dict[str, Any]) -> int:
+    async def fake_passthrough(
+        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
+    ) -> int:
         captured["called"] = True
         captured["model"] = req["model"]
+        captured["forward_headers"] = forward_headers
         return 999
 
     with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}):
@@ -59,13 +62,41 @@ def test_count_input_tokens_passthrough_for_allowed_provider() -> None:
     assert n == 999
     assert captured["called"] is True
     assert captured["model"] == "claude-3-5-sonnet-20241022"
+    assert captured["forward_headers"] is None
+
+
+@pytest.mark.unit
+def test_count_input_tokens_forwards_headers() -> None:
+    captured: dict[str, Any] = {}
+
+    async def fake_passthrough(
+        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
+    ) -> int:
+        captured["forward_headers"] = forward_headers
+        return 7
+
+    with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}):
+        asyncio.run(
+            tokens.count_input_tokens(
+                SIMPLE_REQUEST,
+                passthrough_providers=frozenset({"anthropic"}),
+                forward_headers={"authorization": "Bearer abc", "anthropic-beta": "x,y"},
+            )
+        )
+
+    assert captured["forward_headers"] == {
+        "authorization": "Bearer abc",
+        "anthropic-beta": "x,y",
+    }
 
 
 @pytest.mark.unit
 def test_count_input_tokens_falls_back_to_local_when_provider_not_allowed() -> None:
     """Anthropic in dispatch but not in allow-list -> local path."""
 
-    async def should_not_be_called(_: dict[str, Any]) -> int:
+    async def should_not_be_called(
+        _: dict[str, Any], *, forward_headers: dict[str, str] | None = None
+    ) -> int:
         raise AssertionError("passthrough should not have been invoked")
 
     with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": should_not_be_called}):
@@ -90,7 +121,7 @@ def test_count_input_tokens_falls_back_to_local_for_unsupported_provider() -> No
 
 @pytest.mark.unit
 def test_count_input_tokens_falls_back_to_local_on_passthrough_error() -> None:
-    async def boom(_: dict[str, Any]) -> int:
+    async def boom(_: dict[str, Any], *, forward_headers: dict[str, str] | None = None) -> int:
         raise RuntimeError("network down")
 
     with patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": boom}):

@@ -49,7 +49,14 @@ def test_proxy_pipeline_round_trip(case_dir: Path) -> None:
 
     actual = asyncio.run(proxy_anthropic_messages(anthropic_request, completion=fake_completion))
 
-    assert received == expected_openai_request
+    # Dispatch normalises the model name to a LiteLLM-recognised prefix; the
+    # fixtures store the unprefixed shape that translation produces, so add
+    # the expected ``anthropic/`` prefix when comparing.
+    expected_normalised = {
+        **expected_openai_request,
+        "model": f"anthropic/{expected_openai_request['model']}",
+    }
+    assert received == expected_normalised
 
     expected_no_id = {k: v for k, v in expected_anthropic_response.items() if k != "id"}
     actual_no_id = {k: v for k, v in actual.items() if k != "id"}
