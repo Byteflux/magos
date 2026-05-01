@@ -55,3 +55,20 @@ def test_unknown_env_vars_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAGOS_NOT_A_REAL_FIELD", "value")
     # Should not raise.
     MagosSettings(_env_file=None)  # type: ignore[call-arg]
+
+
+def test_count_tokens_passthrough_default() -> None:
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.count_tokens_passthrough_providers == frozenset({"anthropic"})
+
+
+def test_count_tokens_passthrough_csv_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "anthropic, openai , vertex_ai")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.count_tokens_passthrough_providers == frozenset({"anthropic", "openai", "vertex_ai"})
+
+
+def test_count_tokens_passthrough_disabled_via_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.count_tokens_passthrough_providers == frozenset()

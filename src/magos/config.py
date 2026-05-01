@@ -12,8 +12,10 @@ Example::
 
 from __future__ import annotations
 
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Annotated, Any
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class MagosSettings(BaseSettings):
@@ -37,6 +39,24 @@ class MagosSettings(BaseSettings):
     otel_endpoint: str | None = Field(
         default=None, description="OTLP HTTP endpoint; default uses OTel SDK fallback"
     )
+
+    count_tokens_passthrough_providers: Annotated[frozenset[str], NoDecode] = Field(
+        default=frozenset({"anthropic"}),
+        description=(
+            "LiteLLM provider names whose native count_tokens endpoint is used by "
+            "/v1/messages/count_tokens instead of the local estimator. Empty disables "
+            "passthrough entirely. Set via comma-separated env var, e.g. "
+            "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS=anthropic,openai"
+        ),
+    )
+
+    @field_validator("count_tokens_passthrough_providers", mode="before")
+    @classmethod
+    def _parse_providers(cls, v: Any) -> Any:
+        """Accept comma-separated env strings as well as JSON / native sets."""
+        if isinstance(v, str):
+            return frozenset(p.strip() for p in v.split(",") if p.strip())
+        return v
 
 
 def get_settings() -> MagosSettings:
