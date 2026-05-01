@@ -1,7 +1,16 @@
 # Routing
 
 Magos routes every inbound request through a declarative ruleset loaded
-from `magos.yaml`. Rules choose:
+from `magos.yaml`. Four wire shapes are supported today:
+
+| Endpoint                       | Shape native to            |
+|--------------------------------|----------------------------|
+| `POST /v1/messages`            | Anthropic Messages         |
+| `POST /v1/messages/count_tokens` | Anthropic count_tokens   |
+| `POST /v1/chat/completions`    | OpenAI Chat Completions    |
+| `POST /v1/responses`           | OpenAI Responses (Phase A: passthrough/translate; no Anthropic <-> Responses translation yet) |
+
+Rules choose:
 
 - **provider**: which upstream serves the request (`anthropic`, `openai`, ...)
 - **mode**: `translate` (litellm round-trip) or `passthrough` (byte-exact bytes)
@@ -61,7 +70,7 @@ Atoms (each is a single-key dict):
 |-------------|----------------------------------------------------|-------------------------|
 | `model`     | `{ model: <matcher> }`                             | `body.model` (string)   |
 | `header`    | `{ header: { name: <matcher>, value: <matcher> } }`| any inbound header pair |
-| `endpoint`  | `{ endpoint: <matcher> }`                          | `/v1/messages` etc.     |
+| `endpoint`  | `{ endpoint: <matcher> }`                          | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses` |
 | `jq`        | `{ jq: "<expr>" }`                                 | parsed body (truthy)    |
 
 `<matcher>` is exactly one of:
@@ -128,6 +137,7 @@ Endpoint-shaped envelopes:
 | `/v1/messages`                   | Anthropic|
 | `/v1/messages/count_tokens`      | Anthropic|
 | `/v1/chat/completions`           | OpenAI   |
+| `/v1/responses`                  | OpenAI   |
 
 ## Validation at config load
 
@@ -200,6 +210,30 @@ rules:
       mode: translate
       api_key_env: OPENAI_API_KEY
 ```
+
+### OpenAI Responses passthrough to a self-hosted upstream
+
+Phase A of `/v1/responses` support is passthrough/translate only — no
+Anthropic <-> Responses translation. A passthrough rule forwards raw
+bytes (preserving `previous_response_id` chaining and any built-in tool
+declarations like `web_search` / `file_search`) to a same-shape
+upstream:
+
+```yaml
+rules:
+  - name: responses-self-hosted
+    match:
+      endpoint: { literal: /v1/responses }
+    action:
+      provider: openai
+      mode: passthrough
+      base_url: https://my-openai-compat.internal
+      api_key_env: SELF_HOSTED_API_KEY
+```
+
+Translate-mode rules go through `litellm.aresponses`, which handles
+provider-specific bridging (e.g. an OpenAI Responses request can be
+served by a non-OpenAI provider supported by litellm).
 
 ### Reject streaming for a specific model
 
