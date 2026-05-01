@@ -13,15 +13,16 @@ Skipped by default. To run::
 
 Requires:
 
-- ``claude`` CLI on PATH and authenticated via ``claude login``
-- ``claude-agent-sdk`` installed (added as a dev dependency)
+- ``claude-agent-sdk`` installed (added as a dev dependency); the SDK
+  ships its own bundled ``claude`` CLI, no system-wide install needed
+- The bundled CLI's stored Claude Code credentials (or a system ``claude``
+  on PATH that has been logged in via ``claude login``)
 """
 
 from __future__ import annotations
 
 import asyncio
 import os
-import shutil
 import socket
 import threading
 import time
@@ -30,15 +31,14 @@ from collections.abc import Iterator
 import pytest
 import uvicorn
 
+# The Agent SDK ships its own bundled CLI, so we don't gate on a system
+# ``claude`` binary; the SDK locates and spawns the bundled one itself and
+# uses the user's Claude Code credentials when present.
 pytestmark = [
     pytest.mark.e2e,
     pytest.mark.skipif(
         os.environ.get("MAGOS_E2E") != "1",
         reason="set MAGOS_E2E=1 to run end-to-end provider tests",
-    ),
-    pytest.mark.skipif(
-        shutil.which("claude") is None,
-        reason="claude CLI not on PATH; install Claude Code to run",
     ),
 ]
 
