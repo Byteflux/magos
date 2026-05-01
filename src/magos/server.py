@@ -11,11 +11,12 @@ so tests can swap it out with ``app.dependency_overrides[get_completion]``.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, cast
 
 import litellm
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 from starlette.datastructures import Headers
@@ -23,6 +24,11 @@ from starlette.datastructures import Headers
 from magos import __version__
 from magos.config import MagosSettings, get_settings
 from magos.obs import get_logger
+from magos.passthrough import (
+    call_anthropic_passthrough,
+    should_anthropic_passthrough,
+    stream_anthropic_passthrough,
+)
 from magos.proxy import (
     proxy_anthropic_messages,
     proxy_openai_chat_completions,
@@ -76,11 +82,37 @@ def create_app() -> FastAPI:
 
     @app.post("/v1/messages")
     async def anthropic_messages(
-        body: dict[str, Any],
         request: Request,
         completion: CompletionDep,
+        settings: SettingsDep,
     ) -> Any:
         forward = _forwardable_headers(request.headers)
+        raw_body = await request.body()
+        try:
+            body: dict[str, Any] = json.loads(raw_body) if raw_body else {}
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail=f"invalid JSON body: {exc}") from exc
+
+        # Same-shape Anthropic-in / Anthropic-upstream is forwarded verbatim
+        # (raw bytes; no re-serialisation) so OAuth bearers, anthropic-beta
+        # flags, version pins, and cache_control byte boundaries all reach
+        # the provider untouched. LiteLLM short-circuits on missing api_key
+        # and cannot carry an OAuth bearer; reserialised JSON also breaks
+        # prompt caching, billing the request as fresh long-context input.
+        if settings.anthropic_passthrough_enabled and should_anthropic_passthrough(body):
+            model = str(body.get("model", ""))
+            if body.get("stream") is True:
+                return StreamingResponse(
+                    stream_anthropic_passthrough(
+                        raw_body, forward, settings.anthropic_upstream_url, model_hint=model
+                    ),
+                    media_type="text/event-stream",
+                )
+            status, raw, content_type = await call_anthropic_passthrough(
+                raw_body, forward, settings.anthropic_upstream_url, model_hint=model
+            )
+            return Response(content=raw, status_code=status, media_type=content_type)
+
         if body.get("stream") is True:
             try:
                 stream = stream_anthropic_messages(

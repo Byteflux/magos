@@ -143,11 +143,28 @@ async def _anthropic_stream_iter(
     *,
     input_tokens: int = 0,
 ) -> AsyncIterator[bytes]:
-    stream = await dispatch(**payload)
     translator = AnthropicStreamTranslator(input_tokens=input_tokens)
-    async for chunk in stream:
-        for event in translator.feed(_coerce_to_dict(chunk)):
-            yield _sse_named_event(event)
+    try:
+        stream = await dispatch(**payload)
+        async for chunk in stream:
+            for event in translator.feed(_coerce_to_dict(chunk)):
+                yield _sse_named_event(event)
+    except Exception as exc:
+        log.error(
+            "stream.dispatch_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            model=payload.get("model"),
+        )
+        # Emit an Anthropic-shape error event so the client can surface the
+        # failure cleanly instead of seeing a truncated stream and retrying.
+        yield _sse_named_event(
+            {
+                "type": "error",
+                "error": {"type": "api_error", "message": f"{type(exc).__name__}: {exc}"},
+            }
+        )
+        return
     for event in translator.finish():
         yield _sse_named_event(event)
 

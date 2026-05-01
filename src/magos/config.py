@@ -40,6 +40,24 @@ class MagosSettings(BaseSettings):
         default=None, description="OTLP HTTP endpoint; default uses OTel SDK fallback"
     )
 
+    anthropic_upstream_url: str = Field(
+        default="https://api.anthropic.com",
+        description=(
+            "Base URL for the upstream Anthropic API used by same-shape "
+            "passthrough mode (Anthropic client + anthropic provider)."
+        ),
+    )
+    anthropic_passthrough_enabled: bool = Field(
+        default=True,
+        description=(
+            "When True, /v1/messages requests whose model resolves to the "
+            "anthropic provider are forwarded verbatim to the upstream "
+            "(preserving OAuth bearer auth, anthropic-beta flags, and "
+            "billing surface). When False, the translate-and-dispatch path "
+            "is used unconditionally."
+        ),
+    )
+
     count_tokens_passthrough_providers: Annotated[frozenset[str], NoDecode] = Field(
         default=frozenset({"anthropic"}),
         description=(

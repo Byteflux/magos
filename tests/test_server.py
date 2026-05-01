@@ -29,7 +29,16 @@ def _load(case_dir: Path, name: str) -> dict[str, Any]:
 
 
 def _client_with(app: FastAPI, completion: Any) -> Iterator[TestClient]:
+    """TestClient with a stub completion and passthrough disabled.
+
+    Passthrough is disabled here so the existing translate-path tests keep
+    exercising the seam they were written for; passthrough has its own tests.
+    """
     app.dependency_overrides[get_completion] = lambda: completion
+    app.dependency_overrides[get_settings] = lambda: MagosSettings(
+        anthropic_passthrough_enabled=False,
+        _env_file=None,  # type: ignore[call-arg]
+    )
     try:
         with TestClient(app) as client:
             yield client

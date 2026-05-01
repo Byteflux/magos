@@ -103,9 +103,25 @@ def test_agent_sdk_sonnet_basic(magos_server: int, monkeypatch: pytest.MonkeyPat
     async def run() -> tuple[list[str], ResultMessage | None]:
         texts: list[str] = []
         result: ResultMessage | None = None
+        # Override settings + betas + env so the CLI ignores the user's
+        # personal Claude Code config. Specifically:
+        # - ANTHROPIC_DEFAULT_SONNET_MODEL=claude-sonnet-4-6[1m] in a parent
+        #   Claude Code session redirects the `sonnet` alias to the 1M
+        #   variant, which Anthropic gates with "Extra usage is required".
+        # - context-1m-2025-08-07 in betas would do the same.
         async for message in query(
             prompt="Reply with the single word: pong",
-            options=ClaudeAgentOptions(model="sonnet", allowed_tools=[]),
+            options=ClaudeAgentOptions(
+                model="sonnet",
+                allowed_tools=[],
+                setting_sources=[],
+                betas=[],
+                env={
+                    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-6",
+                    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+                    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001",
+                },
+            ),
         ):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
