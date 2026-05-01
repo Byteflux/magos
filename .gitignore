@@ -55,6 +55,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# Routing config (per-deployment; magos.example.yaml is the canonical template)
+magos.yaml
+
 # Logs / runtime
 *.log
 logs/
