@@ -27,9 +27,24 @@ LLM inference API proxy built on mitmproxy. Translates between Anthropic and Ope
 ## Layout
 
 ```
-src/magos/        # application code (to be created)
-tests/            # pytest suites (unit, integration, e2e)
-pyproject.toml    # deps + tool config (ruff, mypy, pytest, coverage)
+src/magos/
+  __main__.py        # entrypoint (`python -m magos`)
+  config.py          # MagosSettings (pydantic-settings)
+  server.py          # FastAPI app
+  proxy.py           # mitmproxy integration
+  addon.py           # mitmproxy addon
+  passthrough.py     # byte-exact Anthropic forwarding
+  tokens.py          # token counting
+  obs.py             # logging + tracing setup
+  translation/       # Anthropic <-> OpenAI translation
+    forward.py       # Anthropic -> OpenAI
+    reverse.py       # OpenAI -> Anthropic
+    streaming.py     # streaming translator
+    _models.py       # shared pydantic models
+    _shared.py       # helpers
+tests/               # pytest suites (unit, integration, e2e)
+scripts/             # fixture-capture utilities
+pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 ```
 
 ## Common commands
@@ -57,4 +72,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Bootstrapping phase. No application code yet.
+Active development. Core proxy, translation (Anthropic <-> OpenAI, including streaming), passthrough mode, token counting, and observability are implemented with unit and e2e test coverage (incl. agent-sdk e2e). MCP endpoint and dynamic routing are still to come.
