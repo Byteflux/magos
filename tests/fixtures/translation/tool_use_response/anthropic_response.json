@@ -1,0 +1,22 @@
+{
+  "id": "msg_magos_tool_use_response",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-5",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "toolu_01ABC",
+      "name": "get_weather",
+      "input": {
+        "city": "SF"
+      }
+    }
+  ],
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "usage": {
+    "input_tokens": 20,
+    "output_tokens": 5
+  }
+}

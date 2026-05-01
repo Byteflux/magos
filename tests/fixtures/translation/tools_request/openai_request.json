@@ -1,0 +1,30 @@
+{
+  "model": "claude-sonnet-4-5",
+  "max_tokens": 512,
+  "messages": [
+    {
+      "role": "user",
+      "content": "What is the weather in SF?"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string",
+              "description": "City name"
+            }
+          },
+          "required": ["city"]
+        },
+        "description": "Get the current weather for a city."
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

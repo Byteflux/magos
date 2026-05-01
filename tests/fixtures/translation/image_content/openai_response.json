@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-magos-image-content",
+  "object": "chat.completion",
+  "created": 1730000800,
+  "model": "claude-sonnet-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "A small black square."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 25,
+    "completion_tokens": 4,
+    "total_tokens": 29
+  }
+}

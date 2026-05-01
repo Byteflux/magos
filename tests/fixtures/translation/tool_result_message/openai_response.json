@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-magos-tool-result-message",
+  "object": "chat.completion",
+  "created": 1730000700,
+  "model": "claude-sonnet-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "It is sunny, 72F."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 30,
+    "completion_tokens": 6,
+    "total_tokens": 36
+  }
+}

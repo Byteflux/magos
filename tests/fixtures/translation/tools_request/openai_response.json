@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-magos-tools-request",
+  "object": "chat.completion",
+  "created": 1730000500,
+  "model": "claude-sonnet-4-5",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Let me check that for you."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 35,
+    "completion_tokens": 6,
+    "total_tokens": 41
+  }
+}
