@@ -2324,6 +2324,7 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "pydantic", version = "2.11.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13' or (extra == 'extra-5-magos-cpu' and extra == 'extra-5-magos-gpu')" },
     { name = "pydantic", version = "2.13.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13' or (extra == 'extra-5-magos-cpu' and extra == 'extra-5-magos-gpu')" },
+    { name = "pydantic-settings" },
     { name = "structlog" },
     { name = "uvicorn" },
 ]
@@ -2359,6 +2360,7 @@ requires-dist = [
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.41.1" },
     { name = "opentelemetry-sdk", specifier = ">=1.41.1" },
     { name = "pydantic", specifier = ">=2.11.10" },
+    { name = "pydantic-settings", specifier = ">=2.14.0" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "magos", extra = "cpu" } },
     { name = "torch", marker = "extra == 'gpu'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "magos", extra = "gpu" } },

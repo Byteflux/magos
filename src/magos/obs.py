@@ -55,9 +55,17 @@ def configure_tracing(
     *,
     service_name: str = "magos",
     endpoint: str | None = None,
+    enabled: bool | None = None,
 ) -> None:
-    """Wire OTel TracerProvider + OTLP exporter when MAGOS_OTEL_ENABLED=1."""
-    if os.environ.get("MAGOS_OTEL_ENABLED", "0") != "1":
+    """Wire OTel TracerProvider + OTLP exporter.
+
+    When ``enabled`` is ``None``, falls back to ``MAGOS_OTEL_ENABLED=1`` for
+    backward compatibility. Pass ``enabled`` explicitly from a settings object
+    to keep configuration declarative.
+    """
+    if enabled is None:
+        enabled = os.environ.get("MAGOS_OTEL_ENABLED", "0") == "1"
+    if not enabled:
         return
     resource = Resource.create({SERVICE_NAME: service_name})
     provider = TracerProvider(resource=resource)
