@@ -21,12 +21,19 @@ class AnthropicStreamTranslator:
     Tool-call argument JSON is forwarded as ``input_json_delta`` slices; the
     client is responsible for reassembling and parsing.
 
-    ``input_tokens`` is set to 0 in ``message_start`` since OpenAI streaming
-    chunks do not carry prompt token counts; ``output_tokens`` is updated from
-    a final usage chunk if present (e.g. ``stream_options.include_usage``).
+    Pass ``input_tokens`` from a pre-dispatch local estimate (see
+    ``magos.tokens.count_locally``) so ``message_start.usage.input_tokens``
+    is populated; OpenAI streaming chunks do not carry prompt token counts.
+    ``output_tokens`` is updated from a final usage chunk if present (e.g.
+    ``stream_options.include_usage``).
     """
 
-    def __init__(self, *, message_id: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        message_id: str | None = None,
+        input_tokens: int = 0,
+    ) -> None:
         self._message_id = message_id or "msg_" + secrets.token_hex(12)
         self._started = False
         self._stopped = False
@@ -36,6 +43,7 @@ class AnthropicStreamTranslator:
         self._open_block_kind: str | None = None  # "text" | "tool_use"
         self._tool_index_map: dict[int, int] = {}  # OpenAI tool index -> Anthropic block index
         self._stop_reason: AnthropicStopReason | None = None
+        self._input_tokens = max(0, input_tokens)
         self._output_tokens = 0
 
     def feed(self, chunk: dict[str, Any]) -> list[dict[str, Any]]:
@@ -55,7 +63,10 @@ class AnthropicStreamTranslator:
                         "model": self._model,
                         "stop_reason": None,
                         "stop_sequence": None,
-                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                        "usage": {
+                            "input_tokens": self._input_tokens,
+                            "output_tokens": 0,
+                        },
                     },
                 }
             )

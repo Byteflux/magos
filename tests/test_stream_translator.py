@@ -58,10 +58,18 @@ def test_text_only_flow() -> None:
         "message_stop",
     ]
     assert events[0]["message"]["id"] == "msg_test"
+    assert events[0]["message"]["usage"] == {"input_tokens": 0, "output_tokens": 0}
     assert events[1]["content_block"] == {"type": "text", "text": ""}
     assert events[2]["delta"] == {"type": "text_delta", "text": "Hello"}
     assert events[3]["delta"] == {"type": "text_delta", "text": " world"}
     assert events[5]["delta"]["stop_reason"] == "end_turn"
+
+
+@pytest.mark.unit
+def test_input_tokens_seeded_from_constructor() -> None:
+    t = AnthropicStreamTranslator(message_id="msg_seed", input_tokens=42)
+    events = t.feed(_chunk({"role": "assistant"}))
+    assert events[0]["message"]["usage"]["input_tokens"] == 42
 
 
 @pytest.mark.unit

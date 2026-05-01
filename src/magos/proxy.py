@@ -14,6 +14,7 @@ from typing import Any, Protocol
 import litellm
 
 from magos.obs import get_logger, traced
+from magos.tokens import count_locally
 from magos.translation import (
     AnthropicStreamTranslator,
     request_anthropic_to_openai,
@@ -81,23 +82,41 @@ def stream_anthropic_messages(
     """Async iterator of Anthropic-shape SSE bytes for an Anthropic Messages request.
 
     Returned as a regular function (not an async generator) so request
-    validation runs synchronously: a malformed request raises
-    ``pydantic.ValidationError`` before any response bytes are emitted, which
-    lets the endpoint return a clean 400 instead of a half-streamed reply.
+    validation and the local token estimate run synchronously: a malformed
+    request raises ``pydantic.ValidationError`` before any response bytes
+    are emitted, and ``message_start.usage.input_tokens`` is seeded with a
+    LiteLLM-based estimate so clients see a real value rather than ``0``.
+
+    Streaming intentionally uses the local estimator only; provider passthrough
+    would add network latency to time-to-first-byte. Anthropic clients refine
+    usage from ``message_delta``, so an estimate at ``message_start`` is fine.
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
     openai_request = request_anthropic_to_openai(anthropic_request)
+    try:
+        input_tokens = count_locally(anthropic_request)
+    except Exception as exc:
+        log.warning("stream.token_count_failed", error=str(exc), error_type=type(exc).__name__)
+        input_tokens = 0
     payload = {**openai_request, "stream": True}
-    log.info("dispatch", shape="anthropic->openai", model=payload.get("model"), stream=True)
-    return _anthropic_stream_iter(payload, dispatch)
+    log.info(
+        "dispatch",
+        shape="anthropic->openai",
+        model=payload.get("model"),
+        stream=True,
+        input_tokens=input_tokens,
+    )
+    return _anthropic_stream_iter(payload, dispatch, input_tokens=input_tokens)
 
 
 async def _anthropic_stream_iter(
     payload: dict[str, Any],
     dispatch: Callable[..., Awaitable[Any]],
+    *,
+    input_tokens: int = 0,
 ) -> AsyncIterator[bytes]:
     stream = await dispatch(**payload)
-    translator = AnthropicStreamTranslator()
+    translator = AnthropicStreamTranslator(input_tokens=input_tokens)
     async for chunk in stream:
         for event in translator.feed(_coerce_to_dict(chunk)):
             yield _sse_named_event(event)

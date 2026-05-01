@@ -160,6 +160,9 @@ def test_messages_streams_anthropic_events() -> None:
     parsed = [json.loads(line) for line in data_lines]
     assert parsed[2]["delta"] == {"type": "text_delta", "text": "hi"}
     assert parsed[4]["delta"]["stop_reason"] == "end_turn"
+    # message_start.usage.input_tokens is seeded by the local LiteLLM
+    # estimator, so it should be a positive integer for a non-empty request.
+    assert parsed[0]["message"]["usage"]["input_tokens"] > 0
 
 
 @pytest.mark.unit
