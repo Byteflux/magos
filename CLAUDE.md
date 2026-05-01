@@ -31,10 +31,10 @@ src/magos/
   __main__.py        # entrypoint (`python -m magos`)
   config.py          # MagosSettings (pydantic-settings)
   server.py          # FastAPI app, routes everything via routing/
-  proxy.py           # translate-mode dispatch into litellm
+  proxy.py           # translate-mode dispatch into litellm SDK call sites
   addon.py           # mitmproxy addon
-  passthrough.py     # byte-exact Anthropic-shape forwarding
-  tokens.py          # count_locally + PASSTHROUGH_DISPATCH registry
+  passthrough.py     # byte-exact same-shape forwarding
+  tokens.py          # async count_tokens via litellm.acount_tokens
   obs.py             # logging + tracing setup
   routing/           # declarative rule-based routing
     models.py        # pydantic schemas for magos.yaml
@@ -46,19 +46,21 @@ src/magos/
     loader.py        # YAML -> RoutingConfig with post-load validation
     dispatch.py      # decision -> proxy/passthrough/tokens dispatch
     jq_compat.py     # jq compile + truthy predicate helpers
-  translation/       # Anthropic <-> OpenAI translation
-    forward.py       # Anthropic -> OpenAI
-    reverse.py       # OpenAI -> Anthropic
-    streaming.py     # streaming translator
-    _models.py       # shared pydantic models
-    _shared.py       # helpers
 magos.example.yaml   # routing config to copy and customise
 tests/               # pytest suites (unit, integration, e2e)
-  fixtures/          # test routing yaml + translation case fixtures
-scripts/             # fixture-capture utilities
+  fixtures/          # test routing yaml
+scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/routing.md      # rule grammar, examples, migration notes
 ```
+
+Translation between Anthropic and OpenAI shapes is delegated to LiteLLM's
+SDK (``litellm.anthropic_messages`` for ``/v1/messages``,
+``litellm.acompletion`` for ``/v1/chat/completions``,
+``litellm.aresponses`` for ``/v1/responses``,
+``litellm.acount_tokens`` for ``/v1/messages/count_tokens``). Magos owns
+routing, header forwarding, byte-exact passthrough, and observability;
+LiteLLM owns wire-shape translation across providers.
 
 ## Common commands
 
@@ -85,4 +87,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Active development. Core proxy, translation (Anthropic <-> OpenAI, including streaming), passthrough mode, token counting, observability, and **declarative rule-based routing** (`magos.yaml`) are implemented with unit and e2e test coverage (incl. agent-sdk e2e). MCP endpoint is still to come.
+Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, and **declarative rule-based routing** (`magos.yaml`) are implemented with unit and e2e test coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint and Headroom integration are still to come.

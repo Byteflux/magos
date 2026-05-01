@@ -118,7 +118,6 @@ Rewrite = SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch
 
 
 DispatchMode = Literal["translate", "passthrough"]
-CountTokensMode = Literal["local", "passthrough"]
 
 
 class Action(_Frozen):
@@ -126,7 +125,6 @@ class Action(_Frozen):
     mode: DispatchMode
     base_url: str | None = None
     api_key_env: str | None = None
-    count_tokens_mode: CountTokensMode = "local"
 
 
 class Rule(_Frozen):

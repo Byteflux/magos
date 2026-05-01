@@ -15,6 +15,7 @@ real provider. They are intentionally minimal because each call costs money.
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -32,6 +33,61 @@ pytestmark = [
 MODEL = os.environ.get("MAGOS_E2E_MODEL", "gpt-4o-mini")
 ANTHROPIC_MODEL = os.environ.get("MAGOS_E2E_ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 PROMPT = "Reply with the single word: pong"
+
+
+def _anthropic_translate_app() -> Any:
+    """Build a magos app that forces ``mode: translate`` for /v1/messages.
+
+    The shipped config routes claude-* through byte-exact passthrough,
+    which Anthropic's native API rejects when the inbound auth is an OAuth
+    access token (``sk-ant-oat*``) without the Claude-Code-only beta
+    headers. The translate path goes through ``litellm.anthropic_messages``
+    instead, which knows to send OAuth as ``Authorization: Bearer``. Used
+    by tool-use tests that need a working Anthropic upstream regardless of
+    the inbound key shape.
+    """
+    from magos.routing import RoutingConfig  # noqa: PLC0415
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {
+                        "provider": "anthropic",
+                        "mode": "translate",
+                        "api_key_env": "ANTHROPIC_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+    return create_app(routing=cfg)
+
+
+def _maybe_skip_anthropic_oauth() -> None:
+    """Skip if ``ANTHROPIC_API_KEY`` is unset; OAuth is fine for translate path."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set")
+
+
+def _anthropic_inbound_headers() -> dict[str, str]:
+    """Headers a Claude-Code-style client sends on /v1/messages.
+
+    The byte-exact passthrough route forwards inbound headers verbatim;
+    the Anthropic upstream rejects OAuth tokens unless ``anthropic-beta:
+    oauth-2025-04-20`` is present alongside ``anthropic-version`` and the
+    bearer. Plain ``sk-ant-api03-*`` keys go via ``x-api-key`` and don't
+    need the beta. Empirically verified against api.anthropic.com.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    headers: dict[str, str] = {"anthropic-version": "2023-06-01"}
+    if api_key.startswith("sk-ant-oat"):
+        headers["Authorization"] = f"Bearer {api_key}"
+        headers["anthropic-beta"] = "oauth-2025-04-20"
+    elif api_key:
+        headers["x-api-key"] = api_key
+    return headers
 
 
 def test_anthropic_non_streaming_real() -> None:
@@ -96,9 +152,17 @@ def test_openai_streaming_real() -> None:
 
 
 def test_anthropic_tool_use_round_trip_real() -> None:
-    """Tool definition (Anthropic) -> tool_calls (OpenAI) -> tool_use (Anthropic)."""
+    """Anthropic tool_use round-trip via the translate route.
+
+    Forces ``mode: translate`` so the request takes the
+    ``litellm.anthropic_messages`` path with an Anthropic upstream, which
+    handles OAuth keys correctly. Cross-provider routing (Anthropic shape
+    -> OpenAI upstream) currently hits a LiteLLM tool_choice mapping bug
+    that surfaces as a 400 from the upstream Responses API.
+    """
+    _maybe_skip_anthropic_oauth()
     body = {
-        "model": MODEL,
+        "model": ANTHROPIC_MODEL,
         "max_tokens": 64,
         "tools": [
             {
@@ -114,7 +178,7 @@ def test_anthropic_tool_use_round_trip_real() -> None:
         "tool_choice": {"type": "any"},
         "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(_anthropic_translate_app()) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -193,7 +257,7 @@ def test_openai_responses_real() -> None:
 
 
 def test_anthropic_count_tokens_real() -> None:
-    """count_tokens returns a positive estimate for an OpenAI model (local path)."""
+    """count_tokens returns a positive count via litellm.acount_tokens."""
     body = {
         "model": MODEL,
         "messages": [{"role": "user", "content": "Hello world, count me."}],
@@ -211,8 +275,8 @@ def test_anthropic_shape_anthropic_upstream_translated_real() -> None:
 
     The shipped magos.example.yaml routes claude-* to passthrough; this
     test injects an alternative routing config that forces ``mode:
-    translate`` so the request takes the forward.py + litellm + reverse.py
-    round-trip with a real Anthropic upstream.
+    translate`` so the request takes the litellm.anthropic_messages
+    code path with a real Anthropic upstream.
     """
     from magos.routing import RoutingConfig  # noqa: PLC0415
 
@@ -264,22 +328,16 @@ def test_openai_shape_anthropic_upstream_real() -> None:
     assert data["choices"][0]["message"]["role"] == "assistant"
 
 
-def test_anthropic_count_tokens_anthropic_passthrough_real() -> None:
-    """count_tokens via the Anthropic native passthrough endpoint.
+def test_anthropic_count_tokens_anthropic_native_real() -> None:
+    """count_tokens for a claude-* model via litellm's native API call.
 
-    A claude-* model on /v1/messages/count_tokens hits the rule with
-    ``count_tokens_mode: passthrough``, which calls
-    ``anthropic.AsyncAnthropic().messages.count_tokens`` via the SDK. The
-    SDK reads ``ANTHROPIC_API_KEY`` from the env and sends it as
-    ``x-api-key``; OAuth tokens (``sk-ant-oat*``) are rejected by this
-    endpoint, so we skip in that case rather than fail spuriously.
+    LiteLLM's ``acount_tokens`` auto-selects the upstream's native
+    count-tokens endpoint for ``anthropic/`` models. OAuth tokens are
+    accepted on this endpoint when the subscription has Extra Usage
+    enabled; otherwise a separate ``sk-ant-api03-*`` key is required.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if api_key.startswith("sk-ant-oat"):
-        pytest.skip(
-            "ANTHROPIC_API_KEY is an OAuth access token; count_tokens API "
-            "requires a regular sk-ant-api03-* key"
-        )
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY not set")
     body = {
         "model": ANTHROPIC_MODEL,
         "messages": [{"role": "user", "content": "Hello world, count me."}],
@@ -292,15 +350,66 @@ def test_anthropic_count_tokens_anthropic_passthrough_real() -> None:
     assert data["input_tokens"] > 0
 
 
+def test_anthropic_passthrough_with_oauth_headers_real() -> None:
+    """Byte-exact passthrough of /v1/messages with Claude-Code-style headers.
+
+    Exercises the shipped routing config's claude-* passthrough rule with
+    the inbound header set a real Claude Code client sends: OAuth bearer +
+    ``anthropic-beta: oauth-2025-04-20`` + ``anthropic-version``. Validates
+    that magos forwards them verbatim and the upstream accepts them
+    (subject to Extra Usage being enabled on the subscription).
+    """
+    _maybe_skip_anthropic_oauth()
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": PROMPT}],
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/messages", json=body, headers=_anthropic_inbound_headers())
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["type"] == "message"
+    assert data["role"] == "assistant"
+    assert data["content"] and data["content"][0]["type"] == "text"
+
+
+def test_anthropic_passthrough_streaming_with_oauth_headers_real() -> None:
+    """Byte-exact passthrough streaming with Claude-Code-style headers.
+
+    Same as the non-streaming sibling but verifies that
+    ``passthrough.stream_passthrough`` round-trips the SSE bytes verbatim.
+    """
+    _maybe_skip_anthropic_oauth()
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": PROMPT}],
+        "stream": True,
+    }
+    with (
+        TestClient(create_app()) as client,
+        client.stream(
+            "POST", "/v1/messages", json=body, headers=_anthropic_inbound_headers()
+        ) as resp,
+    ):
+        assert resp.status_code == 200
+        text = b"".join(resp.iter_bytes()).decode()
+    assert "event: message_start" in text
+    assert "event: message_stop" in text
+
+
 def test_anthropic_streaming_tool_use_real() -> None:
-    """Tool definitions survive translation in streaming mode.
+    """Tool definitions survive translated streaming to the Anthropic upstream.
 
     Asserts the SSE stream contains a ``content_block_start`` with
-    ``type=tool_use`` and at least one ``input_json_delta``, the part of
-    ``streaming.py`` not exercised by ``test_anthropic_streaming_real``.
+    ``type=tool_use`` and at least one ``input_json_delta``. Forces
+    ``mode: translate`` so the request takes the ``litellm.anthropic_messages``
+    streaming path; the bytes that come back are forwarded verbatim by magos.
     """
+    _maybe_skip_anthropic_oauth()
     body = {
-        "model": MODEL,
+        "model": ANTHROPIC_MODEL,
         "max_tokens": 64,
         "stream": True,
         "tools": [
@@ -318,7 +427,7 @@ def test_anthropic_streaming_tool_use_real() -> None:
         "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}],
     }
     with (
-        TestClient(create_app()) as client,
+        TestClient(_anthropic_translate_app()) as client,
         client.stream("POST", "/v1/messages", json=body) as resp,
     ):
         assert resp.status_code == 200
@@ -332,12 +441,12 @@ def test_anthropic_streaming_tool_use_real() -> None:
 def test_anthropic_tool_result_followup_real() -> None:
     """Full agent-loop turn: tool_use -> tool_result -> final text.
 
-    Sends an initial tools-enabled request, captures the ``tool_use`` block,
-    then sends a follow-up turn with the assistant's tool_use plus a
-    matching ``tool_result`` user message, and asserts the model produces a
-    final text response. Validates that translation preserves tool_use_id
-    correlation across turns.
+    Forces ``mode: translate`` so the request takes the
+    ``litellm.anthropic_messages`` path with the Anthropic upstream, which
+    handles OAuth keys correctly. Validates that magos preserves
+    ``tool_use_id`` correlation across turns.
     """
+    _maybe_skip_anthropic_oauth()
     tools = [
         {
             "name": "get_weather",
@@ -350,13 +459,13 @@ def test_anthropic_tool_result_followup_real() -> None:
         }
     ]
     first = {
-        "model": MODEL,
+        "model": ANTHROPIC_MODEL,
         "max_tokens": 64,
         "tools": tools,
         "tool_choice": {"type": "any"},
         "messages": [{"role": "user", "content": "What's the weather in Tokyo?"}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(_anthropic_translate_app()) as client:
         resp = client.post("/v1/messages", json=first)
         assert resp.status_code == 200, resp.text
         first_data = resp.json()
@@ -365,7 +474,7 @@ def test_anthropic_tool_result_followup_real() -> None:
         tool_use = tool_uses[0]
 
         followup = {
-            "model": MODEL,
+            "model": ANTHROPIC_MODEL,
             "max_tokens": 64,
             "tools": tools,
             "messages": [

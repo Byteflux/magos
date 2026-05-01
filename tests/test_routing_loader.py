@@ -1,7 +1,7 @@
 """Loader tests for ``magos.routing.loader``.
 
 Covers: YAML round-trip, structural errors (pydantic), semantic errors
-(regex/glob/jq compile, count_tokens_mode), and the body-touch warning.
+(regex/glob/jq compile, passthrough base_url), and the body-touch warning.
 
 Structlog renders to stdout via ``PrintLoggerFactory`` and caches its bound
 logger on first use, which makes ``capsys``/``capfd`` capture order-dependent
@@ -132,41 +132,6 @@ def test_passthrough_mode_requires_base_url(tmp_path: Path) -> None:
     )
     with pytest.raises(RoutingConfigError, match="base_url"):
         load_config(p)
-
-
-def test_count_tokens_passthrough_only_for_supported_provider(tmp_path: Path) -> None:
-    p = _write(
-        tmp_path,
-        """
-        rules:
-          - name: bad-ct
-            match: { endpoint: { literal: /v1/messages/count_tokens } }
-            action:
-              provider: openai
-              mode: translate
-              count_tokens_mode: passthrough
-        """,
-    )
-    with pytest.raises(RoutingConfigError, match="count_tokens_mode='passthrough'"):
-        load_config(p)
-
-
-def test_count_tokens_passthrough_anthropic_ok(tmp_path: Path) -> None:
-    p = _write(
-        tmp_path,
-        """
-        rules:
-          - match: { endpoint: { literal: /v1/messages/count_tokens } }
-            action:
-              provider: anthropic
-              mode: passthrough
-              base_url: https://api.anthropic.com
-              count_tokens_mode: passthrough
-              api_key_env: ANTHROPIC_API_KEY
-        """,
-    )
-    cfg = load_config(p)
-    assert cfg.rules[0].action.count_tokens_mode == "passthrough"
 
 
 def test_body_touch_warns_under_passthrough(

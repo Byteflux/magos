@@ -20,17 +20,6 @@ rules:
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
 
-  - name: anthropic-count-tokens-passthrough
-    match:
-      all_of:
-        - endpoint: { literal: /v1/messages/count_tokens }
-        - model: { regex: "^claude-.*" }
-    action:
-      provider: anthropic
-      mode: passthrough
-      base_url: https://api.anthropic.com
-      count_tokens_mode: passthrough
-
   - name: openai-translate-messages
     match:
       endpoint: { literal: /v1/messages }
@@ -63,10 +52,9 @@ rules:
       base_url: https://api.openai.com
       api_key_env: OPENAI_API_KEY
 
-  - name: count-tokens-local
+  - name: count-tokens-fallback
     match:
       endpoint: { literal: /v1/messages/count_tokens }
     action:
       provider: openai
       mode: translate
-      count_tokens_mode: local

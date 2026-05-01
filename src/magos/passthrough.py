@@ -4,15 +4,16 @@ When a client and the resolved upstream speak the same wire shape, no
 translation is needed: forwarding the request bytes and headers verbatim
 preserves auth (``Authorization`` bearer or ``x-api-key``), version pins,
 beta feature flags, and the provider's billing surface exactly. For
-Anthropic specifically it also preserves prompt-cache hashes and avoids
-the LiteLLM Anthropic -> OpenAI -> Anthropic re-translation.
+Anthropic specifically it preserves prompt-cache hashes (any body re-
+serialisation breaks them) and forwards Claude-Code-style OAuth + beta
+header sets unchanged.
 
 The functions here are shape-agnostic: the caller passes ``path``
 (``/v1/messages``, ``/v1/responses``, ...) and the dispatcher in
 ``magos.routing.dispatch`` chooses based on the matched rule's endpoint.
-LiteLLM is intentionally NOT involved: it short-circuits on missing
-``ANTHROPIC_API_KEY`` before any HTTPS call, which breaks the OAuth
-bearer case (Claude Code's auth model).
+LiteLLM is intentionally NOT involved on this path: any SDK round-trip
+would re-build the request from a parsed body, defeating byte-exactness
+even when the upstream wire shape happens to match.
 """
 
 from __future__ import annotations

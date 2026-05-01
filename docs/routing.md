@@ -8,7 +8,7 @@ from `magos.yaml`. The supported endpoints are:
 | `POST /v1/messages`                       | Anthropic Messages                                                                           |
 | `POST /v1/messages/count_tokens`          | Anthropic count_tokens                                                                       |
 | `POST /v1/chat/completions`               | OpenAI Chat Completions                                                                      |
-| `POST /v1/responses`                      | OpenAI Responses (Phase A: passthrough/translate; no Anthropic <-> Responses translation yet) |
+| `POST /v1/responses`                      | OpenAI Responses (translate via `litellm.aresponses`, or passthrough)                        |
 | `GET /v1/responses/{id}`                  | Retrieve a stored response (passthrough-only)                                                |
 | `DELETE /v1/responses/{id}`               | Cancel an in-flight background response (passthrough-only)                                   |
 | `GET /v1/responses/{id}/input_items`      | List the input items used to produce a response (passthrough-only)                           |
@@ -25,7 +25,6 @@ Rules choose:
 - **mode**: `translate` (litellm round-trip) or `passthrough` (byte-exact bytes)
 - **base_url**: passthrough target host
 - **api_key_env**: env var holding the credential
-- **count_tokens_mode**: `local` (litellm estimator) or `passthrough` (provider SDK)
 
 Plus optional **rewrites** that mutate the request body or headers before
 or after a rule matches.
@@ -68,8 +67,12 @@ rules:                    # required, at least one
       mode: translate | passthrough
       base_url: <url>     # required when mode=passthrough
       api_key_env: <NAME> # optional
-      count_tokens_mode: local | passthrough  # default local
 ```
+
+count_tokens calls go through `litellm.acount_tokens`, which auto-selects
+between an in-process tokenizer and the provider's native count-tokens
+endpoint based on the model id. There is no separate `count_tokens_mode`
+knob; declare a regular `mode: translate` rule for `/v1/messages/count_tokens`.
 
 ### Match expressions
 
@@ -155,8 +158,6 @@ Endpoint-shaped envelopes:
 Loader rejects (raises `RoutingConfigError`):
 
 - regex / glob / jq programs that fail to compile
-- `count_tokens_mode: passthrough` for a provider not in
-  `tokens.PASSTHROUGH_DISPATCH` (currently only `anthropic`)
 - `mode: passthrough` rules without `base_url`
 
 Loader warns (structlog `routing.passthrough_body_touch`):
@@ -224,11 +225,9 @@ rules:
 
 ### OpenAI Responses passthrough to a self-hosted upstream
 
-Phase A of `/v1/responses` support is passthrough/translate only — no
-Anthropic <-> Responses translation. A passthrough rule forwards raw
-bytes (preserving `previous_response_id` chaining and any built-in tool
-declarations like `web_search` / `file_search`) to a same-shape
-upstream:
+A passthrough rule forwards raw bytes (preserving `previous_response_id`
+chaining and any built-in tool declarations like `web_search` /
+`file_search`) to a same-shape upstream:
 
 ```yaml
 rules:

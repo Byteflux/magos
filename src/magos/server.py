@@ -52,8 +52,19 @@ CompletionFn = Callable[..., Awaitable[Any]]
 
 
 def get_completion() -> CompletionFn:
-    """Upstream completion for /v1/messages and /v1/chat/completions."""
+    """Upstream completion for /v1/chat/completions (OpenAI Chat shape)."""
     return cast(CompletionFn, litellm.acompletion)
+
+
+def get_anthropic_messages_completion() -> CompletionFn:
+    """Upstream completion for /v1/messages (Anthropic-unified shape).
+
+    LiteLLM's ``anthropic_messages`` accepts Anthropic-shape requests and
+    emits Anthropic-shape responses regardless of upstream provider, so it
+    is the right call site for both Anthropic-on-Anthropic and cross-
+    provider routing (Anthropic shape -> OpenAI/Gemini/Bedrock/etc.).
+    """
+    return cast(CompletionFn, litellm.anthropic_messages)
 
 
 def get_responses_completion() -> CompletionFn:
@@ -61,8 +72,19 @@ def get_responses_completion() -> CompletionFn:
     return cast(CompletionFn, litellm.aresponses)
 
 
+def get_count_tokens_completion() -> CompletionFn:
+    """Upstream count-tokens call for /v1/messages/count_tokens.
+
+    LiteLLM's ``acount_tokens`` auto-selects between local tokenizers and
+    the provider's native count-tokens endpoint based on the model id.
+    """
+    return cast(CompletionFn, litellm.acount_tokens)
+
+
 CompletionDep = Annotated[CompletionFn, Depends(get_completion)]
+AnthropicMessagesCompletionDep = Annotated[CompletionFn, Depends(get_anthropic_messages_completion)]
 ResponsesCompletionDep = Annotated[CompletionFn, Depends(get_responses_completion)]
+CountTokensCompletionDep = Annotated[CompletionFn, Depends(get_count_tokens_completion)]
 SettingsDep = Annotated[MagosSettings, Depends(get_settings)]
 
 
@@ -109,13 +131,13 @@ def create_app(routing: RoutingConfig | None = None) -> FastAPI:
 
     @app.post("/v1/messages")
     async def anthropic_messages(  # type: ignore[unused-ignore]
-        request: Request, completion: CompletionDep
+        request: Request, completion: AnthropicMessagesCompletionDep
     ) -> Any:
         return await _run("/v1/messages", request, completion)
 
     @app.post("/v1/messages/count_tokens")
     async def anthropic_count_tokens(  # type: ignore[unused-ignore]
-        request: Request, completion: CompletionDep
+        request: Request, completion: CountTokensCompletionDep
     ) -> Any:
         return await _run("/v1/messages/count_tokens", request, completion)
 

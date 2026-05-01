@@ -3,8 +3,8 @@
 The dispatcher is the only routing-layer module that knows about FastAPI
 response types. ``server.py`` calls ``dispatch_decision`` with a decision
 already produced by ``route()``; the dispatcher then picks the right
-underlying call based on endpoint, ``action.mode``,
-``action.count_tokens_mode``, and the request's ``stream`` flag.
+underlying call based on endpoint, ``action.mode``, and the request's
+``stream`` flag.
 
 API-key handling:
 
@@ -43,7 +43,7 @@ from magos.proxy import (
     stream_openai_responses,
 )
 from magos.routing.engine import RouteDecision
-from magos.tokens import PASSTHROUGH_DISPATCH, count_locally
+from magos.tokens import count_tokens
 
 log = get_logger("magos.routing.dispatch")
 
@@ -61,17 +61,17 @@ async def dispatch_decision(  # noqa: PLR0911
 ) -> Response | StreamingResponse | dict[str, Any]:
     """Hand ``decision`` off to the right downstream call site.
 
-    Six branches: count_tokens, passthrough+stream, passthrough+non-stream,
-    translate+messages+stream, translate+messages+non-stream, translate+
-    chat+stream, translate+chat+non-stream. The ``# noqa`` is a deliberate
-    suppression of the per-function return-cap; collapsing branches into
-    helpers makes the dispatch shape harder to read, not easier.
+    Branches: count_tokens, passthrough+stream, passthrough+non-stream,
+    translate x {messages, chat, responses} x {stream, non-stream}.
+    The ``# noqa`` is a deliberate suppression of the per-function
+    return-cap; collapsing branches into helpers makes the dispatch shape
+    harder to read, not easier.
     """
     req = decision.request
     action = decision.action
 
     if req.endpoint == "/v1/messages/count_tokens":
-        return await _dispatch_count_tokens(decision)
+        return await _dispatch_count_tokens(decision, completion=completion)
 
     forward_headers = _maybe_inject_api_key(dict(req.headers), action.api_key_env, action.mode)
     is_streaming = bool(req.body.get("stream"))
@@ -169,29 +169,23 @@ async def dispatch_decision(  # noqa: PLR0911
     )
 
 
-async def _dispatch_count_tokens(decision: RouteDecision) -> dict[str, int]:
-    """Dispatch a count_tokens request via the strategy named by ``action``.
+async def _dispatch_count_tokens(
+    decision: RouteDecision, *, completion: CompletionFn
+) -> dict[str, int]:
+    """Dispatch a count_tokens request via ``litellm.acount_tokens``.
 
-    Auth is intentionally not injected here: the registered passthrough impls
-    (currently ``_anthropic_passthrough``) use their own SDK which reads
-    ``ANTHROPIC_API_KEY`` from the process environment. Injecting an
-    ``x-api-key`` header would either duplicate or override the SDK's own
-    auth and the upstream would reject it as ``invalid x-api-key``. Inbound
-    headers are still forwarded so beta flags and version pins reach the
-    SDK via ``extra_headers`` (with auth headers filtered inside the impl).
+    LiteLLM auto-picks between the local tokenizer and the upstream's
+    native count-tokens endpoint based on the model's provider, so a
+    single call covers what was historically split across ``count_locally``
+    and ``count_tokens_mode: passthrough``.
     """
-    req = decision.request
-    action = decision.action
-    body = dict(req.body)
-    if action.count_tokens_mode == "passthrough":
-        impl = PASSTHROUGH_DISPATCH.get(action.provider)
-        if impl is None:
-            raise DispatchError(
-                f"count_tokens_mode='passthrough' with no implementation for "
-                f"provider={action.provider!r}"
-            )
-        return {"input_tokens": await impl(body, forward_headers=dict(req.headers))}
-    return {"input_tokens": count_locally(body)}
+    body = dict(decision.request.body)
+    n = await count_tokens(
+        body,
+        dispatch_model=decision.dispatch_model,
+        count=completion,
+    )
+    return {"input_tokens": n}
 
 
 def _maybe_inject_api_key(

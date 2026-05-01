@@ -1,8 +1,17 @@
-"""Async pipeline: Anthropic Messages request -> OpenAI dispatch -> Anthropic response.
+"""Translate-mode dispatch into LiteLLM SDK call sites.
 
-Pure function. The ``completion`` argument is the seam for tests and routing:
-production wires ``litellm.acompletion``; tests inject a fake. Anything that
-returns a dict-like or pydantic ``model_dump``-able response works.
+Three endpoint families, each backed by the LiteLLM SDK call that natively
+handles its wire shape:
+
+- ``/v1/messages``         -> ``litellm.anthropic_messages`` (Anthropic shape in,
+                             Anthropic shape out, including cross-provider routing)
+- ``/v1/chat/completions`` -> ``litellm.acompletion``        (OpenAI Chat Completions)
+- ``/v1/responses``        -> ``litellm.aresponses``         (OpenAI Responses)
+
+Each entry point accepts a ``completion`` callable for tests; production
+wires the matching SDK function. Anthropic streaming returns raw SSE bytes
+from LiteLLM, forwarded verbatim. OpenAI streaming wraps chunks into SSE
+frames here because the SDK yields parsed objects.
 
 Caller (``magos.routing.dispatch``) supplies ``dispatch_model`` already in
 the form LiteLLM expects (``<provider>/<name>`` for unprefixed inputs); this
@@ -18,12 +27,6 @@ from typing import Any, Protocol
 import litellm
 
 from magos.obs import get_logger, traced
-from magos.tokens import count_locally
-from magos.translation import (
-    AnthropicStreamTranslator,
-    request_anthropic_to_openai,
-    response_openai_to_anthropic,
-)
 
 log = get_logger("magos.proxy")
 
@@ -56,6 +59,11 @@ def _sse_event(data: str) -> bytes:
     return f"data: {data}\n\n".encode()
 
 
+def _sse_named_event(event: dict[str, Any]) -> bytes:
+    """OpenAI Responses streaming uses ``event:`` + ``data:`` lines per chunk."""
+    return f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
+
+
 def _build_payload(
     request: dict[str, Any],
     *,
@@ -63,7 +71,7 @@ def _build_payload(
     forward_headers: dict[str, str] | None,
     api_key: str | None,
 ) -> dict[str, Any]:
-    """Compose the kwargs handed to ``litellm.acompletion``.
+    """Compose the kwargs handed to a LiteLLM SDK call.
 
     ``dispatch_model`` overrides ``request["model"]`` because the routing
     layer has already chosen the LiteLLM-prefixed identifier; the inbound
@@ -87,11 +95,6 @@ def _build_payload(
     return out
 
 
-def _sse_named_event(event: dict[str, Any]) -> bytes:
-    """Anthropic streaming uses ``event:`` + ``data:`` lines per chunk."""
-    return f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
-
-
 @traced("proxy.anthropic_messages")
 async def proxy_anthropic_messages(
     anthropic_request: dict[str, Any],
@@ -101,19 +104,77 @@ async def proxy_anthropic_messages(
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
 ) -> dict[str, Any]:
-    """Round-trip an Anthropic Messages request through an OpenAI-shape upstream."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    openai_request = request_anthropic_to_openai(anthropic_request)
+    """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``.
+
+    LiteLLM's Anthropic-unified endpoint accepts Anthropic-shape input and
+    emits Anthropic-shape output regardless of upstream provider, so this
+    is a thin marshalling layer with no translation work of its own.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.anthropic_messages
     payload = _build_payload(
-        openai_request,
+        anthropic_request,
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
     )
-    log.info("dispatch", shape="anthropic->openai", model=dispatch_model)
-    raw_response = await dispatch(**payload)
-    openai_response = _coerce_to_dict(raw_response)
-    return response_openai_to_anthropic(openai_response)
+    log.info("dispatch", shape="anthropic", model=dispatch_model)
+    return _coerce_to_dict(await dispatch(**payload))
+
+
+def stream_anthropic_messages(
+    anthropic_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    completion: _CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream an Anthropic Messages request via ``litellm.anthropic_messages``.
+
+    Returned as a regular function (not an async generator) so request
+    validation runs synchronously: a malformed request raises
+    ``pydantic.ValidationError`` (inside LiteLLM) before any response bytes
+    are emitted, and the server can surface it as 400 rather than mid-stream.
+
+    LiteLLM yields raw Anthropic SSE bytes (``event: message_start``,
+    ``content_block_delta``, etc.); we forward them verbatim.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.anthropic_messages
+    payload = _build_payload(
+        {**anthropic_request, "stream": True},
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="anthropic", model=dispatch_model, stream=True)
+    return _anthropic_bytes_iter(payload, dispatch)
+
+
+async def _anthropic_bytes_iter(
+    payload: dict[str, Any],
+    dispatch: Callable[..., Awaitable[Any]],
+) -> AsyncIterator[bytes]:
+    try:
+        stream = await dispatch(**payload)
+        async for chunk in stream:
+            # LiteLLM 1.82+ yields bytes already SSE-framed for the
+            # Anthropic-unified path; coerce the rare str chunk for safety.
+            yield chunk if isinstance(chunk, bytes) else str(chunk).encode()
+    except Exception as exc:
+        log.error(
+            "stream.dispatch_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            model=payload.get("model"),
+        )
+        # Emit an Anthropic-shape error event so the client can surface the
+        # failure cleanly instead of seeing a truncated stream and retrying.
+        yield _sse_named_event(
+            {
+                "type": "error",
+                "error": {"type": "api_error", "message": f"{type(exc).__name__}: {exc}"},
+            }
+        )
 
 
 @traced("proxy.openai_chat_completions")
@@ -134,133 +195,7 @@ async def proxy_openai_chat_completions(
         api_key=api_key,
     )
     log.info("dispatch", shape="openai", model=dispatch_model)
-    raw_response = await dispatch(**payload)
-    return _coerce_to_dict(raw_response)
-
-
-def stream_anthropic_messages(
-    anthropic_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    completion: _CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Async iterator of Anthropic-shape SSE bytes for an Anthropic Messages request.
-
-    Returned as a regular function (not an async generator) so request
-    validation and the local token estimate run synchronously: a malformed
-    request raises ``pydantic.ValidationError`` before any response bytes
-    are emitted, and ``message_start.usage.input_tokens`` is seeded with a
-    LiteLLM-based estimate so clients see a real value rather than ``0``.
-
-    Streaming intentionally uses the local estimator only; provider passthrough
-    would add network latency to time-to-first-byte. Anthropic clients refine
-    usage from ``message_delta``, so an estimate at ``message_start`` is fine.
-    """
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    openai_request = request_anthropic_to_openai(anthropic_request)
-    try:
-        input_tokens = count_locally(anthropic_request)
-    except Exception as exc:
-        log.warning("stream.token_count_failed", error=str(exc), error_type=type(exc).__name__)
-        input_tokens = 0
-    payload = _build_payload(
-        {**openai_request, "stream": True},
-        dispatch_model=dispatch_model,
-        forward_headers=forward_headers,
-        api_key=api_key,
-    )
-    log.info(
-        "dispatch",
-        shape="anthropic->openai",
-        model=dispatch_model,
-        stream=True,
-        input_tokens=input_tokens,
-    )
-    return _anthropic_stream_iter(payload, dispatch, input_tokens=input_tokens)
-
-
-async def _anthropic_stream_iter(
-    payload: dict[str, Any],
-    dispatch: Callable[..., Awaitable[Any]],
-    *,
-    input_tokens: int = 0,
-) -> AsyncIterator[bytes]:
-    translator = AnthropicStreamTranslator(input_tokens=input_tokens)
-    try:
-        stream = await dispatch(**payload)
-        async for chunk in stream:
-            for event in translator.feed(_coerce_to_dict(chunk)):
-                yield _sse_named_event(event)
-    except Exception as exc:
-        log.error(
-            "stream.dispatch_failed",
-            error=str(exc),
-            error_type=type(exc).__name__,
-            model=payload.get("model"),
-        )
-        # Emit an Anthropic-shape error event so the client can surface the
-        # failure cleanly instead of seeing a truncated stream and retrying.
-        yield _sse_named_event(
-            {
-                "type": "error",
-                "error": {"type": "api_error", "message": f"{type(exc).__name__}: {exc}"},
-            }
-        )
-        return
-    for event in translator.finish():
-        yield _sse_named_event(event)
-
-
-@traced("proxy.openai_responses")
-async def proxy_openai_responses(
-    openai_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    completion: _CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-) -> dict[str, Any]:
-    """Pass an OpenAI Responses request through litellm without translation."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
-    payload = _build_payload(
-        openai_request,
-        dispatch_model=dispatch_model,
-        forward_headers=forward_headers,
-        api_key=api_key,
-    )
-    log.info("dispatch", shape="openai-responses", model=dispatch_model)
-    raw_response = await dispatch(**payload)
-    return _coerce_to_dict(raw_response)
-
-
-async def stream_openai_responses(
-    openai_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    completion: _CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Stream OpenAI Responses events as SSE bytes.
-
-    Forces ``stream=True`` on the upstream call. Each event is JSON-encoded
-    into an ``event: <type>\\ndata: <json>\\n\\n`` SSE frame, matching
-    OpenAI's wire format so existing Responses clients work unchanged.
-    """
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
-    request = _build_payload(
-        {**openai_request, "stream": True},
-        dispatch_model=dispatch_model,
-        forward_headers=forward_headers,
-        api_key=api_key,
-    )
-    log.info("dispatch", shape="openai-responses", model=dispatch_model, stream=True)
-    stream = await dispatch(**request)
-    async for chunk in stream:
-        event = _coerce_to_dict(chunk)
-        yield _sse_named_event(event)
+    return _coerce_to_dict(await dispatch(**payload))
 
 
 async def stream_openai_chat_completions(
@@ -289,3 +224,52 @@ async def stream_openai_chat_completions(
     async for chunk in stream:
         yield _sse_event(json.dumps(_coerce_to_dict(chunk)))
     yield _sse_event("[DONE]")
+
+
+@traced("proxy.openai_responses")
+async def proxy_openai_responses(
+    openai_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    completion: _CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Pass an OpenAI Responses request through litellm without translation."""
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
+    payload = _build_payload(
+        openai_request,
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai-responses", model=dispatch_model)
+    return _coerce_to_dict(await dispatch(**payload))
+
+
+async def stream_openai_responses(
+    openai_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    completion: _CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream OpenAI Responses events as SSE bytes.
+
+    Forces ``stream=True`` on the upstream call. Each event is JSON-encoded
+    into an ``event: <type>\\ndata: <json>\\n\\n`` SSE frame, matching
+    OpenAI's wire format so existing Responses clients work unchanged.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
+    request = _build_payload(
+        {**openai_request, "stream": True},
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai-responses", model=dispatch_model, stream=True)
+    stream = await dispatch(**request)
+    async for chunk in stream:
+        event = _coerce_to_dict(chunk)
+        yield _sse_named_event(event)

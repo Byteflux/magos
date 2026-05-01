@@ -1,77 +1,56 @@
-"""End-to-end pipeline tests for proxy_anthropic_messages.
+"""Unit tests for the LiteLLM-backed proxy entry points.
 
-Drives the full pipeline against every golden case with an injected fake
-``completion`` callable. Verifies both directions: the OpenAI request the
-upstream would have seen, and the Anthropic response the client receives.
+After the LiteLLM SDK fold-in there is no per-field translation to verify;
+``proxy_anthropic_messages`` is a thin marshalling layer over
+``litellm.anthropic_messages``. These tests check that contract: payload
+composition (model rewrite, header forwarding, api_key threading) and
+response coercion. The cross-provider behavior itself is covered by the
+e2e suite (``MAGOS_E2E=1``).
 """
 
 from __future__ import annotations
 
 import asyncio
-import json
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import pytest
 
-from magos.proxy import proxy_anthropic_messages
-
-FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "translation"
+from magos.proxy import proxy_anthropic_messages, stream_anthropic_messages
 
 
-def _load(case_dir: Path, name: str) -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads((case_dir / name).read_text(encoding="utf-8")))
-
-
-def _case_dirs() -> list[Path]:
-    if not FIXTURES_ROOT.is_dir():
-        return []
-    return sorted(p for p in FIXTURES_ROOT.iterdir() if p.is_dir())
-
-
-CASES = _case_dirs()
-CASE_IDS = [p.name for p in CASES]
-
-
-@pytest.mark.integration
-@pytest.mark.parametrize("case_dir", CASES, ids=CASE_IDS)
-def test_proxy_pipeline_round_trip(case_dir: Path) -> None:
-    anthropic_request = _load(case_dir, "anthropic_request.json")
-    expected_openai_request = _load(case_dir, "openai_request.json")
-    openai_response = _load(case_dir, "openai_response.json")
-    expected_anthropic_response = _load(case_dir, "anthropic_response.json")
-
+@pytest.mark.unit
+def test_proxy_anthropic_messages_passes_dispatch_model_and_returns_dict() -> None:
     received: dict[str, Any] = {}
 
-    async def fake_completion(**kwargs: Any) -> dict[str, Any]:
+    async def fake(**kwargs: Any) -> dict[str, Any]:
         received.update(kwargs)
-        return openai_response
+        return {
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "hi"}],
+        }
 
-    dispatch_model = f"anthropic/{expected_openai_request['model']}"
-    actual = asyncio.run(
+    request = {
+        "model": "claude-haiku",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    out = asyncio.run(
         proxy_anthropic_messages(
-            anthropic_request,
-            dispatch_model=dispatch_model,
-            completion=fake_completion,
+            request,
+            dispatch_model="anthropic/claude-haiku-4-5",
+            completion=fake,
         )
     )
-
-    # The router supplies dispatch_model; proxy uses it verbatim instead
-    # of inferring from a bare model name.
-    expected_normalised = {**expected_openai_request, "model": dispatch_model}
-    assert received == expected_normalised
-
-    expected_no_id = {k: v for k, v in expected_anthropic_response.items() if k != "id"}
-    actual_no_id = {k: v for k, v in actual.items() if k != "id"}
-    assert actual_no_id == expected_no_id
-    assert isinstance(actual.get("id"), str) and actual["id"].startswith("msg_")
+    # dispatch_model overrides the inbound body's model.
+    assert received["model"] == "anthropic/claude-haiku-4-5"
+    assert received["max_tokens"] == 16
+    assert out["type"] == "message"
+    assert out["content"][0]["text"] == "hi"
 
 
-@pytest.mark.integration
-def test_proxy_pipeline_accepts_pydantic_like_response() -> None:
-    anthropic_request = _load(CASES[0], "anthropic_request.json")
-    openai_response = _load(CASES[0], "openai_response.json")
-
+@pytest.mark.unit
+def test_proxy_anthropic_messages_coerces_pydantic_like_response() -> None:
     class _PydanticLike:
         def __init__(self, payload: dict[str, Any]) -> None:
             self._payload = payload
@@ -79,15 +58,132 @@ def test_proxy_pipeline_accepts_pydantic_like_response() -> None:
         def model_dump(self) -> dict[str, Any]:
             return self._payload
 
-    async def fake_completion(**kwargs: Any) -> _PydanticLike:
-        return _PydanticLike(openai_response)
+    async def fake(**_: Any) -> _PydanticLike:
+        return _PydanticLike({"type": "message", "role": "assistant", "content": []})
 
-    result = asyncio.run(
+    out = asyncio.run(
         proxy_anthropic_messages(
-            anthropic_request,
-            dispatch_model="anthropic/dummy",
-            completion=fake_completion,
+            {
+                "model": "x",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "x"}],
+            },
+            dispatch_model="anthropic/x",
+            completion=fake,
         )
     )
-    assert result["type"] == "message"
-    assert result["role"] == "assistant"
+    assert out["type"] == "message"
+
+
+@pytest.mark.unit
+def test_proxy_anthropic_messages_threads_api_key_and_headers() -> None:
+    received: dict[str, Any] = {}
+
+    async def fake(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return {"type": "message", "role": "assistant", "content": []}
+
+    asyncio.run(
+        proxy_anthropic_messages(
+            {
+                "model": "x",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "x"}],
+            },
+            dispatch_model="anthropic/x",
+            completion=fake,
+            forward_headers={
+                "authorization": "Bearer xyz",
+                "anthropic-beta": "feature-x",
+                # Hop-by-hop / SDK-owned headers must be filtered.
+                "content-type": "application/json",
+                "content-length": "123",
+            },
+            api_key="explicit-key",
+        )
+    )
+    assert received["api_key"] == "explicit-key"
+    forwarded = received["extra_headers"]
+    assert forwarded["authorization"] == "Bearer xyz"
+    assert forwarded["anthropic-beta"] == "feature-x"
+    assert "content-type" not in forwarded
+    assert "content-length" not in forwarded
+
+
+@pytest.mark.unit
+def test_stream_anthropic_messages_forwards_bytes_verbatim() -> None:
+    chunks = [
+        b'event: message_start\ndata: {"type": "message_start"}\n\n',
+        b'event: content_block_delta\ndata: {"type": "content_block_delta"}\n\n',
+        b'event: message_stop\ndata: {"type": "message_stop"}\n\n',
+    ]
+
+    async def fake_iter() -> Any:
+        for chunk in chunks:
+            yield chunk
+
+    async def fake(**_: Any) -> Any:
+        return fake_iter()
+
+    request = {
+        "model": "x",
+        "max_tokens": 4,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    out = stream_anthropic_messages(request, dispatch_model="anthropic/x", completion=fake)
+
+    async def collect() -> list[bytes]:
+        return [chunk async for chunk in out]
+
+    received = asyncio.run(collect())
+    assert received == chunks
+
+
+@pytest.mark.unit
+def test_stream_anthropic_messages_forces_stream_true() -> None:
+    received: dict[str, Any] = {}
+
+    async def fake_iter() -> Any:
+        for chunk in (b"event: x\ndata: {}\n\n",):
+            yield chunk
+
+    async def fake(**kwargs: Any) -> Any:
+        received.update(kwargs)
+        return fake_iter()
+
+    request = {
+        "model": "x",
+        "max_tokens": 4,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+
+    async def drain() -> None:
+        async for _ in stream_anthropic_messages(
+            request, dispatch_model="anthropic/x", completion=fake
+        ):
+            pass
+
+    asyncio.run(drain())
+    assert received["stream"] is True
+
+
+@pytest.mark.unit
+def test_stream_anthropic_messages_emits_error_event_on_dispatch_failure() -> None:
+    async def boom(**_: Any) -> Any:
+        raise RuntimeError("upstream exploded")
+
+    request = {
+        "model": "x",
+        "max_tokens": 4,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    out = stream_anthropic_messages(request, dispatch_model="anthropic/x", completion=boom)
+
+    async def collect() -> list[bytes]:
+        return [chunk async for chunk in out]
+
+    received = asyncio.run(collect())
+    assert len(received) == 1
+    text = received[0].decode()
+    assert "event: error" in text
+    assert "upstream exploded" in text

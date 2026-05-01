@@ -1,13 +1,12 @@
 """Load and validate ``magos.yaml`` routing config.
 
-Validation splits across pydantic (structural — types, single-key unions,
+Validation splits across pydantic (structural: types, single-key unions,
 required fields) and post-load checks here:
 
 - regex patterns compile via ``re.compile``
 - glob patterns translate via ``fnmatch.translate``
 - jq programs compile via ``jq.compile``
-- ``count_tokens_mode: passthrough`` requires the action's provider to be
-  registered in ``magos.tokens.PASSTHROUGH_DISPATCH``
+- ``mode: passthrough`` requires ``base_url``
 - a structlog warning fires per rule whose ``mode`` is ``passthrough`` and
   whose body-touching rewrites (post or pre) would force re-serialisation,
   breaking prompt-cache byte-exactness.
@@ -43,7 +42,6 @@ from magos.routing.models import (
     Rule,
     SetModel,
 )
-from magos.tokens import PASSTHROUGH_DISPATCH
 
 log = get_logger("magos.routing.loader")
 
@@ -66,7 +64,6 @@ def load_config(path: str | Path) -> RoutingConfig:
     except ValidationError as exc:
         raise RoutingConfigError(f"{p}: invalid routing config: {exc}") from exc
     _validate_compiled(cfg, source=str(p))
-    _validate_count_tokens(cfg, source=str(p))
     _validate_passthrough_base_url(cfg, source=str(p))
     _warn_passthrough_body_touch(cfg)
     return cfg
@@ -150,21 +147,6 @@ def _check_rewrite(rw: Rewrite, *, where: str) -> None:
             check_program(rw.jq_patch)
         except JqCompileError as exc:
             raise RoutingConfigError(f"{where}: {exc}") from exc
-
-
-def _validate_count_tokens(cfg: RoutingConfig, *, source: str) -> None:
-    """Reject ``count_tokens_mode: passthrough`` for unsupported providers."""
-    supported = frozenset(PASSTHROUGH_DISPATCH.keys())
-    for idx, rule in enumerate(cfg.rules):
-        if rule.action.count_tokens_mode != "passthrough":
-            continue
-        if rule.action.provider not in supported:
-            label = _rule_label(rule, idx)
-            raise RoutingConfigError(
-                f"{source}: {label}: count_tokens_mode='passthrough' is not "
-                f"implemented for provider={rule.action.provider!r} "
-                f"(supported: {sorted(supported)})"
-            )
 
 
 def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:

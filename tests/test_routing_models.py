@@ -155,11 +155,6 @@ def test_action_rejects_blank_provider() -> None:
         Action.model_validate({"provider": "", "mode": "translate"})
 
 
-def test_action_default_count_tokens_mode_local() -> None:
-    a = _action()
-    assert a.count_tokens_mode == "local"
-
-
 # --- extra="forbid" + frozen ---
 
 

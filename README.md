@@ -1,15 +1,16 @@
 # Magos
 
-LLM inference API proxy built on [mitmproxy](https://mitmproxy.org/). Translates between Anthropic and OpenAI endpoint shapes, applies [Headroom](https://github.com/headroom-ai/headroom) context compression, and (planned) exposes a unified MCP endpoint.
+LLM inference API proxy built on [mitmproxy](https://mitmproxy.org/). Exposes Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses endpoints, applies [Headroom](https://github.com/headroom-ai/headroom) context compression, and (planned) exposes a unified MCP endpoint.
 
 ## Features
 
-- **Bidirectional translation**: Anthropic Messages API <-> OpenAI Chat Completions, including streaming
-- **Byte-exact passthrough**: forward Anthropic-to-Anthropic without re-shaping
-- **Context compression** via `headroom-ai`
-- **Token counting** endpoint
+- **Multi-shape endpoints**: Anthropic Messages, OpenAI Chat Completions, OpenAI Responses (streaming and non-streaming)
+- **Cross-provider translation** delegated to [LiteLLM](https://github.com/BerriAI/litellm): Anthropic-shape input can target OpenAI / Azure / Bedrock / Vertex / etc., and vice versa
+- **Byte-exact passthrough**: forward same-shape requests verbatim, preserving auth, beta flags, and prompt-cache hashes
+- **Token counting** endpoint via the upstream's native count-tokens API
+- **Declarative routing** via `magos.yaml` — match on model / header / endpoint / jq expressions, rewrite headers and bodies, dispatch to translate or passthrough
 - **Observability**: structured logging (`structlog`) and OpenTelemetry tracing
-- **Declarative config** via `pydantic-settings` (env vars prefixed `MAGOS_` or `.env`)
+- **Configuration** via `pydantic-settings` (env vars prefixed `MAGOS_` or `.env`)
 
 ## Requirements
 

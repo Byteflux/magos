@@ -1,4 +1,4 @@
-# magos routing config — declarative rule-based dispatch.
+# magos routing config: declarative rule-based dispatch.
 #
 # Copy this file to ``magos.yaml`` (or set ``MAGOS_CONFIG_PATH``) and edit
 # rules to match your deployment. Rules are evaluated in order; the first
@@ -12,8 +12,7 @@
 # Rewrite ops:
 #   - set_model / set_header / add_header / remove_header / jq_patch
 # Action fields:
-#   - provider, mode (translate|passthrough), base_url, api_key_env,
-#     count_tokens_mode (local|passthrough)
+#   - provider, mode (translate|passthrough), base_url, api_key_env
 
 pre_rewrites: []
 
@@ -32,21 +31,22 @@ rules:
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
 
-  # Anthropic count_tokens for claude-* uses the native passthrough
-  # endpoint via the anthropic SDK; provider-billed count.
-  - name: anthropic-count-tokens-passthrough
+  # Anthropic count_tokens for claude-* via litellm.acount_tokens, which
+  # auto-selects the provider's native count-tokens endpoint for accurate,
+  # provider-billed counts.
+  - name: anthropic-count-tokens
     match:
       all_of:
         - endpoint: { literal: /v1/messages/count_tokens }
         - model: { regex: "^(anthropic/)?claude-.*" }
     action:
       provider: anthropic
-      mode: passthrough
-      base_url: https://api.anthropic.com
+      mode: translate
       api_key_env: ANTHROPIC_API_KEY
-      count_tokens_mode: passthrough
 
   # Anthropic-shape requests targeting OpenAI / o-series models -> translate.
+  # litellm.anthropic_messages performs the cross-provider translation
+  # (Anthropic shape in -> OpenAI upstream -> Anthropic shape out).
   - name: openai-via-anthropic-shape
     match:
       all_of:
@@ -81,9 +81,7 @@ rules:
       mode: translate
       api_key_env: ANTHROPIC_API_KEY
 
-  # OpenAI Responses API: passthrough-only in v1 (no Anthropic <->
-  # Responses translation yet). Routes any Responses-shape request to
-  # the OpenAI upstream verbatim.
+  # OpenAI Responses API: translate-mode through litellm.aresponses.
   - name: openai-responses
     match:
       endpoint: { literal: /v1/responses }
@@ -107,12 +105,12 @@ rules:
       base_url: https://api.openai.com
       api_key_env: OPENAI_API_KEY
 
-  # Anthropic count_tokens fallback for non-claude models: use the local
-  # litellm-based estimator, which works for any LiteLLM-recognised model.
-  - name: count-tokens-local-fallback
+  # Anthropic count_tokens fallback for non-claude models: routes through
+  # litellm.acount_tokens, which auto-picks an in-process tokenizer for
+  # any LiteLLM-recognised model.
+  - name: count-tokens-fallback
     match:
       endpoint: { literal: /v1/messages/count_tokens }
     action:
       provider: openai
       mode: translate
-      count_tokens_mode: local

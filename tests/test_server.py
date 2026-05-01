@@ -1,32 +1,28 @@
 """FastAPI endpoint tests for the magos server.
 
 Drives the server with TestClient. Each test injects a routing config via
-``create_app(routing=...)`` and overrides the completion dependency so no
-real upstream is contacted. Passthrough tests build a minimal config that
-forces the matched rule's mode; passthrough wire behavior itself is unit-
-tested in ``test_passthrough.py``.
+``create_app(routing=...)`` and overrides the matching completion
+dependency so no real upstream is contacted. Passthrough tests build a
+minimal config that forces the matched rule's mode; passthrough wire
+behavior itself is unit-tested in ``test_passthrough.py``.
 """
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterator
-from pathlib import Path
-from typing import Any, cast
-from unittest.mock import patch
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
-from magos import tokens
 from magos.routing import RoutingConfig
-from magos.server import create_app, get_completion, get_responses_completion
-
-FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "translation"
-
-
-def _load(case_dir: Path, name: str) -> dict[str, Any]:
-    return cast(dict[str, Any], json.loads((case_dir / name).read_text(encoding="utf-8")))
+from magos.server import (
+    create_app,
+    get_anthropic_messages_completion,
+    get_completion,
+    get_count_tokens_completion,
+    get_responses_completion,
+)
 
 
 def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:
@@ -48,11 +44,7 @@ def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:
                 },
                 {
                     "match": {"endpoint": {"literal": "/v1/messages/count_tokens"}},
-                    "action": {
-                        "provider": provider,
-                        "mode": "translate",
-                        "count_tokens_mode": "local",
-                    },
+                    "action": {"provider": provider, "mode": "translate"},
                 },
             ]
         }
@@ -60,14 +52,21 @@ def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:
 
 
 def _client_with(
-    completion: Any,
     *,
-    routing: RoutingConfig | None = None,
+    chat_completion: Any | None = None,
+    anthropic_completion: Any | None = None,
+    count_tokens_completion: Any | None = None,
     responses_completion: Any | None = None,
+    routing: RoutingConfig | None = None,
 ) -> Iterator[TestClient]:
     cfg = routing if routing is not None else _translate_only_cfg()
     app = create_app(routing=cfg)
-    app.dependency_overrides[get_completion] = lambda: completion
+    if chat_completion is not None:
+        app.dependency_overrides[get_completion] = lambda: chat_completion
+    if anthropic_completion is not None:
+        app.dependency_overrides[get_anthropic_messages_completion] = lambda: anthropic_completion
+    if count_tokens_completion is not None:
+        app.dependency_overrides[get_count_tokens_completion] = lambda: count_tokens_completion
     if responses_completion is not None:
         app.dependency_overrides[get_responses_completion] = lambda: responses_completion
     try:
@@ -77,23 +76,34 @@ def _client_with(
         app.dependency_overrides.clear()
 
 
-@pytest.mark.integration
-def test_messages_endpoint_round_trip() -> None:
-    case_dir = FIXTURES_ROOT / "simple_text"
-    anthropic_request = _load(case_dir, "anthropic_request.json")
-    expected_openai_request = _load(case_dir, "openai_request.json")
-    openai_response = _load(case_dir, "openai_response.json")
-    expected_anthropic_response = _load(case_dir, "anthropic_response.json")
+_ANTHROPIC_MESSAGE_RESPONSE: dict[str, Any] = {
+    "id": "msg_01ABC",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-haiku",
+    "content": [{"type": "text", "text": "hello"}],
+    "stop_reason": "end_turn",
+    "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
+}
 
-    received: dict[str, Any] = {}
+_OPENAI_CHAT_RESPONSE: dict[str, Any] = {
+    "id": "chatcmpl-1",
+    "object": "chat.completion",
+    "created": 1,
+    "model": "gpt-4",
+    "choices": [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": "hello"},
+            "finish_reason": "stop",
+        }
+    ],
+    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
+}
 
-    async def fake_completion(**kwargs: Any) -> dict[str, Any]:
-        received.update(kwargs)
-        return openai_response
 
-    # The fixture has a literal claude- model; route to anthropic translate
-    # so the dispatch_model gets the anthropic/ prefix as before.
-    cfg = RoutingConfig.model_validate(
+def _anthropic_translate_cfg() -> RoutingConfig:
+    return RoutingConfig.model_validate(
         {
             "rules": [
                 {
@@ -103,22 +113,37 @@ def test_messages_endpoint_round_trip() -> None:
             ]
         }
     )
-    for client in _client_with(fake_completion, routing=cfg):
-        resp = client.post("/v1/messages", json=anthropic_request)
+
+
+@pytest.mark.integration
+def test_messages_endpoint_dispatches_to_anthropic_messages() -> None:
+    """/v1/messages translate-mode goes through litellm.anthropic_messages.
+
+    The fake stand-in for ``litellm.anthropic_messages`` records its
+    kwargs and returns an Anthropic-shape body; magos forwards it verbatim.
+    """
+    received: dict[str, Any] = {}
+
+    async def fake_anthropic(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return _ANTHROPIC_MESSAGE_RESPONSE
+
+    body = {
+        "model": "claude-haiku",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    for client in _client_with(
+        anthropic_completion=fake_anthropic, routing=_anthropic_translate_cfg()
+    ):
+        resp = client.post("/v1/messages", json=body)
 
     assert resp.status_code == 200
-    body = resp.json()
-    expected_dispatched = {
-        **expected_openai_request,
-        "model": f"anthropic/{expected_openai_request['model']}",
-    }
-    received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
-    assert received_no_headers == expected_dispatched
-    assert "extra_headers" in received
-
-    expected_no_id = {k: v for k, v in expected_anthropic_response.items() if k != "id"}
-    body_no_id = {k: v for k, v in body.items() if k != "id"}
-    assert body_no_id == expected_no_id
+    assert resp.json() == _ANTHROPIC_MESSAGE_RESPONSE
+    # dispatch_model gets the anthropic/ prefix; max_tokens + messages survive.
+    assert received["model"] == "anthropic/claude-haiku"
+    assert received["max_tokens"] == 16
+    assert received["messages"] == body["messages"]
 
 
 @pytest.mark.integration
@@ -128,69 +153,38 @@ def test_chat_completions_endpoint_passes_through() -> None:
         "messages": [{"role": "user", "content": "hi"}],
         "max_tokens": 16,
     }
-    openai_response = {
-        "id": "chatcmpl-1",
-        "object": "chat.completion",
-        "created": 1,
-        "model": "gpt-4",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "hello"},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-    }
-
     received: dict[str, Any] = {}
 
     async def fake_completion(**kwargs: Any) -> dict[str, Any]:
         received.update(kwargs)
-        return openai_response
+        return _OPENAI_CHAT_RESPONSE
 
-    for client in _client_with(fake_completion):
+    for client in _client_with(chat_completion=fake_completion):
         resp = client.post("/v1/chat/completions", json=openai_request)
 
     assert resp.status_code == 200
-    assert resp.json() == openai_response
-    expected_dispatched = {**openai_request, "model": f"openai/{openai_request['model']}"}
+    assert resp.json() == _OPENAI_CHAT_RESPONSE
+    expected = {**openai_request, "model": f"openai/{openai_request['model']}"}
     received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
-    assert received_no_headers == expected_dispatched
+    assert received_no_headers == expected
     assert "extra_headers" in received
 
 
 @pytest.mark.integration
-def test_messages_streams_anthropic_events() -> None:
+def test_messages_streams_anthropic_bytes_verbatim() -> None:
+    """LiteLLM's anthropic_messages streaming yields raw Anthropic SSE bytes."""
     chunks = [
-        {
-            "id": "chatcmpl-1",
-            "object": "chat.completion.chunk",
-            "created": 1,
-            "model": "gpt-4",
-            "choices": [{"index": 0, "delta": {"role": "assistant"}, "finish_reason": None}],
-        },
-        {
-            "id": "chatcmpl-1",
-            "object": "chat.completion.chunk",
-            "created": 1,
-            "model": "gpt-4",
-            "choices": [{"index": 0, "delta": {"content": "hi"}, "finish_reason": None}],
-        },
-        {
-            "id": "chatcmpl-1",
-            "object": "chat.completion.chunk",
-            "created": 1,
-            "model": "gpt-4",
-            "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
-        },
+        b'event: message_start\ndata: {"type": "message_start"}\n\n',
+        b'event: content_block_delta\ndata: {"type": "content_block_delta", '
+        b'"delta": {"type": "text_delta", "text": "hi"}}\n\n',
+        b'event: message_stop\ndata: {"type": "message_stop"}\n\n',
     ]
 
     async def fake_iter() -> Any:
         for chunk in chunks:
             yield chunk
 
-    async def fake_completion(**_: Any) -> Any:
+    async def fake_anthropic(**_: Any) -> Any:
         return fake_iter()
 
     body = {
@@ -199,17 +193,9 @@ def test_messages_streams_anthropic_events() -> None:
         "messages": [{"role": "user", "content": "hi"}],
         "stream": True,
     }
-    cfg = RoutingConfig.model_validate(
-        {
-            "rules": [
-                {
-                    "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "translate"},
-                }
-            ]
-        }
-    )
-    for client in _client_with(fake_completion, routing=cfg):
+    for client in _client_with(
+        anthropic_completion=fake_anthropic, routing=_anthropic_translate_cfg()
+    ):
         with client.stream("POST", "/v1/messages", json=body) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")
@@ -218,129 +204,73 @@ def test_messages_streams_anthropic_events() -> None:
     event_types = [
         line[len("event: ") :] for line in text.splitlines() if line.startswith("event: ")
     ]
-    assert event_types == [
-        "message_start",
-        "content_block_start",
-        "content_block_delta",
-        "content_block_stop",
-        "message_delta",
-        "message_stop",
-    ]
-    data_lines = [line[len("data: ") :] for line in text.splitlines() if line.startswith("data: ")]
-    parsed = [json.loads(line) for line in data_lines]
-    assert parsed[2]["delta"] == {"type": "text_delta", "text": "hi"}
-    assert parsed[4]["delta"]["stop_reason"] == "end_turn"
-    assert parsed[0]["message"]["usage"]["input_tokens"] > 0
-
-
-@pytest.mark.unit
-def test_messages_streaming_returns_400_on_invalid_request() -> None:
-    cfg = _translate_only_cfg()
-    app = create_app(routing=cfg)
-    body = {"model": "x", "stream": True}  # missing required fields
-    with TestClient(app) as client:
-        resp = client.post("/v1/messages", json=body)
-    assert resp.status_code == 400
+    assert event_types == ["message_start", "content_block_delta", "message_stop"]
 
 
 @pytest.mark.integration
-def test_count_tokens_endpoint_local_path() -> None:
-    """count_tokens_mode=local triggers the local estimator."""
-    cfg = _translate_only_cfg()  # default for /v1/messages/count_tokens is local
+def test_count_tokens_endpoint_calls_acount_tokens() -> None:
+    received: dict[str, Any] = {}
+
+    async def fake_count(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return {"total_tokens": 9}
+
     body = {
         "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 16,
         "messages": [{"role": "user", "content": "hello there"}],
     }
-    app = create_app(routing=cfg)
-    with TestClient(app) as client:
+    for client in _client_with(count_tokens_completion=fake_count):
         resp = client.post("/v1/messages/count_tokens", json=body)
+
     assert resp.status_code == 200
-    payload = resp.json()
-    assert isinstance(payload["input_tokens"], int)
-    assert payload["input_tokens"] > 0
+    assert resp.json() == {"input_tokens": 9}
+    # dispatch_model gets the openai/ prefix from the test fixture's rule.
+    assert received["model"] == "openai/claude-3-5-sonnet-20241022"
+    assert received["messages"] == body["messages"]
 
 
 @pytest.mark.integration
-def test_count_tokens_endpoint_uses_passthrough_when_rule_says_so() -> None:
-    """count_tokens_mode=passthrough on an anthropic rule -> registered impl."""
-    captured: dict[str, Any] = {}
+def test_count_tokens_endpoint_forwards_system_and_tools() -> None:
+    received: dict[str, Any] = {}
 
-    async def fake_passthrough(
-        req: dict[str, Any], *, forward_headers: dict[str, str] | None = None
-    ) -> int:
-        captured["model"] = req["model"]
-        captured["forward_headers"] = forward_headers
-        return 4242
+    async def fake_count(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return {"total_tokens": 4}
 
-    cfg = RoutingConfig.model_validate(
-        {
-            "rules": [
-                {
-                    "match": {"endpoint": {"literal": "/v1/messages/count_tokens"}},
-                    "action": {
-                        "provider": "anthropic",
-                        "mode": "passthrough",
-                        "base_url": "https://api.anthropic.com",
-                        "count_tokens_mode": "passthrough",
-                    },
-                }
-            ]
-        }
-    )
     body = {
         "model": "claude-3-5-sonnet-20241022",
-        "max_tokens": 16,
         "messages": [{"role": "user", "content": "hi"}],
+        "system": "Be concise.",
+        "tools": [{"name": "x", "input_schema": {"type": "object"}}],
     }
-    app = create_app(routing=cfg)
-    with (
-        patch.dict(tokens.PASSTHROUGH_DISPATCH, {"anthropic": fake_passthrough}),
-        TestClient(app) as client,
-    ):
+    for client in _client_with(count_tokens_completion=fake_count):
         resp = client.post("/v1/messages/count_tokens", json=body)
 
     assert resp.status_code == 200
-    assert resp.json() == {"input_tokens": 4242}
-    assert captured["model"] == "claude-3-5-sonnet-20241022"
-
-
-@pytest.mark.unit
-def test_count_tokens_endpoint_returns_400_on_invalid_request() -> None:
-    cfg = _translate_only_cfg()
-    app = create_app(routing=cfg)
-    with TestClient(app) as client:
-        resp = client.post("/v1/messages/count_tokens", json={"model": "x"})
-    assert resp.status_code == 400
+    assert received["system"] == "Be concise."
+    assert received["tools"][0]["name"] == "x"
 
 
 @pytest.mark.integration
 def test_messages_forwards_inbound_headers_to_dispatch() -> None:
     """authorization, anthropic-beta, anthropic-version flow into extra_headers."""
-    case_dir = FIXTURES_ROOT / "simple_text"
-    anthropic_request = _load(case_dir, "anthropic_request.json")
-    openai_response = _load(case_dir, "openai_response.json")
-
     received: dict[str, Any] = {}
 
-    async def fake_completion(**kwargs: Any) -> dict[str, Any]:
+    async def fake_anthropic(**kwargs: Any) -> dict[str, Any]:
         received.update(kwargs)
-        return openai_response
+        return _ANTHROPIC_MESSAGE_RESPONSE
 
-    cfg = RoutingConfig.model_validate(
-        {
-            "rules": [
-                {
-                    "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "translate"},
-                }
-            ]
-        }
-    )
-    for client in _client_with(fake_completion, routing=cfg):
+    body = {
+        "model": "claude-haiku",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    for client in _client_with(
+        anthropic_completion=fake_anthropic, routing=_anthropic_translate_cfg()
+    ):
         resp = client.post(
             "/v1/messages",
-            json=anthropic_request,
+            json=body,
             headers={
                 "Authorization": "Bearer test-oauth-token",
                 "anthropic-beta": "feature-x,feature-y",
@@ -363,36 +293,20 @@ def test_messages_forwards_inbound_headers_to_dispatch() -> None:
 
 @pytest.mark.integration
 def test_chat_completions_forwards_inbound_headers_to_dispatch() -> None:
-    openai_request = {
-        "model": "gpt-4",
-        "messages": [{"role": "user", "content": "hi"}],
-        "max_tokens": 16,
-    }
-    openai_response = {
-        "id": "chatcmpl-1",
-        "object": "chat.completion",
-        "created": 1,
-        "model": "gpt-4",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "hello"},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-    }
-
     received: dict[str, Any] = {}
 
     async def fake_completion(**kwargs: Any) -> dict[str, Any]:
         received.update(kwargs)
-        return openai_response
+        return _OPENAI_CHAT_RESPONSE
 
-    for client in _client_with(fake_completion):
+    for client in _client_with(chat_completion=fake_completion):
         resp = client.post(
             "/v1/chat/completions",
-            json=openai_request,
+            json={
+                "model": "gpt-4",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 16,
+            },
             headers={"Authorization": "Bearer key", "openai-organization": "org_123"},
         )
 
@@ -441,50 +355,35 @@ def test_chat_completions_streams_sse() -> None:
 
     body = {"model": "gpt-4", "messages": [{"role": "user", "content": "hi"}], "stream": True}
 
-    for client in _client_with(fake_completion):
+    for client in _client_with(chat_completion=fake_completion):
         with client.stream("POST", "/v1/chat/completions", json=body) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")
+            import json as _json  # noqa: PLC0415
+
             text = b"".join(resp.iter_bytes()).decode()
 
     assert received["stream"] is True
     events = [line[len("data: ") :] for line in text.splitlines() if line.startswith("data: ")]
     assert len(events) == 4  # 3 chunks + [DONE]
     assert events[-1] == "[DONE]"
-    parsed = [json.loads(e) for e in events[:-1]]
+    parsed = [_json.loads(e) for e in events[:-1]]
     assert parsed[1]["choices"][0]["delta"]["content"] == "hello"
     assert parsed[2]["choices"][0]["finish_reason"] == "stop"
 
 
 @pytest.mark.unit
-def test_messages_returns_400_on_invalid_request() -> None:
-    cfg = _translate_only_cfg()
-    app = create_app(routing=cfg)
-    with TestClient(app) as client:
-        resp = client.post("/v1/messages", json={"model": "x"})  # missing required fields
-    assert resp.status_code == 400
-
-
-@pytest.mark.unit
 def test_messages_returns_502_on_upstream_failure() -> None:
-    case_dir = FIXTURES_ROOT / "simple_text"
-    anthropic_request = _load(case_dir, "anthropic_request.json")
-
     async def boom(**_: Any) -> dict[str, Any]:
         raise RuntimeError("upstream exploded")
 
-    cfg = RoutingConfig.model_validate(
-        {
-            "rules": [
-                {
-                    "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "translate"},
-                }
-            ]
-        }
-    )
-    for client in _client_with(boom, routing=cfg):
-        resp = client.post("/v1/messages", json=anthropic_request)
+    body = {
+        "model": "claude-haiku",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": "hi"}],
+    }
+    for client in _client_with(anthropic_completion=boom, routing=_anthropic_translate_cfg()):
+        resp = client.post("/v1/messages", json=body)
 
     assert resp.status_code == 502
     assert "upstream exploded" in resp.json()["detail"]
@@ -531,11 +430,7 @@ def test_responses_endpoint_translates_via_litellm() -> None:
             ]
         }
     )
-    for client in _client_with(
-        completion=lambda **_: None,  # not used for /v1/responses
-        routing=cfg,
-        responses_completion=fake_aresponses,
-    ):
+    for client in _client_with(routing=cfg, responses_completion=fake_aresponses):
         resp = client.post("/v1/responses", json=request_body)
 
     assert resp.status_code == 200
@@ -572,11 +467,7 @@ def test_responses_endpoint_streams_sse() -> None:
         }
     )
     body = {"model": "gpt-4o", "input": "hi", "stream": True}
-    for client in _client_with(
-        completion=lambda **_: None,
-        routing=cfg,
-        responses_completion=fake_aresponses,
-    ):
+    for client in _client_with(routing=cfg, responses_completion=fake_aresponses):
         with client.stream("POST", "/v1/responses", json=body) as resp:
             assert resp.status_code == 200
             assert resp.headers["content-type"].startswith("text/event-stream")
