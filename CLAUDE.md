@@ -30,21 +30,34 @@ LLM inference API proxy built on mitmproxy. Translates between Anthropic and Ope
 src/magos/
   __main__.py        # entrypoint (`python -m magos`)
   config.py          # MagosSettings (pydantic-settings)
-  server.py          # FastAPI app
-  proxy.py           # mitmproxy integration
+  server.py          # FastAPI app, routes everything via routing/
+  proxy.py           # translate-mode dispatch into litellm
   addon.py           # mitmproxy addon
-  passthrough.py     # byte-exact Anthropic forwarding
-  tokens.py          # token counting
+  passthrough.py     # byte-exact Anthropic-shape forwarding
+  tokens.py          # count_locally + PASSTHROUGH_DISPATCH registry
   obs.py             # logging + tracing setup
+  routing/           # declarative rule-based routing
+    models.py        # pydantic schemas for magos.yaml
+    request.py       # RoutedRequest dataclass
+    matchers.py      # match-expression evaluator
+    rewrites.py      # pre/post rewrite applicator
+    engine.py        # route(req, cfg) -> RouteDecision | RouteError
+    errors.py        # per-endpoint error envelopes
+    loader.py        # YAML -> RoutingConfig with post-load validation
+    dispatch.py      # decision -> proxy/passthrough/tokens dispatch
+    jq_compat.py     # jq compile + truthy predicate helpers
   translation/       # Anthropic <-> OpenAI translation
     forward.py       # Anthropic -> OpenAI
     reverse.py       # OpenAI -> Anthropic
     streaming.py     # streaming translator
     _models.py       # shared pydantic models
     _shared.py       # helpers
+magos.example.yaml   # routing config to copy and customise
 tests/               # pytest suites (unit, integration, e2e)
+  fixtures/          # test routing yaml + translation case fixtures
 scripts/             # fixture-capture utilities
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
+docs/routing.md      # rule grammar, examples, migration notes
 ```
 
 ## Common commands
@@ -72,4 +85,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Active development. Core proxy, translation (Anthropic <-> OpenAI, including streaming), passthrough mode, token counting, and observability are implemented with unit and e2e test coverage (incl. agent-sdk e2e). MCP endpoint and dynamic routing are still to come.
+Active development. Core proxy, translation (Anthropic <-> OpenAI, including streaming), passthrough mode, token counting, observability, and **declarative rule-based routing** (`magos.yaml`) are implemented with unit and e2e test coverage (incl. agent-sdk e2e). MCP endpoint is still to come.

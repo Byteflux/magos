@@ -147,6 +147,22 @@ def test_anthropic_multi_turn_with_system_real() -> None:
     assert "goodbye" in reply or "bye" in reply, f"expected farewell, got {reply!r}"
 
 
+def test_unmatched_route_returns_404_anthropic_envelope_real() -> None:
+    """Live request that no rule matches returns a 404 in Anthropic shape."""
+    body = {
+        "model": "no-such-model-anywhere",
+        "max_tokens": 16,
+        "messages": [{"role": "user", "content": PROMPT}],
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/messages", json=body)
+    assert resp.status_code == 404, resp.text
+    payload = resp.json()
+    assert payload["type"] == "error"
+    assert payload["error"]["type"] == "not_found_error"
+    assert "no-such-model-anywhere" in payload["error"]["message"]
+
+
 def test_anthropic_count_tokens_real() -> None:
     """count_tokens returns a positive estimate for an OpenAI model (local path)."""
     body = {
