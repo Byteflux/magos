@@ -16,12 +16,14 @@ Endpoint = Literal[
     "/v1/messages",
     "/v1/messages/count_tokens",
     "/v1/chat/completions",
+    "/v1/responses",
 ]
 
 ENDPOINTS: tuple[Endpoint, ...] = (
     "/v1/messages",
     "/v1/messages/count_tokens",
     "/v1/chat/completions",
+    "/v1/responses",
 )
 
 

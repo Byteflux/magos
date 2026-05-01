@@ -58,7 +58,7 @@ def error_envelope(*, endpoint: Endpoint, code: ErrorCode, message: str) -> dict
     Anthropic and OpenAI use different JSON shapes. ``code`` selects the
     error-type token within each shape so clients see a familiar string.
     """
-    if endpoint == "/v1/chat/completions":
+    if endpoint in {"/v1/chat/completions", "/v1/responses"}:
         return {
             "error": {
                 "message": message,

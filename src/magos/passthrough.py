@@ -1,15 +1,18 @@
-"""HTTP-level passthrough for same-shape Anthropic requests.
+"""HTTP-level passthrough for same-shape requests.
 
-When a client speaks the Anthropic Messages shape and the resolved upstream
-is Anthropic, no translation is needed: forwarding the request body and
-headers verbatim preserves auth (Authorization bearer or x-api-key),
-``anthropic-version`` pins, ``anthropic-beta`` feature flags, and the
-provider's billing surface exactly. It also avoids the round-trip of
-Anthropic -> OpenAI -> Anthropic that LiteLLM would otherwise perform.
+When a client and the resolved upstream speak the same wire shape, no
+translation is needed: forwarding the request bytes and headers verbatim
+preserves auth (``Authorization`` bearer or ``x-api-key``), version pins,
+beta feature flags, and the provider's billing surface exactly. For
+Anthropic specifically it also preserves prompt-cache hashes and avoids
+the LiteLLM Anthropic -> OpenAI -> Anthropic re-translation.
 
-LiteLLM is intentionally NOT involved here: it short-circuits on missing
-``ANTHROPIC_API_KEY`` before any HTTPS call, which breaks the OAuth bearer
-case (Claude Code's auth model).
+The functions here are shape-agnostic: the caller passes ``path``
+(``/v1/messages``, ``/v1/responses``, ...) and the dispatcher in
+``magos.routing.dispatch`` chooses based on the matched rule's endpoint.
+LiteLLM is intentionally NOT involved: it short-circuits on missing
+``ANTHROPIC_API_KEY`` before any HTTPS call, which breaks the OAuth
+bearer case (Claude Code's auth model).
 """
 
 from __future__ import annotations
@@ -33,29 +36,30 @@ def _make_client(transport: httpx.AsyncBaseTransport | None) -> httpx.AsyncClien
     return httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT)
 
 
-async def stream_anthropic_passthrough(
+async def stream_passthrough(
     raw_body: bytes,
     forward_headers: dict[str, str],
     upstream_base_url: str,
     *,
+    path: str,
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream-forward an Anthropic /v1/messages request to upstream.
+    """Stream-forward a same-shape request to ``upstream_base_url + path``.
 
-    Forwards the raw request bytes verbatim (no JSON parse + re-serialise) so
-    the upstream sees a byte-identical body. Required for prompt caching:
-    Anthropic hashes content between ``cache_control`` breakpoints, and any
-    whitespace shift breaks the cache lookup, billing the request as fresh
-    long-context input.
+    Forwards raw request bytes verbatim (no JSON parse + re-serialise) so
+    the upstream sees a byte-identical body. For Anthropic this is
+    required for prompt caching: cache hashes are computed between
+    ``cache_control`` breakpoints, and any whitespace shift breaks the
+    lookup, billing the request as fresh long-context input.
 
-    Yields raw chunks from the upstream response so the client receives the
-    SSE framing exactly as Anthropic emitted it, with no re-encoding.
+    Yields raw chunks from the upstream response so the client receives
+    the SSE framing exactly as the upstream emitted it.
 
-    ``transport`` is for tests (httpx.MockTransport); production leaves it
-    unset so the real network is used.
+    ``transport`` is for tests (httpx.MockTransport); production leaves
+    it unset so the real network is used.
     """
-    url = f"{upstream_base_url.rstrip('/')}/v1/messages"
+    url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info("passthrough.stream", url=url, model=model_hint, body_size=len(raw_body))
     async with (
         _make_client(transport) as client,
@@ -79,21 +83,23 @@ async def stream_anthropic_passthrough(
                 yield chunk
 
 
-async def call_anthropic_passthrough(
+async def call_passthrough(
     raw_body: bytes,
     forward_headers: dict[str, str],
     upstream_base_url: str,
     *,
+    path: str,
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[int, bytes, str]:
-    """Non-streaming Anthropic passthrough.
+    """Non-streaming same-shape passthrough.
 
-    Forwards the raw request bytes verbatim so prompt caching is preserved.
-    Returns ``(status_code, body_bytes, content_type)`` so the server endpoint
-    can mirror the upstream's status and content-type back to the client.
+    Forwards raw bytes verbatim so prompt caching (Anthropic) is
+    preserved. Returns ``(status_code, body_bytes, content_type)`` so
+    the server endpoint can mirror the upstream's status and
+    content-type back to the client.
     """
-    url = f"{upstream_base_url.rstrip('/')}/v1/messages"
+    url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info("passthrough.call", url=url, model=model_hint, body_size=len(raw_body))
     async with _make_client(transport) as client:
         resp = await client.post(url, content=raw_body, headers=forward_headers)

@@ -163,6 +163,35 @@ def test_unmatched_route_returns_404_anthropic_envelope_real() -> None:
     assert "no-such-model-anywhere" in payload["error"]["message"]
 
 
+def test_openai_responses_real() -> None:
+    """OpenAI Responses shape passes through magos to a real OpenAI upstream.
+
+    Phase A is passthrough-only (no Anthropic <-> Responses translation),
+    so this test exercises only the OpenAI Responses -> OpenAI Responses
+    path through the routing layer.
+    """
+    body = {
+        "model": "gpt-4o-mini",
+        "input": PROMPT,
+        "max_output_tokens": 16,
+    }
+    with TestClient(create_app()) as client:
+        resp = client.post("/v1/responses", json=body)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data.get("object") == "response"
+    output = data.get("output") or []
+    assert output, f"expected at least one output item, got {data}"
+    text_blocks = [
+        c
+        for item in output
+        if item.get("type") == "message"
+        for c in item.get("content", [])
+        if c.get("type") == "output_text"
+    ]
+    assert text_blocks, f"expected output_text content, got {output}"
+
+
 def test_anthropic_count_tokens_real() -> None:
     """count_tokens returns a positive estimate for an OpenAI model (local path)."""
     body = {

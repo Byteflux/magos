@@ -33,12 +33,14 @@ from fastapi import Response
 from fastapi.responses import StreamingResponse
 
 from magos.obs import get_logger
-from magos.passthrough import call_anthropic_passthrough, stream_anthropic_passthrough
+from magos.passthrough import call_passthrough, stream_passthrough
 from magos.proxy import (
     proxy_anthropic_messages,
     proxy_openai_chat_completions,
+    proxy_openai_responses,
     stream_anthropic_messages,
     stream_openai_chat_completions,
+    stream_openai_responses,
 )
 from magos.routing.engine import RouteDecision
 from magos.tokens import PASSTHROUGH_DISPATCH, count_locally
@@ -79,15 +81,25 @@ async def dispatch_decision(  # noqa: PLR0911
             raise DispatchError("passthrough rule has no base_url")
         body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
         model_hint = str(req.body.get("model", ""))
+        # Inbound endpoint becomes the upstream path; same-shape passthrough
+        # works for /v1/messages, /v1/responses, /v1/chat/completions, ...
         if is_streaming:
             return StreamingResponse(
-                stream_anthropic_passthrough(
-                    body_bytes, forward_headers, action.base_url, model_hint=model_hint
+                stream_passthrough(
+                    body_bytes,
+                    forward_headers,
+                    action.base_url,
+                    path=req.endpoint,
+                    model_hint=model_hint,
                 ),
                 media_type="text/event-stream",
             )
-        status, raw, content_type = await call_anthropic_passthrough(
-            body_bytes, forward_headers, action.base_url, model_hint=model_hint
+        status, raw, content_type = await call_passthrough(
+            body_bytes,
+            forward_headers,
+            action.base_url,
+            path=req.endpoint,
+            model_hint=model_hint,
         )
         return Response(content=raw, status_code=status, media_type=content_type)
 
@@ -112,9 +124,27 @@ async def dispatch_decision(  # noqa: PLR0911
             api_key=api_key,
         )
 
-    # /v1/chat/completions
+    if req.endpoint == "/v1/chat/completions":
+        if is_streaming:
+            stream = stream_openai_chat_completions(
+                dict(req.body),
+                dispatch_model=decision.dispatch_model,
+                completion=completion,
+                forward_headers=forward_headers,
+                api_key=api_key,
+            )
+            return StreamingResponse(stream, media_type="text/event-stream")
+        return await proxy_openai_chat_completions(
+            dict(req.body),
+            dispatch_model=decision.dispatch_model,
+            completion=completion,
+            forward_headers=forward_headers,
+            api_key=api_key,
+        )
+
+    # /v1/responses
     if is_streaming:
-        stream = stream_openai_chat_completions(
+        stream = stream_openai_responses(
             dict(req.body),
             dispatch_model=decision.dispatch_model,
             completion=completion,
@@ -122,7 +152,7 @@ async def dispatch_decision(  # noqa: PLR0911
             api_key=api_key,
         )
         return StreamingResponse(stream, media_type="text/event-stream")
-    return await proxy_openai_chat_completions(
+    return await proxy_openai_responses(
         dict(req.body),
         dispatch_model=decision.dispatch_model,
         completion=completion,

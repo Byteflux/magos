@@ -213,6 +213,56 @@ async def _anthropic_stream_iter(
         yield _sse_named_event(event)
 
 
+@traced("proxy.openai_responses")
+async def proxy_openai_responses(
+    openai_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    completion: _CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
+    """Pass an OpenAI Responses request through litellm without translation."""
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
+    payload = _build_payload(
+        openai_request,
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai-responses", model=dispatch_model)
+    raw_response = await dispatch(**payload)
+    return _coerce_to_dict(raw_response)
+
+
+async def stream_openai_responses(
+    openai_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    completion: _CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream OpenAI Responses events as SSE bytes.
+
+    Forces ``stream=True`` on the upstream call. Each event is JSON-encoded
+    into an ``event: <type>\\ndata: <json>\\n\\n`` SSE frame, matching
+    OpenAI's wire format so existing Responses clients work unchanged.
+    """
+    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
+    request = _build_payload(
+        {**openai_request, "stream": True},
+        dispatch_model=dispatch_model,
+        forward_headers=forward_headers,
+        api_key=api_key,
+    )
+    log.info("dispatch", shape="openai-responses", model=dispatch_model, stream=True)
+    stream = await dispatch(**request)
+    async for chunk in stream:
+        event = _coerce_to_dict(chunk)
+        yield _sse_named_event(event)
+
+
 async def stream_openai_chat_completions(
     openai_request: dict[str, Any],
     *,

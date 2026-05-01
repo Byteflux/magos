@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from magos import tokens
 from magos.routing import RoutingConfig
-from magos.server import create_app, get_completion
+from magos.server import create_app, get_completion, get_responses_completion
 
 FIXTURES_ROOT = Path(__file__).parent / "fixtures" / "translation"
 
@@ -59,10 +59,17 @@ def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:
     )
 
 
-def _client_with(completion: Any, *, routing: RoutingConfig | None = None) -> Iterator[TestClient]:
+def _client_with(
+    completion: Any,
+    *,
+    routing: RoutingConfig | None = None,
+    responses_completion: Any | None = None,
+) -> Iterator[TestClient]:
     cfg = routing if routing is not None else _translate_only_cfg()
     app = create_app(routing=cfg)
     app.dependency_overrides[get_completion] = lambda: completion
+    if responses_completion is not None:
+        app.dependency_overrides[get_responses_completion] = lambda: responses_completion
     try:
         with TestClient(app) as client:
             yield client
@@ -481,6 +488,130 @@ def test_messages_returns_502_on_upstream_failure() -> None:
 
     assert resp.status_code == 502
     assert "upstream exploded" in resp.json()["detail"]
+
+
+@pytest.mark.integration
+def test_responses_endpoint_translates_via_litellm() -> None:
+    """/v1/responses translate-mode goes through litellm.aresponses."""
+    request_body = {
+        "model": "gpt-4o",
+        "input": "Reply with the single word: pong",
+        "max_output_tokens": 16,
+    }
+    response_body = {
+        "id": "resp_1",
+        "object": "response",
+        "created_at": 1,
+        "model": "gpt-4o",
+        "output": [
+            {
+                "type": "message",
+                "id": "msg_1",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "pong", "annotations": []}],
+            }
+        ],
+        "status": "completed",
+        "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2},
+    }
+
+    received: dict[str, Any] = {}
+
+    async def fake_aresponses(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return response_body
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    for client in _client_with(
+        completion=lambda **_: None,  # not used for /v1/responses
+        routing=cfg,
+        responses_completion=fake_aresponses,
+    ):
+        resp = client.post("/v1/responses", json=request_body)
+
+    assert resp.status_code == 200
+    assert resp.json() == response_body
+    received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
+    expected = {**request_body, "model": f"openai/{request_body['model']}"}
+    assert received_no_headers == expected
+
+
+@pytest.mark.integration
+def test_responses_endpoint_streams_sse() -> None:
+    """/v1/responses streaming wraps litellm events as ``event:`` SSE frames."""
+    events = [
+        {"type": "response.created", "response": {"id": "resp_1", "object": "response"}},
+        {"type": "response.output_text.delta", "delta": "pong"},
+        {"type": "response.completed", "response": {"id": "resp_1", "status": "completed"}},
+    ]
+
+    async def fake_iter() -> Any:
+        for ev in events:
+            yield ev
+
+    async def fake_aresponses(**_: Any) -> Any:
+        return fake_iter()
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/responses"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    body = {"model": "gpt-4o", "input": "hi", "stream": True}
+    for client in _client_with(
+        completion=lambda **_: None,
+        routing=cfg,
+        responses_completion=fake_aresponses,
+    ):
+        with client.stream("POST", "/v1/responses", json=body) as resp:
+            assert resp.status_code == 200
+            assert resp.headers["content-type"].startswith("text/event-stream")
+            text = b"".join(resp.iter_bytes()).decode()
+
+    event_types = [
+        line[len("event: ") :] for line in text.splitlines() if line.startswith("event: ")
+    ]
+    assert event_types == [
+        "response.created",
+        "response.output_text.delta",
+        "response.completed",
+    ]
+
+
+@pytest.mark.unit
+def test_unmatched_responses_endpoint_returns_404_openai_envelope() -> None:
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"model": {"literal": "only-this-model"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    body = {"model": "gpt-4o", "input": "x"}
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        resp = client.post("/v1/responses", json=body)
+    assert resp.status_code == 404
+    payload = resp.json()
+    assert payload["error"]["type"] == "invalid_request_error"
+    assert payload["error"]["code"] == "no_route_matched"
 
 
 @pytest.mark.unit

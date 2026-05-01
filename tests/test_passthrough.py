@@ -15,8 +15,8 @@ import httpx
 import pytest
 
 from magos.passthrough import (
-    call_anthropic_passthrough,
-    stream_anthropic_passthrough,
+    call_passthrough,
+    stream_passthrough,
 )
 
 
@@ -40,10 +40,11 @@ def test_call_passthrough_forwards_request_verbatim() -> None:
     headers = {"authorization": "Bearer test-oauth", "anthropic-beta": "x,y"}
 
     status, raw, ct = asyncio.run(
-        call_anthropic_passthrough(
+        call_passthrough(
             raw_body,
             headers,
             "https://api.anthropic.com",
+            path="/v1/messages",
             transport=httpx.MockTransport(handler),
         )
     )
@@ -78,10 +79,11 @@ def test_stream_passthrough_yields_upstream_bytes_verbatim() -> None:
 
     async def run() -> bytes:
         out = b""
-        async for piece in stream_anthropic_passthrough(
+        async for piece in stream_passthrough(
             raw_body,
             {"authorization": "Bearer x"},
             "https://api.anthropic.com",
+            path="/v1/messages",
             transport=httpx.MockTransport(handler),
         ):
             out += piece
@@ -108,10 +110,11 @@ def test_stream_passthrough_emits_error_event_on_upstream_4xx() -> None:
 
     async def run() -> bytes:
         out = b""
-        async for piece in stream_anthropic_passthrough(
+        async for piece in stream_passthrough(
             raw_body,
             {"authorization": "Bearer bad"},
             "https://api.anthropic.com",
+            path="/v1/messages",
             transport=httpx.MockTransport(handler),
         ):
             out += piece
@@ -125,6 +128,28 @@ def test_stream_passthrough_emits_error_event_on_upstream_4xx() -> None:
 
 
 @pytest.mark.unit
+def test_call_passthrough_honours_path_parameter() -> None:
+    """``path`` is appended to ``base_url``; lets the same module forward
+    /v1/messages, /v1/responses, /v1/chat/completions, ..."""
+    captured: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, content=b"{}", headers={"content-type": "application/json"})
+
+    asyncio.run(
+        call_passthrough(
+            b"{}",
+            {},
+            "https://api.openai.com",
+            path="/v1/responses",
+            transport=httpx.MockTransport(handler),
+        )
+    )
+    assert captured["url"] == "https://api.openai.com/v1/responses"
+
+
+@pytest.mark.unit
 def test_call_passthrough_propagates_upstream_status() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -135,10 +160,11 @@ def test_call_passthrough_propagates_upstream_status() -> None:
 
     raw_body = json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 16, "messages": []}).encode()
     status, _, _ = asyncio.run(
-        call_anthropic_passthrough(
+        call_passthrough(
             raw_body,
             {},
             "https://api.anthropic.com",
+            path="/v1/messages",
             transport=httpx.MockTransport(handler),
         )
     )

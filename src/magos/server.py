@@ -1,10 +1,11 @@
 """FastAPI server for the magos LLM proxy.
 
-Three endpoints, all routed through the declarative rules in ``magos.yaml``:
+Four endpoints, all routed through the declarative rules in ``magos.yaml``:
 
 - ``POST /v1/messages``               Anthropic Messages shape
 - ``POST /v1/messages/count_tokens``  Anthropic count_tokens shape
 - ``POST /v1/chat/completions``       OpenAI Chat Completions shape
+- ``POST /v1/responses``              OpenAI Responses shape
 
 Each handler parses the inbound body, builds a ``RoutedRequest``, calls
 ``route()`` to pick a rule, and hands the resulting ``RouteDecision`` to
@@ -51,11 +52,17 @@ CompletionFn = Callable[..., Awaitable[Any]]
 
 
 def get_completion() -> CompletionFn:
-    """Dependency-injection seam for the upstream completion callable."""
+    """Upstream completion for /v1/messages and /v1/chat/completions."""
     return cast(CompletionFn, litellm.acompletion)
 
 
+def get_responses_completion() -> CompletionFn:
+    """Upstream completion for /v1/responses (litellm's Responses API)."""
+    return cast(CompletionFn, litellm.aresponses)
+
+
 CompletionDep = Annotated[CompletionFn, Depends(get_completion)]
+ResponsesCompletionDep = Annotated[CompletionFn, Depends(get_responses_completion)]
 SettingsDep = Annotated[MagosSettings, Depends(get_settings)]
 
 
@@ -117,6 +124,12 @@ def create_app(routing: RoutingConfig | None = None) -> FastAPI:
         request: Request, completion: CompletionDep
     ) -> Any:
         return await _run("/v1/chat/completions", request, completion)
+
+    @app.post("/v1/responses")
+    async def openai_responses(  # type: ignore[unused-ignore]
+        request: Request, completion: ResponsesCompletionDep
+    ) -> Any:
+        return await _run("/v1/responses", request, completion)
 
     return app
 
