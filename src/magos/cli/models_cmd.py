@@ -6,14 +6,13 @@ import argparse
 import asyncio
 import json
 import sys
-from pathlib import Path
 from typing import TextIO
 
 import httpx
 
 from magos.cli.admin_client import AdminClient, AdminClientError
 from magos.config import MagosSettings
-from magos.config_loader import load_full_config
+from magos.config_loader import load_full_config, resolve_models_path
 from magos.registry.discovery import adapter_for
 from magos.registry.discovery.base import DiscoveryError
 from magos.registry.models import RegistryState
@@ -32,7 +31,7 @@ def _admin_client(settings: MagosSettings) -> AdminClient:
 
 def _load_state_from_disk(settings: MagosSettings) -> RegistryState:
     cfg = load_full_config(settings.config_path)
-    return load(Path(cfg.registry.registry.models_path))
+    return load(resolve_models_path(settings.config_path, cfg.registry))
 
 
 def _load_state(

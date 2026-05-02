@@ -15,6 +15,7 @@ Example::
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
@@ -59,10 +60,11 @@ class MagosSettings(BaseSettings):
     )
 
     config_path: str = Field(
-        default="./magos.yaml",
+        default_factory=lambda: str(Path.home() / ".magos" / "magos.yaml"),
         description=(
-            "Path to the routing config YAML. The file must exist; ship a copy "
-            "of magos.example.yaml as a starting point."
+            "Path to the routing config YAML. Defaults to ~/.magos/magos.yaml; "
+            "override with MAGOS_CONFIG_PATH or the --config CLI flag. The file "
+            "must exist; ship a copy of magos.example.yaml as a starting point."
         ),
     )
 

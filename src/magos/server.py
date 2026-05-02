@@ -201,9 +201,17 @@ def _mount_metrics_endpoint(app: FastAPI) -> None:
         return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
 
-def _resolve_models_path(registry_cfg: RegistryYaml) -> Path:
-    """Translate the registry block's ``models_path`` (relative ok) to a Path."""
-    return Path(registry_cfg.registry.models_path)
+def _resolve_models_path(config_path: str, registry_cfg: RegistryYaml) -> Path:
+    """Anchor the registry block's ``models_path`` to the config file's parent.
+
+    Delegates to ``magos.config_loader.resolve_models_path`` so server
+    boot, CLI ``list --from-disk``, and CLI ``show`` all agree on the
+    same file regardless of CWD. ``models.json`` is server-owned: out-
+    of-process readers are fine; the only writer is the Refresher.
+    """
+    from magos.config_loader import resolve_models_path  # noqa: PLC0415
+
+    return resolve_models_path(config_path, registry_cfg)
 
 
 def _config_uses_compress(cfg: RoutingConfig) -> bool:
@@ -337,7 +345,7 @@ def create_app(
     app.state.routing = cfg
     app.state.registry_config = registry_cfg
     app.state.refresher = (
-        Refresher(registry_cfg, _resolve_models_path(registry_cfg))
+        Refresher(registry_cfg, _resolve_models_path(settings.config_path, registry_cfg))
         if registry_cfg.providers
         else None
     )

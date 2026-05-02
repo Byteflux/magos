@@ -7,6 +7,7 @@ and the deprecation warning for env vars that moved into magos.yaml.
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -25,7 +26,7 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.log_json is False
     assert s.otel_enabled is False
     assert s.otel_endpoint is None
-    assert s.config_path == "./magos.yaml"
+    assert s.config_path == str(Path.home() / ".magos" / "magos.yaml")
 
 
 def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

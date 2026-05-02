@@ -33,6 +33,22 @@ class MagosConfig:
 
     routing: RoutingConfig
     registry: RegistryYaml
+    source: Path = Path()  # the yaml file the config was loaded from
+
+
+def resolve_models_path(config_path: str | Path, registry: RegistryYaml) -> Path:
+    """Resolve ``registry.models_path`` relative to the config file's parent.
+
+    Absolute paths pass through unchanged. Relative paths anchor to the
+    yaml file's directory so server boot, CLI list, and CLI refresh all
+    agree on which file is in play regardless of CWD. ``models.json`` is
+    server-owned: out-of-process readers are fine, but the only writer
+    is the running magos server (via the Refresher).
+    """
+    raw = Path(registry.registry.models_path)
+    if raw.is_absolute():
+        return raw
+    return Path(config_path).resolve().parent / raw
 
 
 def load_full_config(path: str | Path) -> MagosConfig:
@@ -45,7 +61,7 @@ def load_full_config(path: str | Path) -> MagosConfig:
     """
     routing = load_routing_config(path)
     registry = _parse_registry_block(path)
-    return MagosConfig(routing=routing, registry=registry)
+    return MagosConfig(routing=routing, registry=registry, source=Path(path))
 
 
 def _parse_registry_block(path: str | Path) -> RegistryYaml:
