@@ -15,6 +15,7 @@ Example::
 from __future__ import annotations
 
 import os
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from magos.obs import get_logger
 
 log = get_logger("magos.config")
+
+KompressBackend = Literal["auto", "pytorch"]
 
 # Env vars that controlled routing in pre-rule-based magos. ``extra="ignore"``
 # silently drops them, so we explicitly warn on startup if any are still set —
@@ -60,6 +63,17 @@ class MagosSettings(BaseSettings):
         description=(
             "Path to the routing config YAML. The file must exist; ship a copy "
             "of magos.example.yaml as a starting point."
+        ),
+    )
+
+    kompress_backend: KompressBackend = Field(
+        default="auto",
+        description=(
+            "Which backend Headroom's Kompress uses. 'auto' (default) lets "
+            "Headroom prefer ONNX Runtime when installed and fall back to "
+            "PyTorch. 'pytorch' forces PyTorch (auto-picks CUDA/MPS/CPU); "
+            "this is the path to choose for GPU acceleration. Applied "
+            "process-wide at FastAPI startup via the lifespan hook."
         ),
     )
 

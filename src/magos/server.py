@@ -127,14 +127,46 @@ def _config_uses_compress(cfg: RoutingConfig) -> bool:
     return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)
 
 
+def _force_kompress_pytorch() -> None:
+    """Make Headroom's Kompress loader skip the ONNX path.
+
+    Headroom's ``_load_kompress`` checks ``_is_onnx_available()`` from the
+    module namespace at call time and prefers ONNX when both backends are
+    installed. Replacing that name with a False-returning stub flips the
+    loader to the PyTorch branch (``_load_kompress_pytorch``), which
+    auto-selects CUDA/MPS/CPU via ``device='auto'``. No Headroom patch
+    needed — Python late-binding does the work.
+
+    Silently no-ops if Kompress isn't importable (no compress rules, or
+    deps missing).
+    """
+    try:
+        from headroom.transforms import kompress_compressor  # noqa: PLC0415
+    except Exception as exc:
+        log.warning(
+            "compress.kompress_force_pytorch_skipped",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        return
+
+    kompress_compressor._is_onnx_available = lambda: False
+    log.info("compress.kompress_backend_forced", backend="pytorch")
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Warm Headroom's compression pipeline if any rule uses ``compress``.
+    """Warm Headroom's compression pipeline if any rule uses ``compress``,
+    and apply the configured Kompress backend override.
 
     Headroom builds a thread-locked singleton on first call (tokenizer +
     transform pipeline init). Pulling that cost into startup avoids
     burying multi-second latency in the first user request.
     """
+    settings = MagosSettings()
+    if settings.kompress_backend == "pytorch":
+        _force_kompress_pytorch()
+
     cfg = cast(RoutingConfig, app.state.routing)
     if _config_uses_compress(cfg):
         try:
