@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import time
 from collections.abc import Awaitable, Callable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
@@ -27,6 +29,7 @@ import backoff
 import httpx
 
 from magos.obs import get_logger
+from magos.registry import obs as registry_obs
 from magos.registry.deprecation import apply_deprecation
 from magos.registry.discovery import (
     DiscoveryAdapter,
@@ -202,11 +205,33 @@ class Refresher:
     ) -> None:
         cfg = self._config.providers[provider_name]
         adapter = self._adapter_factory(cfg)
-        result = await self._discover_with_retry(
-            provider_name, cfg, adapter, timeout_seconds=timeout_seconds, max_attempts=max_attempts
+        registry_obs.record_refresh_attempt(provider_name)
+        started = time.perf_counter()
+        try:
+            result = await self._discover_with_retry(
+                provider_name,
+                cfg,
+                adapter,
+                timeout_seconds=timeout_seconds,
+                max_attempts=max_attempts,
+            )
+            fresh_entries = self._merge_provider(provider_name, cfg, result)
+            diff = await self._apply(provider_name, fresh_entries)
+        except DiscoveryError as exc:
+            registry_obs.record_refresh_failure(
+                provider_name,
+                duration_seconds=time.perf_counter() - started,
+                error=exc,
+            )
+            raise
+        registry_obs.record_refresh_success(
+            provider_name,
+            duration_seconds=time.perf_counter() - started,
+            total=diff.total,
+            added=diff.added,
+            deprecated=diff.deprecated,
+            pruned=diff.pruned,
         )
-        fresh_entries = self._merge_provider(provider_name, cfg, result)
-        await self._apply(provider_name, fresh_entries)
 
     async def _discover_with_retry(
         self,
@@ -296,27 +321,31 @@ class Refresher:
         fresh = self._merge_provider(provider_name, cfg, DiscoveryResult())
         await self._apply(provider_name, fresh)
 
-    async def _apply(self, provider_name: str, fresh_entries: Mapping[str, ModelEntry]) -> None:
-        """Atomic state swap + disk persistence for one provider's slice."""
+    async def _apply(
+        self, provider_name: str, fresh_entries: Mapping[str, ModelEntry]
+    ) -> _RefreshDiff:
+        """Atomic state swap + disk persistence for one provider's slice.
+
+        Returns a ``_RefreshDiff`` with the per-provider counts the
+        observability layer needs (added / deprecated / pruned / total).
+        """
         async with self._lock:
             now = self._clock()
             grace = self._registry_settings.deprecation_grace_seconds
+            prev_entries = self._state.entries
             next_entries = apply_deprecation(
                 provider=provider_name,
-                prev_entries=self._state.entries,
+                prev_entries=prev_entries,
                 fresh_entries=fresh_entries,
                 now=now,
                 grace_seconds=grace,
             )
+            diff = _diff_provider(provider_name, prev_entries, next_entries)
             next_refreshed = dict(self._state.refreshed_at)
             next_refreshed[provider_name] = now
             self._state = RegistryState(entries=next_entries, refreshed_at=next_refreshed)
             save_state(self._state, self._models_path)
-        log.info(
-            "registry.refresh.applied",
-            provider=provider_name,
-            total=len(next_entries),
-        )
+        return diff
 
 
 def _override_to_partial(override: ModelOverride | None) -> PartialEntry | None:
@@ -349,3 +378,44 @@ def _default_manual_litellm_id(provider_name: str, cfg: ProviderConfig, raw_id: 
 
 
 _AwaitableHook = Callable[[], Awaitable[None]]
+
+
+@dataclass(frozen=True, slots=True)
+class _RefreshDiff:
+    """Per-provider counts surfaced from ``_apply`` for observability."""
+
+    total: int
+    added: int
+    deprecated: int
+    pruned: int
+
+
+def _diff_provider(
+    provider: str,
+    prev_entries: Mapping[str, ModelEntry],
+    next_entries: Mapping[str, ModelEntry],
+) -> _RefreshDiff:
+    """Compute per-provider deltas across one refresh cycle.
+
+    ``added`` counts namespaced ids that were absent before; ``deprecated``
+    counts entries that gained a ``deprecated_at`` mark this cycle (was
+    None before, set now); ``pruned`` counts entries removed entirely.
+    ``total`` is the post-refresh active count (including still-marked
+    deprecated entries that haven't aged out).
+    """
+    prev_for_provider = {k: e for k, e in prev_entries.items() if e.provider == provider}
+    next_for_provider = {k: e for k, e in next_entries.items() if e.provider == provider}
+    added = sum(1 for k in next_for_provider if k not in prev_for_provider)
+    deprecated = sum(
+        1
+        for k, entry in next_for_provider.items()
+        if entry.deprecated_at is not None
+        and (k not in prev_for_provider or prev_for_provider[k].deprecated_at is None)
+    )
+    pruned = sum(1 for k in prev_for_provider if k not in next_for_provider)
+    return _RefreshDiff(
+        total=len(next_for_provider),
+        added=added,
+        deprecated=deprecated,
+        pruned=pruned,
+    )
