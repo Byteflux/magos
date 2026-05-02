@@ -79,6 +79,19 @@ class MagosSettings(BaseSettings):
         ),
     )
 
+    kompress_preload: bool = Field(
+        default=True,
+        description=(
+            "When a routing rule uses the 'compress' rewrite, kick off a "
+            "background task at startup that loads Headroom's Kompress "
+            "model weights via asyncio.to_thread. Avoids paying multi-second "
+            "model-load latency on the first compressed request. Headroom's "
+            "internal threading.Lock ensures concurrent compress() calls "
+            "block safely until the preload completes. Set to False to "
+            "fall back to lazy on-demand loading."
+        ),
+    )
+
     access_log: bool = Field(
         default=True,
         description=(

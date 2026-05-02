@@ -21,6 +21,8 @@ directly without re-running ``create_app``.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -291,6 +293,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         _configure_metrics_provider()
 
     cfg = cast(RoutingConfig, app.state.routing)
+    preload_task: asyncio.Task[None] | None = None
     if _config_uses_compress(cfg):
         try:
             from headroom.compress import _get_pipeline  # noqa: PLC0415
@@ -302,6 +305,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 "compress.pipeline_warm_failed",
                 error=str(exc),
                 error_type=type(exc).__name__,
+            )
+        if settings.kompress_preload:
+            preload_task = asyncio.create_task(
+                _preload_kompress_model(), name="magos.kompress.preload"
             )
 
     refresher: Refresher | None = cast(Refresher | None, app.state.refresher)
@@ -318,9 +325,43 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         log.info("server.shutting_down")
+        if preload_task is not None and not preload_task.done():
+            preload_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await preload_task
         if refresher is not None:
             await refresher.stop()
             log.info("registry.refresher.stopped")
+
+
+async def _preload_kompress_model() -> None:
+    """Warm Kompress model weights off the event loop.
+
+    Headroom's ``_load_kompress`` is a thread-locked, double-checked
+    singleton populator (see ``_kompress_cache``); a request that races
+    in via ``compress()`` blocks on the same lock and reuses the cached
+    model. The leading underscore is a stability risk: a Headroom
+    version bump may rename it, so ImportError falls back to lazy load.
+    """
+    try:
+        from headroom.transforms.kompress_compressor import (  # noqa: PLC0415
+            HF_MODEL_ID,
+            _load_kompress,
+        )
+    except ImportError as exc:
+        log.warning("compress.kompress_preload_unavailable", error=str(exc))
+        return
+    try:
+        await asyncio.to_thread(_load_kompress, HF_MODEL_ID, "auto")
+        log.info("compress.kompress_warmed", model=HF_MODEL_ID)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        log.warning(
+            "compress.kompress_warm_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
 
 
 def create_app(
