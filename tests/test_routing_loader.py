@@ -18,7 +18,7 @@ from typing import Any
 import pytest
 
 import magos.routing.loader as loader_module
-from magos.routing import RoutingConfigError, load_config
+from magos.routing import Compress, RoutingConfigError, load_config
 
 
 class _LogRecorder:
@@ -218,3 +218,92 @@ def test_pre_rewrite_body_touch_warns_per_passthrough_rule(
     assert len(events) == 1
     assert events[0][1]["rule"] == "pt"
     assert events[0][1]["pre_rewrites_touch"] is True
+
+
+def test_compress_rewrite_round_trip(tmp_path: Path) -> None:
+    """Compress rewrite parses with sane defaults and overridden fields."""
+    p = _write(
+        tmp_path,
+        """
+        rules:
+          - name: r
+            match: { endpoint: { literal: /v1/messages } }
+            rewrites:
+              - compress:
+                  mode: token
+                  target_ratio: 0.5
+                  protect_recent: 8
+            action: { provider: anthropic, mode: translate }
+        """,
+    )
+    cfg = load_config(p)
+    rw = cfg.rules[0].rewrites[0]
+    assert isinstance(rw, Compress)
+    assert rw.compress.mode == "token"
+    assert rw.compress.target_ratio == 0.5
+    assert rw.compress.protect_recent == 8
+    # Defaults preserved for unset fields.
+    assert rw.compress.compress_user_messages is False
+    assert rw.compress.compress_system_messages is True
+
+
+def test_compress_rewrite_default_options(tmp_path: Path) -> None:
+    """``compress: {}`` parses with all CompressOptions defaults."""
+    p = _write(
+        tmp_path,
+        """
+        rules:
+          - match: { endpoint: { literal: /v1/messages } }
+            rewrites:
+              - compress: {}
+            action: { provider: anthropic, mode: translate }
+        """,
+    )
+    cfg = load_config(p)
+    rw = cfg.rules[0].rewrites[0]
+    assert isinstance(rw, Compress)
+    assert rw.compress.mode == "token"
+    assert rw.compress.protect_recent == 4
+
+
+def test_compress_rewrite_under_passthrough_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compress is body-touching; pairing with passthrough must warn."""
+    rec = _LogRecorder()
+    monkeypatch.setattr(loader_module, "log", rec)
+    p = _write(
+        tmp_path,
+        """
+        rules:
+          - name: pt
+            match: { endpoint: { literal: /v1/messages } }
+            rewrites:
+              - compress: { mode: token }
+            action:
+              provider: anthropic
+              mode: passthrough
+              base_url: https://api.anthropic.com
+              api_key_env: ANTHROPIC_API_KEY
+        """,
+    )
+    load_config(p)
+    events = [(e, kw) for e, kw in rec.records if e == "routing.passthrough_body_touch"]
+    assert len(events) == 1
+    assert events[0][1]["rule"] == "pt"
+    assert events[0][1]["post_rewrites_touch"] is True
+
+
+def test_compress_invalid_mode_rejected(tmp_path: Path) -> None:
+    p = _write(
+        tmp_path,
+        """
+        rules:
+          - match: { endpoint: { literal: /v1/messages } }
+            rewrites:
+              - compress: { mode: bogus }
+            action: { provider: anthropic, mode: translate }
+        """,
+    )
+    with pytest.raises(RoutingConfigError, match="invalid routing config"):
+        load_config(p)

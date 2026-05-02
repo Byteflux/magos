@@ -22,7 +22,8 @@ directly without re-running ``create_app``.
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from typing import Annotated, Any, cast
 
 import litellm
@@ -35,6 +36,7 @@ from magos import __version__
 from magos.config import MagosSettings, get_settings
 from magos.obs import get_logger
 from magos.routing import (
+    Compress,
     Endpoint,
     RoutedRequest,
     RouteError,
@@ -118,6 +120,37 @@ def _forwardable_headers(headers: Headers) -> dict[str, str]:
     return {k.lower(): v for k, v in headers.items() if k.lower() not in _BLOCKED_FORWARD_HEADERS}
 
 
+def _config_uses_compress(cfg: RoutingConfig) -> bool:
+    """True iff any rewrite (pre or per-rule) is a Compress."""
+    if any(isinstance(rw, Compress) for rw in cfg.pre_rewrites):
+        return True
+    return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Warm Headroom's compression pipeline if any rule uses ``compress``.
+
+    Headroom builds a thread-locked singleton on first call (tokenizer +
+    transform pipeline init). Pulling that cost into startup avoids
+    burying multi-second latency in the first user request.
+    """
+    cfg = cast(RoutingConfig, app.state.routing)
+    if _config_uses_compress(cfg):
+        try:
+            from headroom.compress import _get_pipeline  # noqa: PLC0415
+
+            _get_pipeline()
+            log.info("compress.pipeline_warmed")
+        except Exception as exc:
+            log.warning(
+                "compress.pipeline_warm_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+    yield
+
+
 def create_app(routing: RoutingConfig | None = None) -> FastAPI:
     """Build the FastAPI app, loading routing config from disk by default.
 
@@ -126,7 +159,7 @@ def create_app(routing: RoutingConfig | None = None) -> FastAPI:
     """
     settings = MagosSettings()
     cfg = routing if routing is not None else load_config(settings.config_path)
-    app = FastAPI(title="magos", version=__version__)
+    app = FastAPI(title="magos", version=__version__, lifespan=_lifespan)
     app.state.routing = cfg
 
     @app.post("/v1/messages")

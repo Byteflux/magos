@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import headroom
 import pytest
 
 from magos.routing import (
     AddHeader,
+    Compress,
+    CompressOptions,
     JqPatch,
     NamedValue,
     RemoveHeader,
@@ -15,6 +18,7 @@ from magos.routing import (
     SetHeader,
     SetModel,
 )
+from magos.routing.request import Endpoint
 from magos.routing.rewrites import RewriteError, apply_rewrites
 
 
@@ -24,9 +28,10 @@ def _req(
     headers: dict[str, str] | None = None,
     raw: bytes = b"",
     body_dirty: bool = False,
+    endpoint: Endpoint = "/v1/messages",
 ) -> RoutedRequest:
     return RoutedRequest(
-        endpoint="/v1/messages",
+        endpoint=endpoint,
         headers=headers or {},
         body=body or {},
         raw_body=raw,
@@ -225,3 +230,129 @@ def test_input_request_is_not_mutated() -> None:
     )
     assert headers == {"x-foo": "bar"}
     assert body == {"model": "old", "max_tokens": 8}
+
+
+# --- Compress ---
+
+
+def test_compress_skipped_on_responses_endpoint() -> None:
+    req = _req(
+        endpoint="/v1/responses",
+        body={"model": "x", "input": "hello"},
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert out is req
+
+
+def test_compress_no_messages_is_noop() -> None:
+    req = _req(body={"model": "x"})
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert out is req
+
+
+def test_compress_empty_messages_is_noop() -> None:
+    req = _req(body={"model": "x", "messages": []})
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert out is req
+
+
+class _StubResult:
+    def __init__(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        before: int = 100,
+        after: int = 60,
+        transforms: list[str] | None = None,
+    ) -> None:
+        self.messages = messages
+        self.tokens_before = before
+        self.tokens_after = after
+        self.tokens_saved = before - after
+        self.compression_ratio = (before - after) / before if before > 0 else 0.0
+        self.transforms_applied = transforms or ["stub"]
+
+
+def test_compress_token_mode_applies_pipeline_and_marks_dirty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
+        captured["messages"] = messages
+        captured["model"] = kwargs.get("model")
+        captured["config"] = kwargs.get("config")
+        return _StubResult([{"role": "user", "content": "shorter"}])
+
+    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+
+    req = _req(
+        body={
+            "model": "claude-sonnet-4-5",
+            "messages": [{"role": "user", "content": "verbose original"}],
+        }
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(target_ratio=0.5))])
+
+    assert out.body_dirty is True
+    assert out.body["messages"] == [{"role": "user", "content": "shorter"}]
+    assert captured["model"] == "claude-sonnet-4-5"
+    assert captured["config"].target_ratio == 0.5
+
+
+def test_compress_zero_savings_returns_input_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
+        return _StubResult(messages, before=100, after=100)
+
+    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+
+    req = _req(body={"model": "x", "messages": [{"role": "user", "content": "hi"}]})
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert out is req
+
+
+def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``mode: cache`` must not invoke the full compress() pipeline."""
+
+    def fake_compress(*args: Any, **kwargs: Any) -> _StubResult:  # pragma: no cover
+        raise AssertionError("compress() must not be called in cache mode")
+
+    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+
+    # The DynamicContentDetector (Tier 1 regex) extracts UUIDs from the
+    # static prefix into a dynamic-context tail. UUID detection is the
+    # detector's value-add over the legacy date-only regex path.
+    uuid = "550e8400-e29b-41d4-a716-446655440000"
+    req = _req(
+        body={
+            "model": "claude-sonnet-4-5",
+            "messages": [
+                {"role": "system", "content": f"Session: {uuid}. Be concise."},
+                {"role": "user", "content": "hello"},
+            ],
+        }
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    assert out.body_dirty is True
+    sys_content = out.body["messages"][0]["content"]
+    static_prefix = sys_content.split("[Dynamic Context]")[0]
+    assert uuid not in static_prefix
+    assert uuid in sys_content
+
+
+def test_compress_unsupported_endpoint_does_not_call_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        raise AssertionError("compress() must not be called for /v1/responses")
+
+    monkeypatch.setattr(headroom, "compress", boom, raising=True)
+
+    req = _req(
+        endpoint="/v1/responses",
+        body={"model": "x", "input": "hello"},
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert out is req

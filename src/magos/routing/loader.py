@@ -27,6 +27,7 @@ from magos.routing.jq_compat import JqCompileError, check_program
 from magos.routing.models import (
     AllOf,
     AnyOf,
+    Compress,
     EndpointAtom,
     GlobMatcher,
     HeaderAtom,
@@ -165,7 +166,7 @@ def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
 
 
 def _rewrites_touch_body(rewrites: Iterable[Rewrite]) -> bool:
-    return any(isinstance(rw, (SetModel, JqPatch)) for rw in rewrites)
+    return any(isinstance(rw, (SetModel, JqPatch, Compress)) for rw in rewrites)
 
 
 def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:

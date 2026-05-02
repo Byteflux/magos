@@ -9,6 +9,7 @@ behavior itself is unit-tested in ``test_passthrough.py``.
 
 from __future__ import annotations
 
+import importlib
 from collections.abc import Iterator
 from typing import Any
 
@@ -748,3 +749,89 @@ def test_unmatched_request_returns_404_with_openai_envelope() -> None:
     payload = resp.json()
     assert payload["error"]["type"] == "invalid_request_error"
     assert payload["error"]["code"] == "no_route_matched"
+
+
+# --- Lifespan: Headroom pipeline warmup ---
+
+
+def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If any rule has a Compress rewrite, startup must call _get_pipeline()."""
+    calls: list[str] = []
+
+    def fake_get_pipeline() -> object:
+        calls.append("warmed")
+        return object()
+
+    hc = importlib.import_module("headroom.compress")
+    monkeypatch.setattr(hc, "_get_pipeline", fake_get_pipeline, raising=True)
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "rewrites": [{"compress": {}}],
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app):
+        pass
+
+    assert calls == ["warmed"]
+
+
+def test_lifespan_skips_warmup_when_no_compress_rule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No Compress rewrite anywhere -> never touch headroom on startup."""
+    calls: list[str] = []
+
+    def fake_get_pipeline() -> object:
+        calls.append("warmed")
+        return object()
+
+    hc = importlib.import_module("headroom.compress")
+    monkeypatch.setattr(hc, "_get_pipeline", fake_get_pipeline, raising=True)
+
+    cfg = _translate_only_cfg()
+    app = create_app(routing=cfg)
+    with TestClient(app):
+        pass
+
+    assert calls == []
+
+
+def test_lifespan_warmup_failure_does_not_block_startup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A broken pipeline init must log + continue, not crash the app."""
+
+    def boom() -> object:
+        raise RuntimeError("pipeline init failed")
+
+    hc = importlib.import_module("headroom.compress")
+    monkeypatch.setattr(hc, "_get_pipeline", boom, raising=True)
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "rewrites": [{"compress": {}}],
+                    "action": {"provider": "anthropic", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    app = create_app(routing=cfg)
+    with TestClient(app) as client:
+        # App must come up despite the warmup failure; routing-layer
+        # health is unaffected because compression is best-effort.
+        resp = client.post("/v1/messages", json={"model": "x", "messages": []})
+    # 400 (validation) or routed; either is fine — the point is "didn't crash on startup".
+    assert resp.status_code != 500

@@ -110,11 +110,50 @@ Each is a single-key dict applied in list order:
 | `add_header`   | `{ add_header: { name: ..., value: ... }}`| insert only if absent                  |
 | `remove_header`| `{ remove_header: "name" }`               | drop if present                        |
 | `jq_patch`     | `{ jq_patch: "<expr>" }`                  | result replaces body; must be a JSON object |
+| `compress`     | `{ compress: { ... } }`                   | run Headroom compression on `messages`; flips body_dirty |
 
-`jq_patch` and `set_model` mark the request body as dirty. Under
-`mode: passthrough`, a dirty body forces re-serialisation, breaking
-prompt-cache byte-exactness; the loader logs a warning per offending
-rule at startup.
+`jq_patch`, `set_model`, and `compress` mark the request body as dirty.
+Under `mode: passthrough`, a dirty body forces re-serialisation,
+breaking prompt-cache byte-exactness; the loader logs a warning per
+offending rule at startup.
+
+#### `compress`
+
+Runs Headroom against `body.messages`. Two modes:
+
+- `mode: token` (default) — full pipeline (CacheAligner + ContentRouter
+  + IntelligentContext). Messages may be rewritten or dropped. Maximises
+  token savings.
+- `mode: cache` — CacheAligner only. Extracts dynamic content (dates,
+  whitespace) from system prompts so the prefix is byte-stable across
+  requests. Does not touch user/assistant messages. Improves provider
+  prompt-cache hit rate without changing semantics.
+
+Endpoint scope: `/v1/messages`, `/v1/messages/count_tokens`, and
+`/v1/chat/completions`. The `/v1/responses` family uses `input` instead
+of `messages` and is silently skipped.
+
+Failure mode: Headroom fails open internally. On any compression error
+the original messages pass through and an OTel metric is recorded.
+
+All `CompressConfig` knobs are surfaced verbatim:
+
+```yaml
+rewrites:
+  - compress:
+      mode: token              # token | cache
+      compress_user_messages: false
+      compress_system_messages: true
+      protect_recent: 4        # last N messages untouched
+      protect_analysis_context: true
+      target_ratio: null       # null = aggressive default
+      min_tokens_to_compress: 250
+      kompress_model: null     # HF model id, or "disabled"
+```
+
+Startup: when any rule uses `compress`, the FastAPI lifespan hook warms
+Headroom's pipeline (tokenizer + transform init) so first-request
+latency is amortised.
 
 ### API-key handling
 

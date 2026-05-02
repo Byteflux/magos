@@ -114,7 +114,38 @@ class JqPatch(_Frozen):
     jq_patch: str = Field(min_length=1)
 
 
-Rewrite = SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch
+CompressMode = Literal["token", "cache"]
+
+
+class CompressOptions(_Frozen):
+    """User-facing compression knobs, mirrors ``headroom.compress.CompressConfig``.
+
+    ``mode``:
+      - ``token``: run the full pipeline (CacheAligner + ContentRouter +
+        IntelligentContext) for maximum token savings; messages may be
+        rewritten or dropped.
+      - ``cache``: run only CacheAligner — extract dynamic content from the
+        system prompt and normalize whitespace so the prefix is byte-stable
+        across requests. Does not touch user/assistant messages.
+
+    All other fields pass through verbatim to ``CompressConfig``.
+    """
+
+    mode: CompressMode = "token"
+    compress_user_messages: bool = False
+    compress_system_messages: bool = True
+    protect_recent: int = Field(default=4, ge=0)
+    protect_analysis_context: bool = True
+    target_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
+    min_tokens_to_compress: int = Field(default=250, ge=0)
+    kompress_model: str | None = None
+
+
+class Compress(_Frozen):
+    compress: CompressOptions = Field(default_factory=CompressOptions)
+
+
+Rewrite = SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress
 
 
 DispatchMode = Literal["translate", "passthrough"]

@@ -10,7 +10,7 @@
 #   - matchers (for non-jq atoms): { literal: ... } | { glob: ... } | { regex: ... }
 #   - combinators: all_of / any_of / not (recursive)
 # Rewrite ops:
-#   - set_model / set_header / add_header / remove_header / jq_patch
+#   - set_model / set_header / add_header / remove_header / jq_patch / compress
 # Action fields:
 #   - provider, mode (translate|passthrough), base_url, api_key_env
 
@@ -114,3 +114,24 @@ rules:
     action:
       provider: openai
       mode: translate
+
+  # Example: enable Headroom compression for long-context Claude requests.
+  # ``mode: token`` runs the full pipeline (CacheAligner + ContentRouter +
+  # IntelligentContext); ``mode: cache`` only stabilises the prefix for
+  # provider prompt-cache hits without rewriting message content. Skipped
+  # silently on /v1/responses (which uses ``input`` not ``messages``).
+  #
+  # - name: claude-compress-long-context
+  #   match:
+  #     all_of:
+  #       - endpoint: { literal: /v1/messages }
+  #       - model: { regex: "^(anthropic/)?claude-.*" }
+  #       - jq: ".messages | length > 30"
+  #   rewrites:
+  #     - compress:
+  #         mode: token
+  #         protect_recent: 8
+  #         target_ratio: 0.6
+  #   action:
+  #     provider: anthropic
+  #     mode: translate

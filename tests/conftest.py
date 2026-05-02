@@ -12,6 +12,21 @@ imports ``magos.server``, so ``create_app()`` calls without an explicit
 
 from __future__ import annotations
 
+# Force-load sentence_transformers before any other test import. Required to
+# neutralise a Windows native-load order bug: importing
+# ``cryptography.hazmat.bindings._rust`` (transitively pulled by
+# ``mitmproxy.http`` in ``test_addon``) before ``sentence_transformers``
+# causes pyarrow's ``.pyd`` to segfault during ``create_module`` when the
+# Headroom DynamicContentDetector is later imported by the cache_align
+# tests. Costs ~6s on first session import (cached thereafter). Production
+# uses a different load path (lazy preload in ``rewrites.py`` before any
+# request hits compress); tests need this because ``test_addon`` runs
+# unconditionally as part of the suite. See ``docs/headroom.md``.
+import contextlib
+
+with contextlib.suppress(Exception):
+    import sentence_transformers  # noqa: F401
+
 import os
 from pathlib import Path
 
