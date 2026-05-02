@@ -1,14 +1,14 @@
-"""``magos models`` subcommands."""
+"""``magos models`` Typer subapp."""
 
 from __future__ import annotations
 
-import argparse
 import asyncio
 import json
-import sys
-from typing import TextIO
+from enum import StrEnum
+from typing import Annotated
 
 import httpx
+import typer
 
 from magos.cli.admin_client import AdminClient, AdminClientError
 from magos.config import MagosSettings
@@ -19,8 +19,22 @@ from magos.registry.models import RegistryState
 from magos.registry.store import deserialize, load
 
 
+class _ListFormat(StrEnum):
+    text = "text"
+    json = "json"
+
+
+models_app = typer.Typer(
+    name="models",
+    help="Inspect and manage the model registry.",
+    no_args_is_help=True,
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+
+
 def _admin_client(settings: MagosSettings) -> AdminClient:
-    """Build an admin client that targets the local server's bind address."""
+    """Build an admin client targeting the local server's bind address."""
     # Bind addresses like 0.0.0.0 / :: aren't valid HTTP hosts; resolve to
     # loopback so the CLI talks to the local instance.
     bind_all = {"0.0.0.0", "::"}  # noqa: S104  - not binding, just comparing
@@ -33,27 +47,25 @@ def _load_state_from_disk(settings: MagosSettings) -> RegistryState:
     return load(resolve_models_path(settings.config_path, cfg.registry))
 
 
-def _load_state(
-    settings: MagosSettings, *, prefer_disk: bool, out: TextIO
-) -> tuple[RegistryState, str]:
-    """Return (state, source) where source is 'server' or 'disk'."""
+def _load_state(settings: MagosSettings, *, prefer_disk: bool) -> tuple[RegistryState, str]:
+    """Return ``(state, source)`` where ``source`` is ``'server'`` or ``'disk'``."""
     if prefer_disk:
         return _load_state_from_disk(settings), "disk"
     client = _admin_client(settings)
     try:
         raw = client.get_registry()
     except AdminClientError as exc:
-        print(f"server returned an error: {exc}", file=out)
-        raise SystemExit(2) from exc
+        typer.echo(f"server returned an error: {exc}")
+        raise typer.Exit(2) from exc
     if raw is not None:
         return deserialize(raw), "server"
-    print("server unreachable, falling back to disk", file=out)
+    typer.echo("server unreachable, falling back to disk")
     return _load_state_from_disk(settings), "disk"
 
 
-def _print_list(state: RegistryState, source: str, *, fmt: str, out: TextIO) -> None:
+def _print_list(state: RegistryState, source: str, *, fmt: _ListFormat) -> None:
     entries = sorted(state.entries.values(), key=lambda e: e.namespaced_id)
-    if fmt == "json":
+    if fmt is _ListFormat.json:
         payload = [
             {
                 "id": e.namespaced_id,
@@ -63,23 +75,47 @@ def _print_list(state: RegistryState, source: str, *, fmt: str, out: TextIO) -> 
             }
             for e in entries
         ]
-        print(json.dumps({"source": source, "entries": payload}, indent=2), file=out)
+        typer.echo(json.dumps({"source": source, "entries": payload}, indent=2))
         return
-    print(f"# source: {source}", file=out)
+    typer.echo(f"# source: {source}")
     if not entries:
-        print("(no entries)", file=out)
+        typer.echo("(no entries)")
         return
     for entry in entries:
         marker = " [deprecated]" if entry.is_deprecated else ""
         ctx = f" ctx={entry.context_size}" if entry.context_size else ""
-        print(f"{entry.namespaced_id}{ctx}{marker}", file=out)
+        typer.echo(f"{entry.namespaced_id}{ctx}{marker}")
 
 
-def _print_show(state: RegistryState, source: str, model_id: str, *, out: TextIO) -> int:
+@models_app.command("list")
+def models_list(
+    from_disk: Annotated[
+        bool, typer.Option("--from-disk", help="Bypass the server and read models.json directly.")
+    ] = False,
+    output_format: Annotated[
+        _ListFormat, typer.Option("--format", help="Output format.")
+    ] = _ListFormat.text,
+) -> None:
+    """Show registry entries (server-state by default, --from-disk to bypass)."""
+    settings = MagosSettings()
+    state, source = _load_state(settings, prefer_disk=from_disk)
+    _print_list(state, source, fmt=output_format)
+
+
+@models_app.command("show")
+def models_show(
+    model_id: Annotated[
+        str, typer.Argument(help="Namespaced id, e.g. openrouter/anthropic/claude-sonnet-4-6.")
+    ],
+    from_disk: Annotated[bool, typer.Option("--from-disk")] = False,
+) -> None:
+    """Show one entry by namespaced id."""
+    settings = MagosSettings()
+    state, source = _load_state(settings, prefer_disk=from_disk)
     entry = state.get(model_id)
     if entry is None:
-        print(f"not found in {source}: {model_id}", file=out)
-        return 1
+        typer.echo(f"not found in {source}: {model_id}")
+        raise typer.Exit(1)
     payload = {
         "source": source,
         "provider": entry.provider,
@@ -94,115 +130,72 @@ def _print_show(state: RegistryState, source: str, model_id: str, *, out: TextIO
         "deprecated_at": entry.deprecated_at.isoformat() if entry.deprecated_at else None,
         "sources": list(entry.sources),
     }
-    print(json.dumps(payload, indent=2), file=out)
-    return 0
+    typer.echo(json.dumps(payload, indent=2))
 
 
-def _cmd_list(args: argparse.Namespace, settings: MagosSettings, out: TextIO) -> int:
-    state, source = _load_state(settings, prefer_disk=args.from_disk, out=out)
-    _print_list(state, source, fmt=args.format, out=out)
-    return 0
-
-
-def _cmd_show(args: argparse.Namespace, settings: MagosSettings, out: TextIO) -> int:
-    state, source = _load_state(settings, prefer_disk=args.from_disk, out=out)
-    return _print_show(state, source, args.id, out=out)
-
-
-def _cmd_refresh(args: argparse.Namespace, settings: MagosSettings, out: TextIO) -> int:
+@models_app.command("refresh")
+def models_refresh(
+    provider: Annotated[
+        str | None,
+        typer.Option("--provider", help="Scope to one provider (default: all)."),
+    ] = None,
+) -> None:
+    """Trigger a refresh via the running server."""
+    settings = MagosSettings()
     client = _admin_client(settings)
     try:
-        result = client.post_refresh(provider=args.provider)
+        result = client.post_refresh(provider=provider)
     except AdminClientError as exc:
-        print(f"refresh failed: {exc}", file=out)
-        return 2
-    print(json.dumps(result, indent=2), file=out)
-    return 0 if not result.get("failed") else 1
+        typer.echo(f"refresh failed: {exc}")
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(result, indent=2))
+    if result.get("failed"):
+        raise typer.Exit(1)
 
 
-def _cmd_prune(args: argparse.Namespace, settings: MagosSettings, out: TextIO) -> int:
+@models_app.command("prune")
+def models_prune() -> None:
+    """Trigger a deprecation sweep via refresh."""
+    settings = MagosSettings()
     client = _admin_client(settings)
     try:
         result = client.post_prune()
     except AdminClientError as exc:
-        print(f"prune failed: {exc}", file=out)
-        return 2
-    print(json.dumps(result, indent=2), file=out)
-    return 0
+        typer.echo(f"prune failed: {exc}")
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(result, indent=2))
 
 
-def _cmd_discover(args: argparse.Namespace, settings: MagosSettings, out: TextIO) -> int:
+@models_app.command("discover")
+def models_discover(
+    provider: Annotated[str, typer.Option("--provider", help="Provider to query.")],
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run/--no-dry-run", help="Read-only by default.")
+    ] = True,
+) -> None:
     """Standalone discovery against one provider (no server, no writes)."""
+    settings = MagosSettings()
     cfg = load_full_config(settings.config_path)
-    if args.provider not in cfg.registry.providers:
-        print(f"unknown provider: {args.provider}", file=out)
-        return 2
-    provider_cfg = cfg.registry.providers[args.provider]
+    if provider not in cfg.registry.providers:
+        typer.echo(f"unknown provider: {provider}")
+        raise typer.Exit(2)
+    provider_cfg = cfg.registry.providers[provider]
     adapter = adapter_for(provider_cfg)
 
-    async def run() -> int:
+    async def run() -> None:
         timeout = cfg.registry.registry.discovery_timeout_seconds
         async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                result = await adapter.discover(args.provider, provider_cfg, client)
+                result = await adapter.discover(provider, provider_cfg, client)
             except DiscoveryError as exc:
-                print(f"discovery failed: {exc}", file=out)
-                return 2
-        if not args.dry_run:
-            print(
+                typer.echo(f"discovery failed: {exc}")
+                raise typer.Exit(2) from exc
+        if not dry_run:
+            typer.echo(
                 "(non-dry-run discovery would normally update models.json; "
-                "use --dry-run for the read-only path)",
-                file=out,
+                "use --dry-run for the read-only path)"
             )
         for entry in result.models:
-            print(entry.raw_id, file=out)
-        return 0
+            typer.echo(entry.raw_id)
 
-    return asyncio.run(run())
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="magos models")
-    sub = parser.add_subparsers(dest="verb", required=True)
-
-    # list
-    p_list = sub.add_parser("list", help="show registry entries")
-    p_list.add_argument("--from-disk", action="store_true", help="bypass server, read models.json")
-    p_list.add_argument("--format", choices=("text", "json"), default="text")
-    p_list.set_defaults(func=_cmd_list)
-
-    # show
-    p_show = sub.add_parser("show", help="show one entry by namespaced id")
-    p_show.add_argument("id", help="namespaced id, e.g. openrouter/anthropic/claude-sonnet-4-6")
-    p_show.add_argument("--from-disk", action="store_true")
-    p_show.set_defaults(func=_cmd_show)
-
-    # refresh
-    p_refresh = sub.add_parser("refresh", help="trigger a refresh via the running server")
-    p_refresh.add_argument("--provider", help="scope to one provider (default: all)")
-    p_refresh.set_defaults(func=_cmd_refresh)
-
-    # prune
-    p_prune = sub.add_parser("prune", help="trigger a deprecation sweep via refresh")
-    p_prune.set_defaults(func=_cmd_prune)
-
-    # discover
-    p_discover = sub.add_parser("discover", help="standalone read-only discovery")
-    p_discover.add_argument("--provider", required=True)
-    p_discover.add_argument("--dry-run", action="store_true", default=True)
-    p_discover.set_defaults(func=_cmd_discover)
-
-    return parser
-
-
-def main(argv: list[str] | None = None, *, out: TextIO | None = None) -> int:
-    """Entrypoint for ``magos models …``."""
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-    settings = MagosSettings()
-    target = out if out is not None else sys.stdout
-    func = getattr(args, "func", None)
-    if func is None:
-        parser.print_help(target)
-        return 1
-    return int(func(args, settings, target))
+    asyncio.run(run())

@@ -33,6 +33,7 @@ dependencies = [
     "httpx>=0.28.1",
     "starlette>=1.0.0",
     "prometheus-client>=0.25.0",
+    "typer>=0.25.1",
 ]
 
 [project.scripts]

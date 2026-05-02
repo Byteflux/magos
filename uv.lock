@@ -2450,6 +2450,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "starlette" },
     { name = "structlog" },
+    { name = "typer" },
     { name = "uvicorn" },
 ]
 
@@ -2500,6 +2501,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "magos", extra = "cpu" } },
     { name = "torch", marker = "extra == 'gpu'", specifier = ">=2.11", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "magos", extra = "gpu" } },
+    { name = "typer", specifier = ">=0.25.1" },
     { name = "uvicorn", specifier = ">=0.46.0" },
 ]
 provides-extras = ["cpu", "gpu"]

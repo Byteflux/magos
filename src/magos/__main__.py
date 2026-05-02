@@ -2,9 +2,9 @@
 
 Default invocation starts the server::
 
-    magos                          # serve
-    magos serve
-    magos serve --config /path/to/magos.yaml
+    magos                          # serve (no subcommand)
+    magos serve                    # explicit
+    magos --config /etc/x.yaml     # config override
 
 Operator-facing subcommands::
 
@@ -12,7 +12,7 @@ Operator-facing subcommands::
     magos models show <id>
     magos models refresh [--provider X]
     magos models prune
-    magos models discover --provider X --dry-run
+    magos models discover --provider X [--dry-run / --no-dry-run]
 
 The ``magos`` script is installed by the ``[project.scripts]`` entry in
 ``pyproject.toml``. Inside a uv-managed venv use ``uv run magos …``;
@@ -20,7 +20,7 @@ The ``magos`` script is installed by the ``[project.scripts]`` entry in
 
 Config resolution order (highest first):
 
-1. ``--config`` CLI flag (any subcommand)
+1. ``--config`` CLI flag (top-level option, before the subcommand)
 2. ``MAGOS_CONFIG_PATH`` env var
 3. ``~/.magos/magos.yaml`` (default)
 
@@ -31,72 +31,28 @@ them via environment variables prefixed ``MAGOS_`` or a local ``.env``.
 from __future__ import annotations
 
 import os
-import sys
+from typing import Annotated
 
+import typer
 import uvicorn
 
 from magos import __version__
-from magos.cli.models_cmd import main as models_main
+from magos.cli.models_cmd import models_app
 from magos.config import MagosSettings
 from magos.obs import configure_logging, configure_tracing
 
-_TOP_HELP = """\
-usage: magos [--config PATH] [--version] [-h | --help] [SUBCOMMAND ...]
-
-Run the magos LLM proxy server, or invoke an operator subcommand.
-
-Subcommands:
-  serve              run the FastAPI server (default when no subcommand given)
-  models             inspect and manage the model registry; see `magos models --help`
-
-Options:
-  --config PATH      path to magos.yaml (overrides MAGOS_CONFIG_PATH and the
-                     ~/.magos/magos.yaml default); accepted by every subcommand
-  --version          print the magos version and exit
-  -h, --help         show this message and exit
-
-Config resolution (highest first): --config > MAGOS_CONFIG_PATH > ~/.magos/magos.yaml.
-"""
-
-_SERVE_HELP = """\
-usage: magos serve [--config PATH] [-h | --help]
-
-Run the FastAPI server. This is the default when no subcommand is given.
-
-Options:
-  --config PATH      path to magos.yaml
-  -h, --help         show this message and exit
-
-Server bind, logging, and tracing knobs come from environment variables
-prefixed MAGOS_ (or a local .env). See magos.config.MagosSettings.
-"""
-
-
-def _consume_config_flag(argv: list[str]) -> list[str]:
-    """Strip ``--config <path>`` (or ``--config=<path>``) from ``argv``.
-
-    Sets ``MAGOS_CONFIG_PATH`` so downstream ``MagosSettings()`` picks
-    it up via env. Returns the remaining args. Lets every subcommand
-    accept ``--config`` uniformly without each one re-implementing it.
-    """
-    out: list[str] = []
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg == "--config" and i + 1 < len(argv):
-            os.environ["MAGOS_CONFIG_PATH"] = argv[i + 1]
-            i += 2
-            continue
-        if arg.startswith("--config="):
-            os.environ["MAGOS_CONFIG_PATH"] = arg.split("=", 1)[1]
-            i += 1
-            continue
-        out.append(arg)
-        i += 1
-    return out
+app = typer.Typer(
+    name="magos",
+    help="LLM proxy server with provider-discovered model registry.",
+    no_args_is_help=False,
+    add_completion=False,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+app.add_typer(models_app, name="models")
 
 
 def serve() -> None:
+    """Boot the FastAPI server under uvicorn using current ``MagosSettings``."""
     settings = MagosSettings()
     configure_logging(level=settings.log_level, json=settings.log_json)
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
@@ -109,35 +65,48 @@ def serve() -> None:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
-    args = list(sys.argv[1:] if argv is None else argv)
-    args = _consume_config_flag(args)
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"magos {__version__}")
+        raise typer.Exit()
 
-    # Top-level --help / --version are matched before subcommand dispatch.
-    # Subcommand-scoped help (e.g. ``magos models list --help``) is owned
-    # by argparse inside ``models_main`` and the per-verb subparsers.
-    if args and args[0] in {"-h", "--help"}:
-        print(_TOP_HELP, end="")
-        return 0
-    if args and args[0] == "--version":
-        print(f"magos {__version__}")
-        return 0
 
-    if not args or args[0] == "serve":
-        if any(a in {"-h", "--help"} for a in args[1:]):
-            print(_SERVE_HELP, end="")
-            return 0
+@app.callback(invoke_without_command=True)
+def _root(
+    ctx: typer.Context,
+    config: Annotated[
+        str | None,
+        typer.Option(
+            "--config",
+            help="Path to magos.yaml (overrides MAGOS_CONFIG_PATH and the ~/.magos/magos.yaml default).",
+        ),
+    ] = None,
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_version_callback,
+            is_eager=True,
+            help="Print the magos version and exit.",
+        ),
+    ] = False,
+) -> None:
+    if config is not None:
+        os.environ["MAGOS_CONFIG_PATH"] = config
+    if ctx.invoked_subcommand is None:
         serve()
-        return 0
-    if args[0] == "models":
-        return models_main(args[1:])
-    print(
-        f"unknown subcommand: {args[0]!r}; expected 'serve' or 'models'. "
-        "Run `magos --help` for usage.",
-        file=sys.stderr,
-    )
-    return 2
+
+
+@app.command("serve")
+def serve_cmd() -> None:
+    """Run the FastAPI server (the default when no subcommand is given)."""
+    serve()
+
+
+def main() -> None:
+    """Console-script entrypoint."""
+    app()
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
