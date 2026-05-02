@@ -123,8 +123,101 @@ CacheAligner -> ContentRouter -> IntelligentContext
   embedded library that imports cryptography unconditionally before
   any opportunity to inject a preload).
 
-**`ContentRouter`** routes per content type: SmartCrusher (JSON dedup),
-CodeCompressor, Kompress (text). No magos-side concerns.
+**`ContentRouter`** (`transforms/content_router.py`) sniffs each
+compressible block's content type and dispatches to a per-type
+compressor:
+
+| Content type        | Compressor          | Notes                                   |
+|---------------------|---------------------|-----------------------------------------|
+| `SOURCE_CODE`       | CodeCompressor      | AST-preserving                          |
+| `JSON_ARRAY`        | SmartCrusher        | Array dedup                             |
+| `SEARCH_RESULTS`    | SearchCompressor    | grep/ripgrep output                     |
+| `BUILD_OUTPUT`      | LogCompressor       | Build/test logs                         |
+| `GIT_DIFF`          | DiffCompressor      |                                         |
+| `HTML`              | HTMLExtractor       | Standard HTML; custom XML tags protected separately |
+| `PLAIN_TEXT`        | KompressCompressor  | ML-based; passthrough if backends missing |
+
+Custom XML-style tags (`<system-reminder>`, `<tool_call>`,
+`<thinking>`) are protected before ML compression and restored after
+(`content_router.py:1073-1112`). Standard HTML tags are routed to
+HTMLExtractor instead.
+
+When ContentRouter can't classify a block, the fallback strategy is
+also Kompress.
+
+**Kompress in detail.** ModernBERT-based token-level compressor
+(`transforms/kompress_compressor.py`). Default model
+`chopratejas/kompress-base` on HF, trained on 330K structured tool
+outputs per the docstring. Two prediction heads:
+
+- Token head: binary keep/discard classifier per token
+  (`kompress_compressor.py:99-122`).
+- Span head: 1D CNN producing span-importance scores
+  (`:124-130`). Borderline tokens get rescued if their surrounding
+  span scores high.
+
+Operators can swap the model — domain-specific variants like
+`chopratejas/kompress-finance` are referenced in the docstring example.
+Magos exposes this via `CompressOptions.kompress_model` (three-way
+switch: `null` → default model, `"disabled"` → skip ML entirely,
+`"<hf-model-id>"` → custom model). All three values map onto Headroom's
+runtime `kompress_model` kwarg dispatch in
+`content_router.py:1299-1339`.
+
+Two backends, ONNX preferred (`kompress_compressor.py:232-253`):
+
+| Backend            | Wheel size | Path                          | Quantization |
+|--------------------|-----------|-------------------------------|--------------|
+| `onnxruntime`      | ~50MB     | `onnx/kompress-int8.onnx`     | INT8         |
+| `torch` + `safetensors` | ~800MB | `model.safetensors` + ModernBERT-base | FP32 |
+
+Our venv has both (`headroom-ai[all]==0.10.16` ships
+`onnxruntime==1.25.1` + `torch==2.11.0`). The ONNX path runs.
+
+Per-call mechanics: word-tokenize input, skip if `< 10` words
+(passthrough), chunk into windows of `chunk_words=350` (model-coupled
+default), per-chunk ModernBERT forward pass, reduce per-token
+decisions to per-word keep set, reassemble surviving words. Inference
+is **sequential per chunk** — long content (many 350-word chunks)
+translates to many forward passes. No batching across chunks.
+
+Two compression modes:
+
+- **No `target_ratio`** (model decides): keep/discard from the binary
+  head, span rescues borderline tokens. Compression ratio emerges from
+  content.
+- **`target_ratio` set** (e.g. `0.3`): score per token, rank globally,
+  keep top-N. Forces a specific ratio regardless of content
+  compressibility. Aggressive — only set when you're sure.
+
+Kompress weights are cached at module level (`_kompress_cache: dict`,
+thread-locked) keyed by `model_id`, so repeated rules with the same
+model are cheap. Multiple models can coexist. There's also
+`unload_kompress_model()` for memory pressure.
+
+Kompress is **not preloaded by magos**. The lifespan hook calls
+`_get_pipeline()` which builds the TransformPipeline but
+`KompressCompressor.compress` is lazy (`_get_kompress` only fires when
+`_route_and_compress_block` actually hits a PLAIN_TEXT block). First
+text-bearing compress request pays the HF download (~tens of seconds
+on a fresh deployment) or disk-cache deserialization (~hundreds of
+ms). ContentRouter has a warmup-style method that eagerly loads
+Kompress (`content_router.py:1232-1239`) — magos doesn't call it.
+Worth wiring into the lifespan hook only if cold-start latency
+becomes a complaint.
+
+Gotchas:
+
+- **`chunk_words=350` is model-coupled.** Custom models trained on
+  different chunk sizes need matching `chunk_words` and
+  `score_threshold` — Headroom doesn't validate, mismatched chunk
+  sizes silently produce worse compression.
+- **`question` parameter is ignored** (`kompress_compressor.py:362`) —
+  reserved for future QA-aware compression. Setting it has no effect
+  today.
+- **ONNX availability check is import-only.** `_is_onnx_available`
+  succeeds if `onnxruntime` and `transformers` import. It does not
+  validate that the ONNX session can actually load on this machine.
 
 **`IntelligentContextManager`** (`transforms/intelligent_context.py`)
 
@@ -147,7 +240,7 @@ CodeCompressor, Kompress (text). No magos-side concerns.
 | `protect_analysis_context`  | `True`  | detect "analyze"/"review" intent           |
 | `target_ratio`              | `None`  | model decides (~15% kept, aggressive)      |
 | `min_tokens_to_compress`    | `250`   | shorter messages pass through              |
-| `kompress_model`            | `None`  | HF model id, or `"disabled"`               |
+| `kompress_model`            | `None`  | `null` -> default `chopratejas/kompress-base`; `"disabled"` -> skip ML compression entirely (only SmartCrusher + CacheAligner run); `"<hf-id>"` -> custom model. See the Kompress section above. |
 
 Operators: with these defaults, the prefix tends to become *more*
 cache-stable, not less. The cache-invalidation risk surfaces when
@@ -170,13 +263,29 @@ against optional extras (kompress weights, etc.) being missing — log
 
 ## Pipeline init cost
 
-`_get_pipeline()` is a thread-locked lazy singleton
-(`compress.py:327-347`). First call constructs `TransformPipeline` —
-tokenizer init, model loads. Subsequent calls reuse.
+Two distinct init costs:
 
-Magos warms this once at FastAPI startup via the lifespan hook in
-`server.py` if any routing rule uses `compress`. Avoids burying multi-
-second latency in the first user request.
+1. **TransformPipeline construction.** `_get_pipeline()` is a
+   thread-locked lazy singleton (`compress.py:327-347`). First call
+   constructs the pipeline, the underlying tokenizer, transform
+   instances. Subsequent calls reuse. Magos warms this once at FastAPI
+   startup via the lifespan hook in `server.py` if any routing rule
+   uses `compress`.
+
+2. **Kompress weight load.** Separate from pipeline construction.
+   `KompressCompressor._get_kompress` is lazy *inside* the compressor —
+   first plain-text compress request triggers HF download (or disk
+   cache deserialization on subsequent restarts). Magos does not warm
+   this. Cold start: tens of seconds on a fresh deployment, hundreds
+   of ms on a restart with cache. ContentRouter has a warmup-style
+   method (`content_router.py:1232-1239`) that magos could call from
+   the lifespan hook to amortise this; not implemented because
+   cold-start latency hasn't been a complaint.
+
+Operators who want zero per-request ML cost can declare
+`kompress_model: disabled` per-rule — that bypasses Kompress entirely
+while keeping the rest of the pipeline (CacheAligner, SmartCrusher,
+non-ML compressors).
 
 ## Integration shapes considered
 
