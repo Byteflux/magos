@@ -73,12 +73,18 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
         log.debug("registry.litellm_lookup.miss", model=litellm_id, error=str(exc))
         return PartialEntry()
     except Exception as exc:
-        log.warning(
-            "registry.litellm_lookup.error",
-            model=litellm_id,
-            error=str(exc),
-            error_type=type(exc).__name__,
-        )
+        # LiteLLM raises a bare Exception with "isn't mapped yet" for unknown
+        # models, treat that as an expected miss; anything else is a real error.
+        msg = str(exc)
+        if "isn't mapped yet" in msg or "not mapped yet" in msg:
+            log.debug("registry.litellm_lookup.miss", model=litellm_id, error=msg)
+        else:
+            log.warning(
+                "registry.litellm_lookup.error",
+                model=litellm_id,
+                error=msg,
+                error_type=type(exc).__name__,
+            )
         return PartialEntry()
     info_dict: dict[str, Any] = dict(info)
     return PartialEntry(
