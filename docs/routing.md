@@ -142,7 +142,8 @@ Endpoint scope:
 Failure mode: Headroom fails open internally. On any compression error
 the original messages pass through and an OTel metric is recorded.
 
-All `CompressConfig` knobs are surfaced verbatim:
+All `CompressConfig` knobs are surfaced verbatim, plus an explicit
+`model_limit` override:
 
 ```yaml
 rewrites:
@@ -155,7 +156,16 @@ rewrites:
       target_ratio: null       # null = aggressive default
       min_tokens_to_compress: 250
       kompress_model: null     # HF model id, or "disabled"
+      model_limit: null        # null = auto-detect via litellm; or e.g. 128000
 ```
+
+`model_limit` controls when Headroom's IntelligentContextManager fires
+(over-budget message dropping) and how aggressively ContentRouter
+scales compression. By default magos calls `litellm.get_model_info`
+on the dispatch model, reads `max_input_tokens`, and falls back to
+200000 for unknown models. Set explicitly to leave headroom for
+output budgets, force earlier compression for cost reasons, or pin a
+value for custom models that LiteLLM doesn't recognise.
 
 Startup: when any rule uses `compress`, the FastAPI lifespan hook warms
 Headroom's pipeline (tokenizer + transform init) so first-request

@@ -11,6 +11,7 @@ verbatim under passthrough.
 from __future__ import annotations
 
 import contextlib
+import io
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
@@ -37,6 +38,59 @@ log = get_logger("magos.routing.rewrites")
 _COMPRESS_SUPPORTED_ENDPOINTS: frozenset[str] = frozenset(
     {"/v1/messages", "/v1/messages/count_tokens", "/v1/chat/completions"}
 )
+
+
+# Headroom's hardcoded fallback when the caller doesn't supply model_limit
+# (`compress.py:161`). Used as our last-resort default when LiteLLM doesn't
+# recognise the dispatch model.
+_DEFAULT_MODEL_LIMIT = 200_000
+
+# Per-model context-window cache. Populated lazily on first compress call
+# for each unique model id. Stores the resolved limit on success AND the
+# fallback default on failure, so we don't re-trigger LiteLLM's noisy
+# "model not mapped" stderr print on every request for an unknown model.
+_MODEL_LIMIT_CACHE: dict[str, int] = {}
+
+
+def _resolve_model_limit(dispatch_model: str, default: int = _DEFAULT_MODEL_LIMIT) -> int:
+    """Look up the max input-token window for ``dispatch_model``.
+
+    Calls ``litellm.get_model_info`` and reads ``max_input_tokens`` (or
+    ``max_tokens`` as a fallback). LiteLLM accepts both bare model names
+    (``gpt-4o``) and provider-prefixed forms (``openai/gpt-4o``). On
+    lookup failure (unknown model, ``@suffix`` variants LiteLLM doesn't
+    register, network-disconnected first call, etc.), returns ``default``.
+
+    Result is cached per ``dispatch_model`` so subsequent requests for
+    the same model are free and don't re-print LiteLLM's provider list.
+    """
+    if dispatch_model in _MODEL_LIMIT_CACHE:
+        return _MODEL_LIMIT_CACHE[dispatch_model]
+
+    limit = default
+    try:
+        # LiteLLM prints a multi-line provider list to stderr on unknown
+        # models. Suppress it; the routing log already captures the model.
+        with contextlib.redirect_stderr(io.StringIO()):
+            import litellm  # noqa: PLC0415
+
+            info = litellm.get_model_info(dispatch_model)
+    except Exception:
+        info = None
+
+    if isinstance(info, dict):
+        for key in ("max_input_tokens", "max_tokens"):
+            value = info.get(key)
+            if isinstance(value, int) and value > 0:
+                limit = value
+                break
+
+    _MODEL_LIMIT_CACHE[dispatch_model] = limit
+    if limit == default:
+        log.debug("compress.model_limit_default", dispatch_model=dispatch_model, limit=default)
+    else:
+        log.debug("compress.model_limit_resolved", dispatch_model=dispatch_model, limit=limit)
+    return limit
 
 
 def _preload_sentence_transformers() -> None:
@@ -164,6 +218,11 @@ def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
     if opts.mode == "cache":
         return _apply_cache_aligner(req, messages, model)
 
+    # Per-rule override wins; otherwise auto-detect via LiteLLM's registry
+    # so IntelligentContext fires at the right threshold and ContentRouter
+    # scales pressure correctly for the actual destination model.
+    model_limit = opts.model_limit if opts.model_limit is not None else _resolve_model_limit(model)
+
     cfg = CompressConfig(
         compress_user_messages=opts.compress_user_messages,
         compress_system_messages=opts.compress_system_messages,
@@ -173,7 +232,7 @@ def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
         min_tokens_to_compress=opts.min_tokens_to_compress,
         kompress_model=opts.kompress_model,
     )
-    result = _hr_compress(messages, model=model, config=cfg)
+    result = _hr_compress(messages, model=model, model_limit=model_limit, config=cfg)
 
     if result.tokens_saved <= 0:
         log.debug(

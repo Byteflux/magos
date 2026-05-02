@@ -139,6 +139,13 @@ class CompressOptions(_Frozen):
     target_ratio: float | None = Field(default=None, ge=0.0, le=1.0)
     min_tokens_to_compress: int = Field(default=250, ge=0)
     kompress_model: str | None = None
+    model_limit: int | None = Field(default=None, ge=1024)
+    """Override the model's context window in tokens. ``None`` (default)
+    looks up ``max_input_tokens`` via ``litellm.get_model_info(model)`` and
+    falls back to 200000 if the model isn't in LiteLLM's registry. Set
+    explicitly to leave headroom for tool/output budgets, force earlier
+    compression for cost reasons, or pin a value for custom models that
+    LiteLLM doesn't know about."""
 
 
 class Compress(_Frozen):

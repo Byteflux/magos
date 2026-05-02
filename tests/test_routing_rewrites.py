@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import headroom
+import litellm
 import pytest
 
 from magos.routing import (
@@ -18,6 +19,7 @@ from magos.routing import (
     SetHeader,
     SetModel,
 )
+from magos.routing import rewrites as rw
 from magos.routing.request import Endpoint
 from magos.routing.rewrites import RewriteError, apply_rewrites
 
@@ -281,6 +283,7 @@ def test_compress_token_mode_applies_pipeline_and_marks_dirty(
     def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
         captured["messages"] = messages
         captured["model"] = kwargs.get("model")
+        captured["model_limit"] = kwargs.get("model_limit")
         captured["config"] = kwargs.get("config")
         return _StubResult([{"role": "user", "content": "shorter"}])
 
@@ -298,6 +301,9 @@ def test_compress_token_mode_applies_pipeline_and_marks_dirty(
     assert out.body["messages"] == [{"role": "user", "content": "shorter"}]
     assert captured["model"] == "claude-sonnet-4-5"
     assert captured["config"].target_ratio == 0.5
+    # model_limit is plumbed through (auto-resolved or default fallback).
+    assert isinstance(captured["model_limit"], int)
+    assert captured["model_limit"] > 0
 
 
 def test_compress_zero_savings_returns_input_unchanged(
@@ -445,3 +451,95 @@ def test_responses_aux_endpoints_skip_compress() -> None:
         req = _req(endpoint=endpoint, body={}, raw=b"")
         out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
         assert out is req, f"{endpoint} should no-op"
+
+
+# --- Compress: model_limit resolution ---
+
+
+def test_resolve_model_limit_known_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Known model id (per LiteLLM's registry) returns the real limit."""
+
+    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {})
+    # gpt-4o has been in LiteLLM's registry stably; if this assert ever
+    # breaks it's because LiteLLM dropped the model, not magos.
+    assert rw._resolve_model_limit("gpt-4o") == 128_000
+
+
+def test_resolve_model_limit_unknown_model_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+
+    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {})
+    assert rw._resolve_model_limit("totally-made-up-model-zzz") == rw._DEFAULT_MODEL_LIMIT
+
+
+def test_resolve_model_limit_caches_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Repeat lookups for the same model don't re-call litellm."""
+
+    cache: dict[str, int] = {}
+    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", cache)
+
+    calls: list[str] = []
+
+    def spy(model: str) -> dict[str, int]:
+        calls.append(model)
+        return {"max_input_tokens": 42_000}
+
+    monkeypatch.setattr(litellm, "get_model_info", spy)
+
+    assert rw._resolve_model_limit("foo") == 42_000
+    assert rw._resolve_model_limit("foo") == 42_000
+    assert calls == ["foo"]
+    assert cache["foo"] == 42_000
+
+
+def test_compress_uses_explicit_model_limit_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``opts.model_limit`` bypasses the LiteLLM lookup."""
+    captured: dict[str, Any] = {}
+
+    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
+        captured["model_limit"] = kwargs.get("model_limit")
+        return _StubResult([{"role": "user", "content": "x"}])
+
+    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+
+    # Spy on _resolve_model_limit to assert it's NOT called when explicit.
+
+    called: list[str] = []
+
+    def spy_resolve(_model: str, default: int = 0) -> int:
+        called.append(_model)
+        return 999_999  # should not be used
+
+    monkeypatch.setattr(rw, "_resolve_model_limit", spy_resolve)
+
+    req = _req(
+        body={
+            "model": "claude-sonnet-4-5",
+            "messages": [{"role": "user", "content": "verbose"}],
+        }
+    )
+    apply_rewrites(req, [Compress(compress=CompressOptions(model_limit=50_000))])
+    assert captured["model_limit"] == 50_000
+    assert called == [], "explicit model_limit must bypass _resolve_model_limit"
+
+
+def test_compress_model_limit_auto_detect_per_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Auto-detected limit for the dispatch model is plumbed to compress()."""
+    captured: dict[str, Any] = {}
+
+    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
+        captured["model_limit"] = kwargs.get("model_limit")
+        return _StubResult([{"role": "user", "content": "x"}])
+
+    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+
+    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {"gpt-4o": 128_000})
+
+    req = _req(body={"model": "gpt-4o", "messages": [{"role": "user", "content": "verbose"}]})
+    apply_rewrites(req, [Compress(compress=CompressOptions())])
+    assert captured["model_limit"] == 128_000

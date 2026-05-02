@@ -228,6 +228,48 @@ Gotchas:
 - Safety guarantees: system messages preserved, last N turns protected,
   tool call/response pairs kept atomic.
 
+## `model_limit` resolution
+
+`compress(messages, model, model_limit=...)` accepts an int with default
+200000 (`compress.py:161`). Two transforms consume it:
+
+- **`IntelligentContextManager`** (`intelligent_context.py:200-227`):
+  the over-budget gate. If `current_tokens > model_limit - output_buffer`,
+  message dropping fires.
+- **`ContentRouter`** (`content_router.py:1516-1533`): computes
+  `context_pressure = tokens_before / model_limit` and linearly
+  interpolates between relaxed and aggressive compression thresholds.
+
+`CacheAligner` doesn't use it — prefix stabilisation is model-agnostic.
+
+Headroom's higher-level integrations (`HeadroomClient`, langchain,
+agno, strands, ASGI proxy) all auto-detect `model_limit` per request
+via per-provider `get_context_limit(model)` (`providers/base.py:69`).
+The LiteLLM provider implementation
+(`providers/litellm.py:184`) calls `litellm.get_model_info(model)` and
+reads `max_input_tokens`.
+
+The simple `headroom.compress()` API skips all of this and trusts the
+caller. Magos's `_apply_compress` (`rewrites.py`) does the LiteLLM
+lookup itself via `_resolve_model_limit(dispatch_model)`, caching
+results per model id (success and fallback both, so unknown models
+don't keep retriggering LiteLLM's noisy "model not mapped" stderr
+print). Operators can override per-rule with `compress.model_limit:
+<int>`.
+
+Failure modes for the lookup:
+
+- Unknown model id -> exception -> fallback to 200000.
+- Model id with `@suffix` (Anthropic 1M variant) -> exception ->
+  fallback. If using such a model, set `model_limit: 1000000`
+  explicitly on the rule.
+- LiteLLM not installed -> import error -> fallback.
+
+The fallback default 200000 matches Anthropic's typical context
+window. It's wrong for OpenAI models (128K — IntelligentContext won't
+fire when it should) and Claude Opus 4.7 (1M — fires too eagerly).
+This is why we always do the lookup rather than rely on the default.
+
 ## Defaults that matter
 
 `CompressConfig` defaults (`compress.py:77-135`):
