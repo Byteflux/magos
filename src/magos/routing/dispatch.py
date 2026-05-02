@@ -14,7 +14,11 @@ API-key handling:
   tier-routing) by declaring separate rules with different env vars.
 - ``mode: passthrough``: when neither ``Authorization`` nor ``x-api-key``
   is present in the inbound headers and ``action.api_key_env`` is set, we
-  inject ``x-api-key: <env>`` into the forwarded headers. Headers are not
+  inject the env value into the forwarded headers. The shape is provider-
+  aware: ``provider: anthropic`` -> ``x-api-key: <env>`` (the Anthropic
+  API convention), every other provider -> ``Authorization: Bearer <env>``
+  (the openai-compatible convention used by openai, openrouter, vultr,
+  etc.). ``action.auth_header`` overrides the default. Headers are not
   part of the prompt-cache hash, so this injection does not break
   byte-exact billing.
 
@@ -43,6 +47,7 @@ from magos.proxy import (
     stream_openai_responses,
 )
 from magos.routing.engine import RouteDecision
+from magos.routing.models import Action
 from magos.tokens import count_tokens
 
 log = get_logger("magos.routing.dispatch")
@@ -73,7 +78,7 @@ async def dispatch_decision(  # noqa: PLR0911
     if req.endpoint == "/v1/messages/count_tokens":
         return await _dispatch_count_tokens(decision, completion=completion)
 
-    forward_headers = _maybe_inject_api_key(dict(req.headers), action.api_key_env, action.mode)
+    forward_headers = _maybe_inject_api_key(dict(req.headers), action)
     is_streaming = bool(req.body.get("stream"))
 
     if action.mode == "passthrough":
@@ -188,18 +193,31 @@ async def _dispatch_count_tokens(
     return {"input_tokens": n}
 
 
-def _maybe_inject_api_key(
-    headers: dict[str, str], api_key_env: str | None, mode: str
-) -> dict[str, str]:
-    """In passthrough mode, inject ``x-api-key`` from the env when absent."""
-    if mode != "passthrough" or not api_key_env:
+def _maybe_inject_api_key(headers: dict[str, str], action: Action) -> dict[str, str]:
+    """In passthrough mode, inject the env-resolved API key when absent.
+
+    Shape is provider-aware: anthropic -> ``x-api-key`` (Anthropic's
+    official header), everything else -> ``Authorization: Bearer``
+    (openai-compatible convention). ``action.auth_header`` overrides
+    the default. Skipped entirely when the inbound request already
+    carries ``Authorization`` or ``x-api-key``.
+    """
+    if action.mode != "passthrough" or not action.api_key_env:
         return headers
     if "authorization" in headers or "x-api-key" in headers:
         return headers
-    value = os.environ.get(api_key_env)
+    value = os.environ.get(action.api_key_env)
     if not value:
-        raise DispatchError(f"env var {api_key_env!r} is not set")
-    return {**headers, "x-api-key": value}
+        raise DispatchError(f"env var {action.api_key_env!r} is not set")
+    shape = action.auth_header or _default_auth_header(action.provider)
+    if shape == "x-api-key":
+        return {**headers, "x-api-key": value}
+    return {**headers, "authorization": f"Bearer {value}"}
+
+
+def _default_auth_header(provider: str) -> str:
+    """Pick the auth-header shape for a provider when no override is set."""
+    return "x-api-key" if provider == "anthropic" else "bearer"
 
 
 def _resolve_api_key(api_key_env: str | None) -> str | None:

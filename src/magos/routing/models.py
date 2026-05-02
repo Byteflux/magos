@@ -186,6 +186,7 @@ Rewrite = SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress
 
 
 DispatchMode = Literal["translate", "passthrough"]
+AuthHeaderShape = Literal["bearer", "x-api-key"]
 
 
 class Action(_Frozen):
@@ -193,6 +194,15 @@ class Action(_Frozen):
     mode: DispatchMode
     base_url: str | None = None
     api_key_env: str | None = None
+    auth_header: AuthHeaderShape | None = None
+    """Override the auth-header shape used when ``api_key_env`` is injected
+    in passthrough mode. Defaults to ``x-api-key`` for ``provider:
+    anthropic`` (matching the official Anthropic API header) and to
+    ``bearer`` for every other provider (the openai-compatible
+    convention used by openai, openrouter, vultr, etc.). Only consulted
+    when no ``Authorization`` / ``x-api-key`` is already present
+    inbound; explicit client headers are always passed through verbatim.
+    """
 
 
 class Rule(_Frozen):
