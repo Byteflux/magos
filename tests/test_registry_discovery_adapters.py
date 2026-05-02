@@ -14,6 +14,7 @@ from magos.registry.discovery.factory import adapter_for
 from magos.registry.discovery.noop import NoopAdapter
 from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
+from magos.registry.discovery.vultr import VultrAdapter
 from magos.registry.schema import ProviderConfig
 
 
@@ -44,6 +45,11 @@ async def _run_anthropic(cfg: ProviderConfig, transport: httpx.MockTransport) ->
 async def _run_openrouter(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:
     async with httpx.AsyncClient(transport=transport) as client:
         return await OpenRouterAdapter().discover("openrouter", cfg, client)
+
+
+async def _run_vultr(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:
+    async with httpx.AsyncClient(transport=transport) as client:
+        return await VultrAdapter().discover("vultr", cfg, client)
 
 
 def test_openai_adapter_maps_data_ids_to_entries(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -210,6 +216,72 @@ def test_openrouter_adapter_drops_max_output_when_exceeds_context() -> None:
     assert m.partial.max_output is None
 
 
+def test_vultr_adapter_populates_partial_from_lookup_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Lookup endpoint provides context_length plus cents-per-million pricing."""
+    monkeypatch.setenv("VULTR_KEY", "sk-vultr-test")
+
+    captured: dict[str, str] = {}
+
+    def _h(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "id": "MiniMaxAI/MiniMax-M2.7",
+                        "context_length": 1048576,
+                        "cost_input": 30,
+                        "cost_output": 120,
+                    }
+                ]
+            },
+        )
+
+    cfg = ProviderConfig.model_validate({"api_key_env": "VULTR_KEY"})
+    result = asyncio.run(_run_vultr(cfg, httpx.MockTransport(_h)))
+    assert captured["url"].endswith("/v1/models/lookup")
+    m = result.models[0]
+    assert m.raw_id == "MiniMaxAI/MiniMax-M2.7"
+    assert m.litellm_id == "openai/MiniMaxAI/MiniMax-M2.7"
+    assert m.partial.context_size == 1048576
+    # 30 cents per million tokens -> $0.30/M -> 3e-7 per token.
+    assert m.partial.input_cost == pytest.approx(3e-7)
+    assert m.partial.output_cost == pytest.approx(1.2e-6)
+
+
+def test_vultr_adapter_handles_v1_suffix_in_base_url() -> None:
+    """base_url ending in /v1 should not produce //v1/v1/... double-prefix."""
+    captured: dict[str, str] = {}
+
+    def _h(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json={"models": []})
+
+    cfg = ProviderConfig.model_validate({"base_url": "https://api.vultrinference.com/v1"})
+    asyncio.run(_run_vultr(cfg, httpx.MockTransport(_h)))
+    assert captured["url"] == "https://api.vultrinference.com/v1/models/lookup"
+
+
+def test_vultr_adapter_raises_when_models_field_missing() -> None:
+    cfg = ProviderConfig.model_validate({})
+    with pytest.raises(DiscoveryError, match="missing or non-list 'models'"):
+        asyncio.run(_run_vultr(cfg, _ok({"object": "list"})))
+
+
+def test_vultr_adapter_drops_negative_cost() -> None:
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {"models": [{"id": "x/y", "context_length": 4096, "cost_input": -1, "cost_output": -1}]}
+    )
+    result = asyncio.run(_run_vultr(cfg, transport))
+    m = result.models[0]
+    assert m.partial.input_cost is None
+    assert m.partial.output_cost is None
+
+
 def test_noop_adapter_returns_empty_result() -> None:
     cfg = ProviderConfig.model_validate({})
 
@@ -233,5 +305,9 @@ def test_adapter_for_resolves_each_known_kind() -> None:
     assert isinstance(
         adapter_for(ProviderConfig.model_validate({"discovery": "openrouter"})),
         OpenRouterAdapter,
+    )
+    assert isinstance(
+        adapter_for(ProviderConfig.model_validate({"discovery": "vultr"})),
+        VultrAdapter,
     )
     assert isinstance(adapter_for(ProviderConfig.model_validate({})), NoopAdapter)

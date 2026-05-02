@@ -26,6 +26,7 @@ DiscoveryAdapter = Literal[
     "openai",
     "anthropic",
     "openrouter",
+    "vultr",
     "noop",
 ]
 

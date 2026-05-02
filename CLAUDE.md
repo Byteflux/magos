@@ -63,6 +63,7 @@ src/magos/
       openai.py
       anthropic.py
       openrouter.py
+      vultr.py
       noop.py
   cli/               # operator CLI dispatched from __main__
     models_cmd.py    # magos models {list,show,refresh,prune,discover}

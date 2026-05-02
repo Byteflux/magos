@@ -8,6 +8,7 @@ Inference rules when ``discovery`` is unset:
 
 - ``base_url`` matches openrouter.ai     → ``openrouter``
 - ``base_url`` matches api.anthropic.com → ``anthropic``
+- ``base_url`` matches vultrinference.com → ``vultr``
 - ``base_url`` is set (anything else)    → ``openai``
 - ``base_url`` is unset                  → ``noop`` (manual-only)
 
@@ -24,12 +25,14 @@ from magos.registry.discovery.base import DiscoveryAdapter
 from magos.registry.discovery.noop import NoopAdapter
 from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
+from magos.registry.discovery.vultr import VultrAdapter
 from magos.registry.schema import ProviderConfig
 
 _ADAPTERS: dict[str, type[DiscoveryAdapter]] = {
     "openai": OpenAIAdapter,
     "anthropic": AnthropicAdapter,
     "openrouter": OpenRouterAdapter,
+    "vultr": VultrAdapter,
     "noop": NoopAdapter,
 }
 
@@ -53,4 +56,6 @@ def _infer_adapter(base_url: str | None) -> str:
         return "openrouter"
     if "anthropic.com" in host:
         return "anthropic"
+    if "vultrinference.com" in host:
+        return "vultr"
     return "openai"

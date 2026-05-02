@@ -87,14 +87,15 @@ registry:
 `models.json`; out-of-process readers are fine, but mutations go
 through the admin endpoints (or the CLI, which wraps them).
 
-Discovery adapters: `openai`, `anthropic`, `openrouter`, `noop`. When
-`discovery:` is omitted, the adapter is inferred from the provider's
+Discovery adapters: `openai`, `anthropic`, `openrouter`, `vultr`, `noop`.
+When `discovery:` is omitted, the adapter is inferred from the provider's
 `base_url` host:
 
 | Host substring         | Adapter      |
 |------------------------|--------------|
 | `openrouter.ai`        | `openrouter` |
 | `anthropic.com`        | `anthropic`  |
+| `vultrinference.com`   | `vultr`      |
 | anything else with `base_url` | `openai` |
 | `base_url` unset       | `noop` (manual-only) |
 

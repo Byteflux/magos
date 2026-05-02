@@ -12,6 +12,7 @@ from magos.registry.discovery.factory import adapter_for
 from magos.registry.discovery.noop import NoopAdapter
 from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
+from magos.registry.discovery.vultr import VultrAdapter
 from magos.registry.schema import ProviderConfig, RegistryYaml
 
 
@@ -20,6 +21,7 @@ from magos.registry.schema import ProviderConfig, RegistryYaml
     [
         ("https://openrouter.ai/api", OpenRouterAdapter),
         ("https://api.anthropic.com", AnthropicAdapter),
+        ("https://api.vultrinference.com/v1", VultrAdapter),
         ("https://api.openai.com/v1", OpenAIAdapter),
         ("http://localhost:8001", OpenAIAdapter),
         ("https://generativelanguage.googleapis.com", OpenAIAdapter),
