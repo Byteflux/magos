@@ -23,8 +23,8 @@ from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 OnUnknownModel = Literal["error", "passthrough"]
 DiscoveryAdapter = Literal[
-    "openai_models",
-    "anthropic_models",
+    "openai",
+    "anthropic",
     "openrouter",
     "noop",
 ]

@@ -28,8 +28,8 @@ _DEFAULT_LITELLM_PROVIDER = "anthropic"
 _ANTHROPIC_VERSION = "2023-06-01"
 
 
-class AnthropicModelsAdapter:
-    name = "anthropic_models"
+class AnthropicAdapter:
+    name = "anthropic"
 
     async def discover(
         self,
@@ -80,7 +80,7 @@ class AnthropicModelsAdapter:
 def _auth_headers(provider_name: str, config: ProviderConfig) -> dict[str, str]:
     if not config.api_key_env:
         raise DiscoveryError(
-            f"provider {provider_name!r}: api_key_env required for anthropic_models adapter"
+            f"provider {provider_name!r}: api_key_env required for anthropic adapter"
         )
     key = os.environ.get(config.api_key_env)
     if not key:

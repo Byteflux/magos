@@ -29,10 +29,10 @@ from magos.registry.schema import ProviderConfig
 _DEFAULT_LITELLM_PROVIDER = "openai"
 
 
-class OpenAIModelsAdapter:
+class OpenAIAdapter:
     """Calls ``GET {base_url}/v1/models`` and maps ``data[*].id`` to entries."""
 
-    name = "openai_models"
+    name = "openai"
 
     async def discover(
         self,
@@ -42,7 +42,7 @@ class OpenAIModelsAdapter:
     ) -> DiscoveryResult:
         if not config.base_url:
             raise DiscoveryError(
-                f"provider {provider_name!r}: base_url required for openai_models adapter"
+                f"provider {provider_name!r}: base_url required for openai adapter"
             )
         url = config.base_url.rstrip("/") + "/v1/models"
         headers = _auth_headers(provider_name, config)

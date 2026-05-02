@@ -60,8 +60,8 @@ src/magos/
     discovery/       # adapters
       base.py        # DiscoveryAdapter Protocol + types
       factory.py     # adapter_for(ProviderConfig) -> DiscoveryAdapter
-      openai_models.py
-      anthropic_models.py
+      openai.py
+      anthropic.py
       openrouter.py
       noop.py
   cli/               # operator CLI dispatched from __main__

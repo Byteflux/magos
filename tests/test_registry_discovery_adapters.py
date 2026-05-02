@@ -8,11 +8,11 @@ from typing import Any
 import httpx
 import pytest
 
-from magos.registry.discovery.anthropic_models import AnthropicModelsAdapter
+from magos.registry.discovery.anthropic import AnthropicAdapter
 from magos.registry.discovery.base import DiscoveryError, DiscoveryResult
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.discovery.noop import NoopAdapter
-from magos.registry.discovery.openai_models import OpenAIModelsAdapter
+from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
 from magos.registry.schema import ProviderConfig
 
@@ -33,12 +33,12 @@ def _err(status: int, body: str = "") -> httpx.MockTransport:
 
 async def _run_openai(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:
     async with httpx.AsyncClient(transport=transport) as client:
-        return await OpenAIModelsAdapter().discover("openai", cfg, client)
+        return await OpenAIAdapter().discover("openai", cfg, client)
 
 
 async def _run_anthropic(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:
     async with httpx.AsyncClient(transport=transport) as client:
-        return await AnthropicModelsAdapter().discover("anthropic", cfg, client)
+        return await AnthropicAdapter().discover("anthropic", cfg, client)
 
 
 async def _run_openrouter(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:
@@ -223,12 +223,12 @@ def test_noop_adapter_returns_empty_result() -> None:
 
 def test_adapter_for_resolves_each_known_kind() -> None:
     assert isinstance(
-        adapter_for(ProviderConfig.model_validate({"discovery": "openai_models"})),
-        OpenAIModelsAdapter,
+        adapter_for(ProviderConfig.model_validate({"discovery": "openai"})),
+        OpenAIAdapter,
     )
     assert isinstance(
-        adapter_for(ProviderConfig.model_validate({"discovery": "anthropic_models"})),
-        AnthropicModelsAdapter,
+        adapter_for(ProviderConfig.model_validate({"discovery": "anthropic"})),
+        AnthropicAdapter,
     )
     assert isinstance(
         adapter_for(ProviderConfig.model_validate({"discovery": "openrouter"})),

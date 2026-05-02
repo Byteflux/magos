@@ -38,7 +38,7 @@ providers:
     discovery: openrouter
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
-    discovery: anthropic_models
+    discovery: anthropic
 
 registry:
   refresh_interval: 1h

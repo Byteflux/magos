@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from magos.config_loader import resolve_models_path
-from magos.registry.discovery.anthropic_models import AnthropicModelsAdapter
+from magos.registry.discovery.anthropic import AnthropicAdapter
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.discovery.noop import NoopAdapter
-from magos.registry.discovery.openai_models import OpenAIModelsAdapter
+from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
 from magos.registry.schema import ProviderConfig, RegistryYaml
 
@@ -19,10 +19,10 @@ from magos.registry.schema import ProviderConfig, RegistryYaml
     ("base_url", "expected_cls"),
     [
         ("https://openrouter.ai/api", OpenRouterAdapter),
-        ("https://api.anthropic.com", AnthropicModelsAdapter),
-        ("https://api.openai.com/v1", OpenAIModelsAdapter),
-        ("http://localhost:8001", OpenAIModelsAdapter),
-        ("https://generativelanguage.googleapis.com", OpenAIModelsAdapter),
+        ("https://api.anthropic.com", AnthropicAdapter),
+        ("https://api.openai.com/v1", OpenAIAdapter),
+        ("http://localhost:8001", OpenAIAdapter),
+        ("https://generativelanguage.googleapis.com", OpenAIAdapter),
     ],
 )
 def test_adapter_inferred_from_base_url_when_discovery_unset(

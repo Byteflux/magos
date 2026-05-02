@@ -60,7 +60,7 @@ providers:
 
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
-    discovery: anthropic_models
+    discovery: anthropic
 
   manual-only-provider:
     # No discovery: manual-only. Models below are permanent until removed
@@ -87,15 +87,15 @@ registry:
 `models.json`; out-of-process readers are fine, but mutations go
 through the admin endpoints (or the CLI, which wraps them).
 
-Discovery adapters: `openai_models`, `anthropic_models`, `openrouter`,
-`noop`. When `discovery:` is omitted, the adapter is inferred from the
-provider's `base_url` host:
+Discovery adapters: `openai`, `anthropic`, `openrouter`, `noop`. When
+`discovery:` is omitted, the adapter is inferred from the provider's
+`base_url` host:
 
-| Host substring         | Adapter            |
-|------------------------|--------------------|
-| `openrouter.ai`        | `openrouter`       |
-| `anthropic.com`        | `anthropic_models` |
-| anything else with `base_url` | `openai_models` |
+| Host substring         | Adapter      |
+|------------------------|--------------|
+| `openrouter.ai`        | `openrouter` |
+| `anthropic.com`        | `anthropic`  |
+| anything else with `base_url` | `openai` |
 | `base_url` unset       | `noop` (manual-only) |
 
 ## Field-precedence merge

@@ -7,8 +7,8 @@ when adapter selection logic itself is under test.
 Inference rules when ``discovery`` is unset:
 
 - ``base_url`` matches openrouter.ai     → ``openrouter``
-- ``base_url`` matches api.anthropic.com → ``anthropic_models``
-- ``base_url`` is set (anything else)    → ``openai_models``
+- ``base_url`` matches api.anthropic.com → ``anthropic``
+- ``base_url`` is set (anything else)    → ``openai``
 - ``base_url`` is unset                  → ``noop`` (manual-only)
 
 Operators can always force an adapter explicitly via ``discovery:`` —
@@ -19,16 +19,16 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from magos.registry.discovery.anthropic_models import AnthropicModelsAdapter
+from magos.registry.discovery.anthropic import AnthropicAdapter
 from magos.registry.discovery.base import DiscoveryAdapter
 from magos.registry.discovery.noop import NoopAdapter
-from magos.registry.discovery.openai_models import OpenAIModelsAdapter
+from magos.registry.discovery.openai import OpenAIAdapter
 from magos.registry.discovery.openrouter import OpenRouterAdapter
 from magos.registry.schema import ProviderConfig
 
 _ADAPTERS: dict[str, type[DiscoveryAdapter]] = {
-    "openai_models": OpenAIModelsAdapter,
-    "anthropic_models": AnthropicModelsAdapter,
+    "openai": OpenAIAdapter,
+    "anthropic": AnthropicAdapter,
     "openrouter": OpenRouterAdapter,
     "noop": NoopAdapter,
 }
@@ -52,5 +52,5 @@ def _infer_adapter(base_url: str | None) -> str:
     if "openrouter.ai" in host:
         return "openrouter"
     if "anthropic.com" in host:
-        return "anthropic_models"
-    return "openai_models"
+        return "anthropic"
+    return "openai"

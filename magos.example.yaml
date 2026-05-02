@@ -169,10 +169,10 @@ providers:
     discovery: openrouter
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
-    discovery: anthropic_models
+    discovery: anthropic
   openai:
     api_key_env: OPENAI_API_KEY
-    discovery: openai_models
+    discovery: openai
     base_url: https://api.openai.com
 
 # registry:

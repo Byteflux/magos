@@ -109,7 +109,7 @@ def test_registry_yaml_full_round_trip() -> None:
             },
             "anthropic": {
                 "api_key_env": "ANTHROPIC_API_KEY",
-                "discovery": "anthropic_models",
+                "discovery": "anthropic",
             },
         },
         "registry": {

@@ -161,7 +161,7 @@ def test_boot_discovery_failure_leaves_provider_empty(tmp_path: Path) -> None:
         {
             "openrouter": ProviderConfig.model_validate({"discovery": "openrouter"}),
             "anthropic": ProviderConfig.model_validate(
-                {"discovery": "anthropic_models", "api_key_env": "ANTHROPIC_KEY"}
+                {"discovery": "anthropic", "api_key_env": "ANTHROPIC_KEY"}
             ),
         },
         boot_discovery_max_attempts=1,
