@@ -51,8 +51,16 @@ app = typer.Typer(
 app.add_typer(models_app, name="models")
 
 
-def serve() -> None:
-    """Boot the FastAPI server under uvicorn using current ``MagosSettings``."""
+def serve(host: str | None = None, port: int | None = None) -> None:
+    """Boot the FastAPI server under uvicorn using current ``MagosSettings``.
+
+    ``host`` and ``port`` override the values resolved from the environment
+    (``MAGOS_HOST`` / ``MAGOS_PORT``) when supplied via the CLI.
+    """
+    if host is not None:
+        os.environ["MAGOS_HOST"] = host
+    if port is not None:
+        os.environ["MAGOS_PORT"] = str(port)
     settings = MagosSettings()
     configure_logging(level=settings.log_level, json=settings.log_json)
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
@@ -113,9 +121,27 @@ def _root(
 
 
 @app.command("serve")
-def serve_cmd() -> None:
+def serve_cmd(
+    host: Annotated[
+        str | None,
+        typer.Option(
+            "--host",
+            help="HTTP listen host (overrides MAGOS_HOST; default 127.0.0.1).",
+        ),
+    ] = None,
+    port: Annotated[
+        int | None,
+        typer.Option(
+            "--port",
+            "-p",
+            min=1,
+            max=65535,
+            help="HTTP listen port (overrides MAGOS_PORT; default 8000).",
+        ),
+    ] = None,
+) -> None:
     """Run the FastAPI server (the default when no subcommand is given)."""
-    serve()
+    serve(host=host, port=port)
 
 
 def main() -> None:
