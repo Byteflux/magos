@@ -29,6 +29,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "structlog>=25.5.0",
     "uvicorn>=0.46.0",
+    "opentelemetry-exporter-prometheus>=0.62b1",
 ]
 
 [dependency-groups]

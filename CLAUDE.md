@@ -28,30 +28,52 @@ LLM inference API proxy built on mitmproxy. Translates between Anthropic and Ope
 
 ```
 src/magos/
-  __main__.py        # entrypoint (`python -m magos`)
+  __main__.py        # entrypoint (`python -m magos [serve|models …]`)
   config.py          # MagosSettings (pydantic-settings)
-  server.py          # FastAPI app, routes everything via routing/
+  config_loader.py   # load_full_config -> MagosConfig (routing + registry)
+  server.py          # FastAPI app, lifespan starts Refresher + /metrics
   proxy.py           # translate-mode dispatch into litellm SDK call sites
   addon.py           # mitmproxy addon
   passthrough.py     # byte-exact same-shape forwarding
   tokens.py          # async count_tokens via litellm.acount_tokens
   obs.py             # logging + tracing setup
   routing/           # declarative rule-based routing
-    models.py        # pydantic schemas for magos.yaml
+    models.py        # pydantic schemas for magos.yaml (incl. ModelFieldAtom)
     request.py       # RoutedRequest dataclass
-    matchers.py      # match-expression evaluator
-    rewrites.py      # pre/post rewrite applicator
-    engine.py        # route(req, cfg) -> RouteDecision | RouteError
+    matchers.py      # match-expression evaluator (registry-aware)
+    rewrites.py      # pre/post rewrite applicator (registry-aware compress)
+    engine.py        # route(req, cfg, registry=...) -> RouteDecision | RouteError
     errors.py        # per-endpoint error envelopes
     loader.py        # YAML -> RoutingConfig with post-load validation
     dispatch.py      # decision -> proxy/passthrough/tokens dispatch
     jq_compat.py     # jq compile + truthy predicate helpers
+  registry/          # model registry: discovery, lifecycle, lookup
+    models.py        # ModelEntry / RegistryState frozen dataclasses
+    schema.py        # pydantic for providers/provider_order/registry blocks
+    store.py         # atomic JSON persistence (models.json)
+    merge.py         # field precedence: override > discovery > litellm > null
+    deprecation.py   # soft-delete state machine
+    provider_order.py # tie-break: pin > order > lex-smallest
+    refresher.py     # async lifecycle owner: load, boot-discover, refresh
+    obs.py           # OTel meters + structlog event helpers
+    litellm_lookup.py # bundled-registry fallback wrapper
+    discovery/       # adapters
+      base.py        # DiscoveryAdapter Protocol + types
+      factory.py     # adapter_for(ProviderConfig) -> DiscoveryAdapter
+      openai_models.py
+      anthropic_models.py
+      openrouter.py
+      noop.py
+  cli/               # operator CLI dispatched from __main__
+    models_cmd.py    # magos models {list,show,refresh,prune,discover}
+    admin_client.py  # tiny httpx wrapper for /admin/registry endpoints
 magos.example.yaml   # routing config to copy and customise
 tests/               # pytest suites (unit, integration, e2e)
   fixtures/          # test routing yaml
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/routing.md      # rule grammar, examples, migration notes
+docs/registry.md     # registry lifecycle, config, CLI, observability
 ```
 
 Translation between Anthropic and OpenAI shapes is delegated to LiteLLM's
@@ -87,4 +109,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, and **declarative rule-based routing** (`magos.yaml`) are implemented with unit and e2e test coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint and Headroom integration are still to come.
+Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint and Headroom integration are still to come.

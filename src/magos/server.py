@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Annotated, Any, cast
 
 import litellm
@@ -34,7 +35,10 @@ from starlette.datastructures import Headers
 
 from magos import __version__
 from magos.config import MagosSettings, get_settings
+from magos.config_loader import load_full_config
 from magos.obs import get_logger
+from magos.registry.refresher import Refresher
+from magos.registry.schema import RegistryYaml
 from magos.routing import (
     Compress,
     Endpoint,
@@ -43,7 +47,6 @@ from magos.routing import (
     RoutingConfig,
     error_envelope,
     format_dispatch_error_message,
-    load_config,
     route,
 )
 from magos.routing.dispatch import DispatchError, dispatch_decision
@@ -120,11 +123,120 @@ def _forwardable_headers(headers: Headers) -> dict[str, str]:
     return {k.lower(): v for k, v in headers.items() if k.lower() not in _BLOCKED_FORWARD_HEADERS}
 
 
+def _mount_admin_registry_endpoints(app: FastAPI) -> None:
+    """Expose registry inspection + force-refresh under ``/admin/registry``.
+
+    Mounted only when a ``Refresher`` is active. The CLI uses these to
+    show server-state and trigger out-of-band refreshes; ``list`` /
+    ``show`` fall back to disk when the server is down.
+    """
+    from magos.registry.discovery.base import DiscoveryError  # noqa: PLC0415
+    from magos.registry.store import serialize  # noqa: PLC0415
+
+    @app.get("/admin/registry", include_in_schema=False)
+    async def get_registry(request: Request) -> Response:
+        refresher = cast(Refresher, request.app.state.refresher)
+        return Response(content=serialize(refresher.state), media_type="application/json")
+
+    @app.post("/admin/registry/refresh", include_in_schema=False)
+    async def refresh_registry(request: Request, provider: str | None = None) -> Response:
+        refresher = cast(Refresher, request.app.state.refresher)
+        registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
+        targets = [provider] if provider else list(registry_cfg.providers)
+        unknown = [p for p in targets if p not in registry_cfg.providers]
+        if unknown:
+            raise HTTPException(
+                status_code=404, detail=f"unknown provider(s): {', '.join(unknown)}"
+            )
+        refreshed: list[str] = []
+        failed: dict[str, str] = {}
+        for name in targets:
+            try:
+                await refresher.refresh(name)
+                refreshed.append(name)
+            except DiscoveryError as exc:
+                failed[name] = str(exc)
+        return JSONResponse({"refreshed": refreshed, "failed": failed})
+
+    @app.post("/admin/registry/prune", include_in_schema=False)
+    async def prune_registry(request: Request) -> Response:
+        """Trigger a prune by refreshing every provider.
+
+        The deprecation state machine drops past-grace entries on every
+        successful refresh, so a full refresh round is the simplest way
+        to surface the operator-visible "prune" action without adding
+        a separate code path.
+        """
+        refresher = cast(Refresher, request.app.state.refresher)
+        registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
+        before = sum(1 for e in refresher.state.entries.values() if e.is_deprecated)
+        for name in registry_cfg.providers:
+            try:
+                await refresher.refresh(name)
+            except DiscoveryError:
+                continue  # other providers still get their chance
+        after = sum(1 for e in refresher.state.entries.values() if e.is_deprecated)
+        return JSONResponse({"deprecated_before": before, "deprecated_after": after})
+
+
+def _mount_metrics_endpoint(app: FastAPI) -> None:
+    """Expose Prometheus-format metrics at ``GET /metrics``.
+
+    ``prometheus_client``'s default ``REGISTRY`` is what the OTel
+    PrometheusMetricReader writes into, so generating the text export
+    here returns whatever the OTel meters have produced.
+    """
+    try:
+        from prometheus_client import (  # noqa: PLC0415
+            CONTENT_TYPE_LATEST,
+            REGISTRY,
+            generate_latest,
+        )
+    except ImportError:
+        log.warning("metrics.endpoint_skipped", reason="prometheus_client missing")
+        return
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint() -> Response:
+        return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
+
+
+def _resolve_models_path(registry_cfg: RegistryYaml) -> Path:
+    """Translate the registry block's ``models_path`` (relative ok) to a Path."""
+    return Path(registry_cfg.registry.models_path)
+
+
 def _config_uses_compress(cfg: RoutingConfig) -> bool:
     """True iff any rewrite (pre or per-rule) is a Compress."""
     if any(isinstance(rw, Compress) for rw in cfg.pre_rewrites):
         return True
     return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)
+
+
+def _configure_metrics_provider() -> None:
+    """Install a global OTel MeterProvider with the Prometheus exporter.
+
+    Idempotent in practice: ``set_meter_provider`` only honors the first
+    real provider per process, so re-invocation logs a warning and is a
+    no-op. ``prometheus_client.start_http_server`` is intentionally
+    avoided — we let the FastAPI mount expose ``/metrics`` so the server
+    binds one port for everything.
+    """
+    try:
+        from opentelemetry import metrics  # noqa: PLC0415
+        from opentelemetry.exporter.prometheus import PrometheusMetricReader  # noqa: PLC0415
+        from opentelemetry.sdk.metrics import MeterProvider  # noqa: PLC0415
+    except ImportError as exc:
+        log.warning(
+            "metrics.exporter_unavailable",
+            error=str(exc),
+            hint="install opentelemetry-exporter-prometheus to enable /metrics",
+        )
+        return
+
+    reader = PrometheusMetricReader()
+    metrics.set_meter_provider(MeterProvider(metric_readers=[reader]))
+    log.info("metrics.provider_configured", exporter="prometheus")
 
 
 def _force_kompress_pytorch() -> None:
@@ -156,16 +268,19 @@ def _force_kompress_pytorch() -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Warm Headroom's compression pipeline if any rule uses ``compress``,
-    and apply the configured Kompress backend override.
+    """Warm Headroom, apply the Kompress override, and start the registry.
 
     Headroom builds a thread-locked singleton on first call (tokenizer +
     transform pipeline init). Pulling that cost into startup avoids
-    burying multi-second latency in the first user request.
+    burying multi-second latency in the first user request. The registry
+    Refresher is started here when ``providers:`` is non-empty; for
+    test-only configs without a registry, no background task runs.
     """
     settings = MagosSettings()
     if settings.kompress_backend == "pytorch":
         _force_kompress_pytorch()
+    if settings.metrics_enabled:
+        _configure_metrics_provider()
 
     cfg = cast(RoutingConfig, app.state.routing)
     if _config_uses_compress(cfg):
@@ -180,19 +295,57 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
-    yield
+
+    refresher: Refresher | None = cast(Refresher | None, app.state.refresher)
+    if refresher is not None:
+        await refresher.start()
+        log.info("registry.refresher.started", providers=list(refresher._config.providers))
+    try:
+        yield
+    finally:
+        if refresher is not None:
+            await refresher.stop()
+            log.info("registry.refresher.stopped")
 
 
-def create_app(routing: RoutingConfig | None = None) -> FastAPI:
-    """Build the FastAPI app, loading routing config from disk by default.
+def create_app(
+    routing: RoutingConfig | None = None,
+    *,
+    registry: RegistryYaml | None = None,
+) -> FastAPI:
+    """Build the FastAPI app, loading routing + registry config from disk.
 
-    Tests can pass ``routing`` directly to skip the YAML round-trip; in
-    that case ``MAGOS_CONFIG_PATH`` is ignored.
+    Tests can pass ``routing`` (and optionally ``registry``) directly to
+    skip the YAML round-trip; in that case ``MAGOS_CONFIG_PATH`` is
+    ignored. When ``routing`` is omitted, both halves are parsed from
+    ``MAGOS_CONFIG_PATH`` via :func:`load_full_config`.
+
+    A ``Refresher`` is constructed when the registry block declares any
+    providers; otherwise the registry feature is dormant and existing
+    routing rules behave exactly as before.
     """
     settings = MagosSettings()
-    cfg = routing if routing is not None else load_config(settings.config_path)
+    if routing is None:
+        full = load_full_config(settings.config_path)
+        cfg = full.routing
+        registry_cfg = registry if registry is not None else full.registry
+    else:
+        cfg = routing
+        registry_cfg = registry if registry is not None else RegistryYaml()
+
     app = FastAPI(title="magos", version=__version__, lifespan=_lifespan)
     app.state.routing = cfg
+    app.state.registry_config = registry_cfg
+    app.state.refresher = (
+        Refresher(registry_cfg, _resolve_models_path(registry_cfg))
+        if registry_cfg.providers
+        else None
+    )
+
+    if settings.metrics_enabled:
+        _mount_metrics_endpoint(app)
+    if app.state.refresher is not None:
+        _mount_admin_registry_endpoints(app)
 
     @app.post("/v1/messages")
     async def anthropic_messages(  # type: ignore[unused-ignore]
@@ -288,7 +441,14 @@ async def _run(
         actual_path=actual_path,
     )
     cfg = cast(RoutingConfig, request.app.state.routing)
-    decision_or_err = route(routed, cfg)
+    refresher = cast("Refresher | None", request.app.state.refresher)
+    registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
+    decision_or_err = route(
+        routed,
+        cfg,
+        registry=refresher.state if refresher is not None else None,
+        registry_settings=registry_cfg.registry if refresher is not None else None,
+    )
 
     if isinstance(decision_or_err, RouteError):
         return _render_route_error(decision_or_err)

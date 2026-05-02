@@ -147,3 +147,27 @@ rules:
   #   action:
   #     provider: openai
   #     mode: translate
+
+# Optional: model registry. When ``providers:`` is non-empty, magos polls
+# each provider's discovery endpoint, persists ``models.json``, and falls
+# back to auto-routing for requests no rule matches. Explicit rules above
+# always win; the registry only catches the unmatched. See docs/registry.md
+# for the full grammar and lifecycle.
+#
+# provider_order: [openrouter, anthropic, openai]
+#
+# providers:
+#   openrouter:
+#     api_key_env: OPENROUTER_API_KEY
+#     discovery: openrouter
+#   anthropic:
+#     api_key_env: ANTHROPIC_API_KEY
+#     discovery: anthropic_models
+#   openai:
+#     api_key_env: OPENAI_API_KEY
+#     discovery: openai_models
+#     base_url: https://api.openai.com
+#
+# registry:
+#   refresh_interval: 2h
+#   on_unknown_model: error
