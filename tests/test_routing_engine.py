@@ -147,6 +147,68 @@ def test_pre_rewrite_changes_what_matches() -> None:
     assert decision.request.body_dirty is True
 
 
+# --- Guarded pre-rewrites ---
+
+
+def _guarded_cfg(pre: list[dict[str, Any]]) -> RoutingConfig:
+    return _cfg(
+        {
+            "pre_rewrites": pre,
+            "rules": [
+                {
+                    "name": "translate",
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ],
+        }
+    )
+
+
+def test_guarded_pre_rewrite_applies_when_match_passes() -> None:
+    cfg = _guarded_cfg(
+        [
+            {
+                "match": {"endpoint": {"literal": "/v1/messages"}},
+                "rewrites": [{"set_header": {"name": "x-marker", "value": "yes"}}],
+            }
+        ]
+    )
+    decision = route(_req(body={"model": "gpt-4"}), cfg)
+    assert isinstance(decision, RouteDecision)
+    assert decision.request.headers["x-marker"] == "yes"
+
+
+def test_guarded_pre_rewrite_skipped_when_match_fails() -> None:
+    cfg = _guarded_cfg(
+        [
+            {
+                "match": {"endpoint": {"literal": "/v1/chat/completions"}},
+                "rewrites": [{"set_header": {"name": "x-marker", "value": "yes"}}],
+            }
+        ]
+    )
+    decision = route(_req(body={"model": "gpt-4"}), cfg)
+    assert isinstance(decision, RouteDecision)
+    assert "x-marker" not in decision.request.headers
+
+
+def test_bare_and_guarded_pre_rewrites_chain_in_order() -> None:
+    cfg = _guarded_cfg(
+        [
+            {"set_header": {"name": "x-bare", "value": "1"}},
+            {
+                "match": {"header": {"name": {"literal": "x-bare"}, "value": {"literal": "1"}}},
+                "rewrites": [{"set_header": {"name": "x-guarded", "value": "2"}}],
+            },
+        ]
+    )
+    decision = route(_req(body={"model": "gpt-4"}), cfg)
+    assert isinstance(decision, RouteDecision)
+    assert decision.request.headers["x-bare"] == "1"
+    assert decision.request.headers["x-guarded"] == "2"
+
+
 # --- Post-rewrites apply after match ---
 
 

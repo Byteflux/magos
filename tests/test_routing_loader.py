@@ -33,6 +33,9 @@ class _LogRecorder:
     def info(self, event: str, **kw: Any) -> None:  # not exercised, present for parity
         self.records.append((event, kw))
 
+    def debug(self, event: str, **kw: Any) -> None:
+        self.records.append((event, kw))
+
 
 def _write(tmp_path: Path, body: str) -> Path:
     p = tmp_path / "magos.yaml"
@@ -134,9 +137,7 @@ def test_passthrough_mode_requires_base_url(tmp_path: Path) -> None:
         load_config(p)
 
 
-def test_body_touch_warns_under_passthrough(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_body_touch_logs_under_passthrough(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     rec = _LogRecorder()
     monkeypatch.setattr(loader_module, "log", rec)
     p = _write(
@@ -186,7 +187,7 @@ def test_header_only_rewrites_under_passthrough_silent(
     assert not [e for e, _ in rec.records if e == "routing.passthrough_body_touch"]
 
 
-def test_pre_rewrite_body_touch_warns_per_passthrough_rule(
+def test_pre_rewrite_body_touch_logs_per_passthrough_rule(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     rec = _LogRecorder()
@@ -218,6 +219,34 @@ def test_pre_rewrite_body_touch_warns_per_passthrough_rule(
     assert len(events) == 1
     assert events[0][1]["rule"] == "pt"
     assert events[0][1]["pre_rewrites_touch"] is True
+
+
+def test_guarded_pre_rewrite_does_not_log_on_passthrough(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A guarded pre-rewrite is the operator's contract; we trust the match."""
+    rec = _LogRecorder()
+    monkeypatch.setattr(loader_module, "log", rec)
+    p = _write(
+        tmp_path,
+        """
+        pre_rewrites:
+          - match: { endpoint: { literal: /v1/chat/completions } }
+            rewrites:
+              - set_model: claude-haiku-4-5-20251001
+
+        rules:
+          - name: pt
+            match: { endpoint: { literal: /v1/messages } }
+            action:
+              provider: anthropic
+              mode: passthrough
+              base_url: https://api.anthropic.com
+              api_key_env: ANTHROPIC_API_KEY
+        """,
+    )
+    load_config(p)
+    assert not [e for e, _ in rec.records if e == "routing.passthrough_body_touch"]
 
 
 def test_compress_rewrite_round_trip(tmp_path: Path) -> None:

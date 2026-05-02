@@ -30,7 +30,7 @@ from magos.routing.errors import (
     format_unmatched_message,
 )
 from magos.routing.matchers import matches
-from magos.routing.models import Action, RoutingConfig, Rule
+from magos.routing.models import Action, GuardedRewrites, RoutingConfig, Rule
 from magos.routing.request import RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
 
@@ -75,8 +75,23 @@ def apply_pre_rewrites(
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Run the global pre-match rewrites against ``req``."""
-    return apply_rewrites(req, cfg.pre_rewrites, registry=registry)
+    """Run the global pre-match rewrites against ``req``.
+
+    Each entry is either a bare ``Rewrite`` (always applied) or a
+    ``GuardedRewrites`` group whose inner rewrites apply only when its
+    ``match`` evaluates true against the request as it stands at that
+    point in the chain. Earlier guarded entries see the original
+    request; later entries see the cumulative effect of the prior ones.
+    """
+    out = req
+    for entry in cfg.pre_rewrites:
+        if isinstance(entry, GuardedRewrites):
+            if not matches(entry.match, out, registry=registry):
+                continue
+            out = apply_rewrites(out, entry.rewrites, registry=registry)
+        else:
+            out = apply_rewrites(out, [entry], registry=registry)
+    return out
 
 
 def apply_post_rewrites(

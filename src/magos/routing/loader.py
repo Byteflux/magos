@@ -30,6 +30,7 @@ from magos.routing.models import (
     Compress,
     EndpointAtom,
     GlobMatcher,
+    GuardedRewrites,
     HeaderAtom,
     JqAtom,
     JqPatch,
@@ -37,6 +38,7 @@ from magos.routing.models import (
     MatchExpr,
     ModelAtom,
     Not,
+    PreRewrite,
     RegexMatcher,
     Rewrite,
     RoutingConfig,
@@ -131,8 +133,20 @@ def _validate_compiled(cfg: RoutingConfig, *, source: str) -> None:
                 raise RoutingConfigError(f"{source}: {label} match: {exc}") from exc
         for r_idx, rw in enumerate(rule.rewrites):
             _check_rewrite(rw, where=f"{source}: {label} rewrites[{r_idx}]")
-    for r_idx, rw in enumerate(cfg.pre_rewrites):
-        _check_rewrite(rw, where=f"{source}: pre_rewrites[{r_idx}]")
+    for r_idx, entry in enumerate(cfg.pre_rewrites):
+        where = f"{source}: pre_rewrites[{r_idx}]"
+        if isinstance(entry, GuardedRewrites):
+            for matcher in _iter_matchers(entry.match):
+                _check_matcher(matcher, where=f"{where} match")
+            for atom in _iter_jq_atoms(entry.match):
+                try:
+                    check_program(atom.jq)
+                except JqCompileError as exc:
+                    raise RoutingConfigError(f"{where} match: {exc}") from exc
+            for inner_idx, rw in enumerate(entry.rewrites):
+                _check_rewrite(rw, where=f"{where} rewrites[{inner_idx}]")
+        else:
+            _check_rewrite(entry, where=where)
 
 
 def _check_matcher(matcher: Matcher, *, where: str) -> None:
@@ -177,23 +191,34 @@ def _rewrites_touch_body(rewrites: Iterable[Rewrite]) -> bool:
     return any(isinstance(rw, (SetModel, JqPatch, Compress)) for rw in rewrites)
 
 
-def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:
-    """Warn per rule that combines body-touching rewrites with passthrough.
+def _pre_rewrites_unconditionally_touch_body(entries: Iterable[PreRewrite]) -> bool:
+    """True iff a bare body-touching rewrite sits in pre_rewrites.
 
-    Header-only rewrites (``set_header``/``add_header``/``remove_header``)
-    are silent; only ``set_model`` and ``jq_patch`` force re-serialisation
-    of the body and break prompt-cache byte-exactness.
+    ``GuardedRewrites`` entries are excluded: the operator is opting in to
+    selective application, and we trust their match expression. The warning
+    only fires for rewrites that run on every request regardless of route.
     """
-    pre_touches = _rewrites_touch_body(cfg.pre_rewrites)
+    bare = [e for e in entries if not isinstance(e, GuardedRewrites)]
+    return _rewrites_touch_body(bare)
+
+
+def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:
+    """Debug-log per rule that combines body-touching rewrites with passthrough.
+
+    Body-touching pre_rewrites (e.g. ``compress``) reach passthrough rules
+    too, modifying what the upstream sees. That is often intentional, so
+    the signal sits at debug level; raise log_level to DEBUG to surface it
+    when investigating cache behavior. ``GuardedRewrites`` are skipped.
+    """
+    pre_touches = _pre_rewrites_unconditionally_touch_body(cfg.pre_rewrites)
     for idx, rule in enumerate(cfg.rules):
         if rule.action.mode != "passthrough":
             continue
         post_touches = _rewrites_touch_body(rule.rewrites)
         if pre_touches or post_touches:
-            log.warning(
+            log.debug(
                 "routing.passthrough_body_touch",
                 rule=_rule_label(rule, idx),
                 pre_rewrites_touch=pre_touches,
                 post_rewrites_touch=post_touches,
-                hint="prompt cache byte-exactness will be broken for this rule",
             )

@@ -202,6 +202,24 @@ class Rule(_Frozen):
     action: Action
 
 
+class GuardedRewrites(_Frozen):
+    """A pre-rewrite group gated by a match expression.
+
+    Used inside ``pre_rewrites`` to restrict body-touching primitives like
+    ``compress`` to a subset of requests (e.g. only ``mode: translate``
+    routes) while still applying them globally without per-rule duplication.
+    A bare ``Rewrite`` entry in ``pre_rewrites`` runs unconditionally; a
+    ``GuardedRewrites`` entry runs only when its ``match`` evaluates true
+    against the request as it stands at that point in the pre-rewrite chain.
+    """
+
+    match: MatchExpr
+    rewrites: list[Rewrite] = Field(min_length=1)
+
+
+PreRewrite = Rewrite | GuardedRewrites
+
+
 class RoutingConfig(_Frozen):
-    pre_rewrites: list[Rewrite] = Field(default_factory=list)
+    pre_rewrites: list[PreRewrite] = Field(default_factory=list)
     rules: list[Rule] = Field(min_length=1)
