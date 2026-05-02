@@ -78,13 +78,26 @@ def _partial_from_openrouter_entry(raw: dict[str, Any]) -> PartialEntry:
     pricing = _dict_field(raw, "pricing")
     architecture = _dict_field(raw, "architecture")
     top_provider = _dict_field(raw, "top_provider")
+    context_size = _coerce_int(raw.get("context_length"))
+    max_output = _coerce_int(top_provider.get("max_completion_tokens"))
+    # OpenRouter's data is occasionally self-inconsistent: max_completion_tokens
+    # exceeds context_length on a handful of catalog entries. Per their docs
+    # context_length is total, so drop the bogus output cap.
+    if context_size is not None and max_output is not None and max_output > context_size:
+        max_output = None
     return PartialEntry(
-        context_size=_coerce_int(raw.get("context_length")),
-        max_output=_coerce_int(top_provider.get("max_completion_tokens")),
-        input_cost=_coerce_float(pricing.get("prompt")),
-        output_cost=_coerce_float(pricing.get("completion")),
+        context_size=context_size,
+        max_output=max_output,
+        # OpenRouter uses -1 in pricing.* to mean "varies by underlying model"
+        # for meta routes (auto, bodybuilder, pareto-code). Treat as unknown.
+        input_cost=_non_negative(_coerce_float(pricing.get("prompt"))),
+        output_cost=_non_negative(_coerce_float(pricing.get("completion"))),
         modalities=_coerce_modalities(architecture),
     )
+
+
+def _non_negative(value: float | None) -> float | None:
+    return value if value is not None and value >= 0 else None
 
 
 def _dict_field(raw: dict[str, Any], key: str) -> dict[str, Any]:

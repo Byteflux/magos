@@ -20,6 +20,7 @@ from magos.registry.discovery.base import (
     DiscoveryError,
     DiscoveryResult,
 )
+from magos.registry.litellm_lookup import PartialEntry
 from magos.registry.schema import ProviderConfig
 
 _DEFAULT_BASE_URL = "https://api.anthropic.com"
@@ -62,10 +63,15 @@ class AnthropicModelsAdapter:
             raw_id = raw.get("id")
             if not isinstance(raw_id, str) or not raw_id:
                 continue
+            litellm_id = f"{litellm_provider}/{raw_id}"
             models.append(
                 DiscoveredModel(
                     raw_id=raw_id,
-                    litellm_id=f"{litellm_provider}/{raw_id}",
+                    litellm_id=litellm_id,
+                    # Stamp litellm_id on the partial so merge records
+                    # 'discovery' in sources even though Anthropic's models
+                    # endpoint returns no enrichable fields.
+                    partial=PartialEntry(litellm_id=litellm_id),
                 )
             )
         return DiscoveryResult(models=tuple(models))

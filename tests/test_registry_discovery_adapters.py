@@ -150,6 +150,66 @@ def test_openrouter_adapter_handles_missing_optional_fields() -> None:
     assert result.models[0].partial.context_size is None
 
 
+def test_openai_adapter_stamps_litellm_id_on_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provenance: discovery must be tagged in merge sources for openai too."""
+    monkeypatch.setenv("OAI_KEY", "sk-test")
+    cfg = ProviderConfig.model_validate(
+        {"api_key_env": "OAI_KEY", "base_url": "http://localhost:8001"}
+    )
+    transport = _ok({"data": [{"id": "gpt-4o"}]})
+    result = asyncio.run(_run_openai(cfg, transport))
+    assert result.models[0].partial.litellm_id == "openai/gpt-4o"
+
+
+def test_anthropic_adapter_stamps_litellm_id_on_partial(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Provenance: discovery must be tagged in merge sources for anthropic too."""
+    monkeypatch.setenv("ANTHROPIC_KEY", "sk-ant-test")
+    cfg = ProviderConfig.model_validate({"api_key_env": "ANTHROPIC_KEY"})
+    transport = _ok({"data": [{"id": "claude-sonnet-4-6"}]})
+    result = asyncio.run(_run_anthropic(cfg, transport))
+    assert result.models[0].partial.litellm_id == "anthropic/claude-sonnet-4-6"
+
+
+def test_openrouter_adapter_drops_negative_pricing_sentinels() -> None:
+    """OpenRouter uses -1 for meta routes (auto, etc.); must not leak as cost."""
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {
+            "data": [
+                {
+                    "id": "openrouter/auto",
+                    "context_length": 200000,
+                    "pricing": {"prompt": "-1", "completion": "-1"},
+                }
+            ]
+        }
+    )
+    result = asyncio.run(_run_openrouter(cfg, transport))
+    m = result.models[0]
+    assert m.partial.input_cost is None
+    assert m.partial.output_cost is None
+
+
+def test_openrouter_adapter_drops_max_output_when_exceeds_context() -> None:
+    """Self-inconsistent payloads (output > total context) drop max_output."""
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {
+            "data": [
+                {
+                    "id": "weird/model",
+                    "context_length": 131072,
+                    "top_provider": {"max_completion_tokens": 262144},
+                }
+            ]
+        }
+    )
+    result = asyncio.run(_run_openrouter(cfg, transport))
+    m = result.models[0]
+    assert m.partial.context_size == 131072
+    assert m.partial.max_output is None
+
+
 def test_noop_adapter_returns_empty_result() -> None:
     cfg = ProviderConfig.model_validate({})
 
