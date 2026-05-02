@@ -118,8 +118,7 @@ rules:
   # Example: enable Headroom compression for long-context Claude requests.
   # ``mode: token`` runs the full pipeline (CacheAligner + ContentRouter +
   # IntelligentContext); ``mode: cache`` only stabilises the prefix for
-  # provider prompt-cache hits without rewriting message content. Skipped
-  # silently on /v1/responses (which uses ``input`` not ``messages``).
+  # provider prompt-cache hits without rewriting message content.
   #
   # - name: claude-compress-long-context
   #   match:
@@ -134,4 +133,17 @@ rules:
   #         target_ratio: 0.6
   #   action:
   #     provider: anthropic
+  #     mode: translate
+
+  # Example: cache-align the OpenAI Responses ``instructions`` prefix.
+  # /v1/responses supports ``mode: cache`` only (against ``instructions``);
+  # token-mode compression of the ``input`` field is not implemented.
+  #
+  # - name: responses-cache-align
+  #   match:
+  #     endpoint: { literal: /v1/responses }
+  #   rewrites:
+  #     - compress: { mode: cache }
+  #   action:
+  #     provider: openai
   #     mode: translate

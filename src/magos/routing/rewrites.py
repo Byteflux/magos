@@ -118,12 +118,17 @@ def _apply_one(req: RoutedRequest, rw: Rewrite) -> RoutedRequest:  # noqa: PLR09
     raise TypeError(f"unhandled Rewrite variant: {type(rw).__name__}")
 
 
-def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
-    """Run Headroom compression against ``req.body['messages']``.
+def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:  # noqa: PLR0911
+    """Run Headroom compression against ``req.body``.
 
-    Endpoint scope: only Anthropic Messages and OpenAI Chat Completions
-    have a top-level ``messages`` array. The Responses family uses
-    ``input`` and is skipped here (returns ``req`` unchanged).
+    Endpoint dispatch:
+
+    - ``/v1/messages``, ``/v1/messages/count_tokens``, ``/v1/chat/completions``:
+      operate on ``body['messages']`` (Anthropic / OpenAI Chat shape).
+    - ``/v1/responses``: ``mode: cache`` only, operates on ``body['instructions']``.
+      Token-mode compression of Responses ``input`` is not supported (different
+      shape, no upstream Headroom path) and silently no-ops.
+    - Other endpoints (``/v1/responses/{id}`` family, etc.): skipped.
 
     Failure mode: ``headroom.compress()`` already wraps its pipeline in
     try/except, returns the original messages on error, and emits an OTel
@@ -131,6 +136,9 @@ def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
     errors so a missing heavy extra (kompress weights, etc.) cannot take
     the proxy down — log + pass through.
     """
+    if req.endpoint == "/v1/responses":
+        return _apply_compress_responses(req, opts)
+
     if req.endpoint not in _COMPRESS_SUPPORTED_ENDPOINTS:
         log.debug("compress.skipped_endpoint", endpoint=req.endpoint)
         return req
@@ -190,8 +198,14 @@ def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
     return replace(req, body=new_body, body_dirty=True)
 
 
-def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) -> RoutedRequest:
-    """Run only CacheAligner — stabilise the prefix, do not compress."""
+def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any:
+    """Shared CacheAligner runner used by chat (``messages``) and Responses
+    (``instructions``) paths.
+
+    Returns the ``TransformResult`` on success, or ``None`` if the deps
+    couldn't load, the aligner declared no-op, or apply raised. Logs are
+    attached to the ``endpoint`` for traceability.
+    """
     _preload_sentence_transformers()
     try:
         from headroom.config import CacheAlignerConfig  # noqa: PLC0415
@@ -201,31 +215,41 @@ def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) ->
     except Exception as exc:  # pragma: no cover
         log.warning(
             "compress.cache_align_import_failed",
+            endpoint=endpoint,
             error=str(exc),
             error_type=type(exc).__name__,
         )
-        return req
+        return None
 
     # Headroom defaults ``CacheAlignerConfig.enabled=False`` (the transform is
     # opt-in); ``mode: cache`` is exactly that opt-in, so flip it on here.
     # ``use_dynamic_detector=True`` is Headroom's intended default — Tier 1
     # regex catches UUIDs, request IDs, sessions, ISO 8601 datetimes, and
-    # high-entropy identifiers in addition to dates. ``_preload_sentence_transformers``
-    # already ran above to neutralise the Windows native-load order bug.
+    # high-entropy identifiers in addition to dates. The caller has already
+    # invoked ``_preload_sentence_transformers`` to win the native-load race
+    # on Windows.
     aligner = CacheAligner(CacheAlignerConfig(enabled=True))
     tokenizer = Tokenizer(EstimatingTokenCounter(), model=model)
     if not aligner.should_apply(messages, tokenizer, model=model):
-        log.debug("compress.cache_align_noop", endpoint=req.endpoint)
-        return req
+        log.debug("compress.cache_align_noop", endpoint=endpoint)
+        return None
 
     try:
-        result = aligner.apply(messages, tokenizer, model=model)
+        return aligner.apply(messages, tokenizer, model=model)
     except Exception as exc:
         log.warning(
             "compress.cache_align_failed",
+            endpoint=endpoint,
             error=str(exc),
             error_type=type(exc).__name__,
         )
+        return None
+
+
+def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) -> RoutedRequest:
+    """Run CacheAligner on chat-shape ``messages``."""
+    result = _run_cache_aligner(messages, model, endpoint=req.endpoint)
+    if result is None:
         return req
 
     log.info(
@@ -236,6 +260,55 @@ def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) ->
     )
     new_body = dict(req.body)
     new_body["messages"] = result.messages
+    return replace(req, body=new_body, body_dirty=True)
+
+
+def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
+    """Cache-align the ``/v1/responses`` ``instructions`` field.
+
+    Phase 1 scope: only ``mode: cache`` operates here, and only against the
+    top-level ``instructions`` string (the OpenAI Responses analogue of the
+    chat ``system`` prompt). Token-mode compression of ``input`` is out of
+    scope — its shape (string-or-list-of-typed-items) doesn't round-trip
+    cleanly through Headroom's ``messages``-shaped pipeline, and Headroom
+    has no upstream Responses path of its own. Operators wanting that today
+    should compress the input before it reaches magos.
+    """
+    if opts.mode != "cache":
+        log.debug(
+            "compress.responses_token_mode_unsupported",
+            endpoint=req.endpoint,
+            hint="use mode: cache to stabilise the instructions prefix",
+        )
+        return req
+
+    instructions = req.body.get("instructions")
+    if not isinstance(instructions, str) or not instructions.strip():
+        return req
+
+    model = str(req.body.get("model", "")) or "gpt-4o"
+    # Wrap the instructions string as a synthetic system message so the
+    # CacheAligner's system-prompt branch fires. The aligner mutates the
+    # message's ``content`` in place; we read it back and write it to the
+    # ``instructions`` field. No new messages are introduced.
+    synthetic = [{"role": "system", "content": instructions}]
+    result = _run_cache_aligner(synthetic, model, endpoint=req.endpoint)
+    if result is None:
+        return req
+
+    new_instructions = result.messages[0].get("content")
+    if not isinstance(new_instructions, str) or new_instructions == instructions:
+        return req
+
+    log.info(
+        "compress.applied",
+        endpoint=req.endpoint,
+        mode="cache",
+        field="instructions",
+        transforms=list(result.transforms_applied),
+    )
+    new_body = dict(req.body)
+    new_body["instructions"] = new_instructions
     return replace(req, body=new_body, body_dirty=True)
 
 

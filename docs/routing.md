@@ -129,9 +129,15 @@ Runs Headroom against `body.messages`. Two modes:
   requests. Does not touch user/assistant messages. Improves provider
   prompt-cache hit rate without changing semantics.
 
-Endpoint scope: `/v1/messages`, `/v1/messages/count_tokens`, and
-`/v1/chat/completions`. The `/v1/responses` family uses `input` instead
-of `messages` and is silently skipped.
+Endpoint scope:
+
+- `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`:
+  full support for both modes against `body['messages']`.
+- `/v1/responses`: `mode: cache` only, against `body['instructions']`.
+  Token-mode compression of the `input` field is unsupported (different
+  shape, no upstream Headroom path); `mode: token` silently no-ops here.
+- `/v1/responses/{id}` family (retrieve / cancel / list input items):
+  no-op (no body to compress).
 
 Failure mode: Headroom fails open internally. On any compression error
 the original messages pass through and an OTel metric is recorded.

@@ -188,17 +188,29 @@ second latency in the first user request.
 
 ## Endpoint scope
 
-| Endpoint                          | Field      | Compress support |
-|-----------------------------------|------------|------------------|
-| `/v1/messages`                    | `messages` | direct           |
-| `/v1/chat/completions`            | `messages` | direct           |
-| `/v1/messages/count_tokens`       | `messages` | direct (useful: post-compression token preview) |
-| `/v1/responses`                   | `input` (string OR list, different shape) | **silently skipped** — Headroom expects `messages`-shaped input |
-| `/v1/responses/{id}` and friends  | n/a        | passthrough only, no body to compress |
+| Endpoint                          | Field          | Compress support |
+|-----------------------------------|----------------|------------------|
+| `/v1/messages`                    | `messages`     | both modes       |
+| `/v1/chat/completions`            | `messages`     | both modes       |
+| `/v1/messages/count_tokens`       | `messages`     | both modes (useful: post-compression token preview) |
+| `/v1/responses`                   | `instructions` | **`mode: cache` only** — Phase 1 |
+| `/v1/responses`                   | `input`        | unsupported — different shape from `messages`, no upstream Headroom path; `mode: token` silently no-ops |
+| `/v1/responses/{id}` and friends  | n/a            | no-op (no body to compress)                         |
 
-If we ever need `/v1/responses` compression, write an adapter that
-converts `input` (when list-shape) to `messages` shape, runs compress,
-and converts back. Not on the roadmap.
+**Phase 1 (shipped):** the Responses `instructions` string is wrapped
+as a synthetic `[{"role": "system", "content": instructions}]` and
+fed to CacheAligner. The aligner mutates the message's `content` in
+place; we read it back and write it to `instructions`. No new messages
+are introduced. See `_apply_compress_responses` in `rewrites.py`.
+
+**Phase 2+ (not planned):** compressing `input` would require a
+round-trip converter for `input_text`/`message`/`function_call`/etc.
+items, including atomicity preservation for `function_call` ↔
+`function_call_output` pairs. Headroom's `HeadroomCallback`
+(`integrations/litellm_callback.py`) explicitly filters
+`call_type ∉ {completion, acompletion}` and only reads `data["messages"]`
+— so there's no upstream conversion to mirror. Revisit if operator
+demand materialises.
 
 ## Magos-Headroom mode terminology
 

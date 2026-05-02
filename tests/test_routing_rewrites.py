@@ -356,3 +356,92 @@ def test_compress_unsupported_endpoint_does_not_call_headroom(
     )
     out = apply_rewrites(req, [Compress(compress=CompressOptions())])
     assert out is req
+
+
+# --- Compress: /v1/responses Phase 1 (instructions cache alignment) ---
+
+
+def test_responses_cache_mode_aligns_instructions() -> None:
+    """``mode: cache`` extracts dynamic content from the Responses
+    ``instructions`` field and writes the stabilised string back."""
+    uuid = "550e8400-e29b-41d4-a716-446655440000"
+    req = _req(
+        endpoint="/v1/responses",
+        body={
+            "model": "gpt-4o",
+            "instructions": f"Session: {uuid}. Be concise.",
+            "input": "hello",
+        },
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+
+    assert out.body_dirty is True
+    new_instructions = out.body["instructions"]
+    static_prefix = new_instructions.split("[Dynamic Context]")[0]
+    assert uuid not in static_prefix
+    assert uuid in new_instructions
+    # Other Responses fields preserved verbatim.
+    assert out.body["input"] == "hello"
+    assert out.body["model"] == "gpt-4o"
+
+
+def test_responses_cache_mode_noop_when_no_dynamic_content() -> None:
+    """Static instructions string -> aligner declares no-op, body unchanged."""
+    req = _req(
+        endpoint="/v1/responses",
+        body={
+            "model": "gpt-4o",
+            "instructions": "You are a helpful assistant. Be concise.",
+            "input": "hello",
+        },
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    assert out is req
+
+
+def test_responses_cache_mode_noop_when_instructions_missing() -> None:
+    req = _req(
+        endpoint="/v1/responses",
+        body={"model": "gpt-4o", "input": "hello"},
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    assert out is req
+
+
+def test_responses_cache_mode_noop_when_instructions_empty() -> None:
+    req = _req(
+        endpoint="/v1/responses",
+        body={"model": "gpt-4o", "instructions": "   ", "input": "hello"},
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    assert out is req
+
+
+def test_responses_token_mode_does_not_call_headroom(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``mode: token`` is unsupported on /v1/responses — must not call compress()."""
+
+    def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
+        raise AssertionError("compress() must not be called for Responses token mode")
+
+    monkeypatch.setattr(headroom, "compress", boom, raising=True)
+
+    req = _req(
+        endpoint="/v1/responses",
+        body={
+            "model": "gpt-4o",
+            "instructions": "Current date: 2026-05-01. Be concise.",
+            "input": "hello",
+        },
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="token"))])
+    assert out is req
+
+
+def test_responses_aux_endpoints_skip_compress() -> None:
+    """The /v1/responses/{id} family has no body to compress; must no-op."""
+    for endpoint in ("/v1/responses/{id}", "/v1/responses/{id}/input_items"):
+        req = _req(endpoint=endpoint, body={}, raw=b"")
+        out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+        assert out is req, f"{endpoint} should no-op"
