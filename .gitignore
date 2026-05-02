@@ -58,6 +58,9 @@ Thumbs.db
 # Routing config (per-deployment; magos.example.yaml is the canonical template)
 magos.yaml
 
+# Registry state (regenerated at runtime by provider discovery)
+models.json
+
 # Logs / runtime
 *.log
 logs/
