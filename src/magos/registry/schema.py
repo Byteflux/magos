@@ -83,6 +83,7 @@ class ModelOverride(_Frozen):
 
     context_size: int | None = Field(default=None, ge=1)
     max_output: int | None = Field(default=None, ge=1)
+    # USD per million tokens (e.g. 3.0 = $3/M).
     input_cost: float | None = Field(default=None, ge=0)
     output_cost: float | None = Field(default=None, ge=0)
     modalities: tuple[str, ...] | None = None

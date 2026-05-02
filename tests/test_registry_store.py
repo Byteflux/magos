@@ -16,8 +16,8 @@ def _entry(provider: str = "openrouter", raw_id: str = "anthropic/claude-sonnet-
         litellm_id=f"{provider}/{raw_id}",
         context_size=200000,
         max_output=8192,
-        input_cost=0.000003,
-        output_cost=0.000015,
+        input_cost=3.0,
+        output_cost=15.0,
         modalities=("text", "image"),
         sources=("discovery", "litellm"),
     )

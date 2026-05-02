@@ -144,8 +144,9 @@ def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPa
     assert m.litellm_id == "openrouter/anthropic/claude-sonnet-4-6"
     assert m.partial.context_size == 200000
     assert m.partial.max_output == 8192
-    assert m.partial.input_cost == 3e-6
-    assert m.partial.output_cost == 1.5e-5
+    # 0.000003 USD per token -> 3.0 USD per million tokens.
+    assert m.partial.input_cost == pytest.approx(3.0)
+    assert m.partial.output_cost == pytest.approx(15.0)
     assert m.partial.modalities == ("text", "image")
 
 
@@ -247,9 +248,9 @@ def test_vultr_adapter_populates_partial_from_lookup_endpoint(
     assert m.raw_id == "MiniMaxAI/MiniMax-M2.7"
     assert m.litellm_id == "openai/MiniMaxAI/MiniMax-M2.7"
     assert m.partial.context_size == 1048576
-    # 30 cents per million tokens -> $0.30/M -> 3e-7 per token.
-    assert m.partial.input_cost == pytest.approx(3e-7)
-    assert m.partial.output_cost == pytest.approx(1.2e-6)
+    # 30 cents per million tokens -> $0.30 per million tokens.
+    assert m.partial.input_cost == pytest.approx(0.30)
+    assert m.partial.output_cost == pytest.approx(1.20)
 
 
 def test_vultr_adapter_handles_v1_suffix_in_base_url() -> None:

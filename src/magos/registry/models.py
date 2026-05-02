@@ -28,6 +28,8 @@ class ModelEntry:
     litellm_id: str
     context_size: int | None = None
     max_output: int | None = None
+    # Pricing is in USD per million tokens. Adapters that get per-token
+    # values from upstream (LiteLLM, OpenRouter) scale by 1e6 on ingest.
     input_cost: float | None = None
     output_cost: float | None = None
     modalities: tuple[str, ...] = ()

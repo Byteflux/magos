@@ -6,8 +6,8 @@ OpenRouter's catalog is unusually rich: each entry includes
 We map all of those into a ``PartialEntry`` so downstream merge can
 inherit them when no operator override is set.
 
-Pricing on OpenRouter is per-token in USD. We pass through unchanged so
-the units stay consistent with LiteLLM's bundled registry.
+Pricing on OpenRouter is per-token in USD; magos's registry tracks USD
+per million tokens, so we scale by 1e6 on ingest.
 """
 
 from __future__ import annotations
@@ -90,14 +90,17 @@ def _partial_from_openrouter_entry(raw: dict[str, Any]) -> PartialEntry:
         max_output=max_output,
         # OpenRouter uses -1 in pricing.* to mean "varies by underlying model"
         # for meta routes (auto, bodybuilder, pareto-code). Treat as unknown.
-        input_cost=_non_negative(_coerce_float(pricing.get("prompt"))),
-        output_cost=_non_negative(_coerce_float(pricing.get("completion"))),
+        # Otherwise, scale per-token USD into per-million USD.
+        input_cost=_per_token_to_per_million(_coerce_float(pricing.get("prompt"))),
+        output_cost=_per_token_to_per_million(_coerce_float(pricing.get("completion"))),
         modalities=_coerce_modalities(architecture),
     )
 
 
-def _non_negative(value: float | None) -> float | None:
-    return value if value is not None and value >= 0 else None
+def _per_token_to_per_million(value: float | None) -> float | None:
+    if value is None or value < 0:
+        return None
+    return value * 1_000_000
 
 
 def _dict_field(raw: dict[str, Any], key: str) -> dict[str, Any]:

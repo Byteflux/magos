@@ -33,6 +33,7 @@ class PartialEntry:
     litellm_id: str | None = None
     context_size: int | None = None
     max_output: int | None = None
+    # USD per million tokens. Adapters scale upstream per-token values.
     input_cost: float | None = None
     output_cost: float | None = None
     modalities: tuple[str, ...] | None = None
@@ -91,7 +92,16 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
         litellm_id=litellm_id,
         context_size=info_dict.get("max_input_tokens") or info_dict.get("max_tokens"),
         max_output=info_dict.get("max_output_tokens"),
-        input_cost=info_dict.get("input_cost_per_token"),
-        output_cost=info_dict.get("output_cost_per_token"),
+        # LiteLLM reports USD per token; magos tracks USD per million tokens.
+        input_cost=_per_token_to_per_million(info_dict.get("input_cost_per_token")),
+        output_cost=_per_token_to_per_million(info_dict.get("output_cost_per_token")),
         modalities=_coerce_modalities(info_dict),
     )
+
+
+def _per_token_to_per_million(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if not isinstance(value, (int, float)):
+        return None
+    return float(value) * 1_000_000

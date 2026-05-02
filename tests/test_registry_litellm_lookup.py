@@ -27,8 +27,8 @@ def test_lookup_populates_all_known_fields() -> None:
         litellm_id="anthropic/claude-sonnet-4-6",
         context_size=200000,
         max_output=8192,
-        input_cost=3e-6,
-        output_cost=1.5e-5,
+        input_cost=3.0,
+        output_cost=15.0,
         modalities=("text", "image"),
     )
 

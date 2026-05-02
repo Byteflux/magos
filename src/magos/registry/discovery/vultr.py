@@ -32,10 +32,9 @@ _DEFAULT_BASE_URL = "https://api.vultrinference.com"
 _DEFAULT_LITELLM_PROVIDER = "openai"
 
 # Vultr's pricing fields are integer cents per million tokens (e.g. ``30``
-# means $0.30 per million tokens). Convert to dollars per token to match
-# LiteLLM/OpenRouter convention: divide by 100 (cents->dollars) then by
-# 1_000_000 (per million->per token) = 1e8.
-_CENTS_PER_MILLION_TO_DOLLARS_PER_TOKEN = 1e8
+# means $0.30 per million tokens). magos tracks USD per million tokens,
+# so divide by 100 (cents -> dollars).
+_CENTS_TO_DOLLARS = 100
 
 
 class VultrAdapter:
@@ -90,17 +89,17 @@ class VultrAdapter:
 def _partial_from_vultr_entry(raw: dict[str, Any]) -> PartialEntry:
     return PartialEntry(
         context_size=_coerce_int(raw.get("context_length")),
-        input_cost=_cents_per_million_to_per_token(raw.get("cost_input")),
-        output_cost=_cents_per_million_to_per_token(raw.get("cost_output")),
+        input_cost=_cents_to_dollars_per_million(raw.get("cost_input")),
+        output_cost=_cents_to_dollars_per_million(raw.get("cost_output")),
     )
 
 
-def _cents_per_million_to_per_token(value: Any) -> float | None:
+def _cents_to_dollars_per_million(value: Any) -> float | None:
     if isinstance(value, bool):
         return None
     if not isinstance(value, (int, float)) or value < 0:
         return None
-    return float(value) / _CENTS_PER_MILLION_TO_DOLLARS_PER_TOKEN
+    return float(value) / _CENTS_TO_DOLLARS
 
 
 def _coerce_int(value: Any) -> int | None:

@@ -48,11 +48,11 @@ def test_merge_litellm_fills_gap_when_discovery_missing_field() -> None:
         raw_id="anthropic/claude-sonnet-4-6",
         default_litellm_id="openrouter/anthropic/claude-sonnet-4-6",
         discovered=PartialEntry(context_size=200_000),  # no costs
-        litellm_fallback=PartialEntry(input_cost=3e-6, output_cost=1.5e-5),
+        litellm_fallback=PartialEntry(input_cost=3.0, output_cost=15.0),
     )
     assert entry.context_size == 200_000
-    assert entry.input_cost == 3e-6
-    assert entry.output_cost == 1.5e-5
+    assert entry.input_cost == 3.0
+    assert entry.output_cost == 15.0
 
 
 def test_merge_override_can_replace_litellm_id() -> None:
@@ -95,7 +95,7 @@ def test_merge_handles_zero_cost_correctly() -> None:
         raw_id="vllm-llama",
         default_litellm_id="local/vllm-llama",
         discovered=PartialEntry(input_cost=0.0, output_cost=0.0),
-        litellm_fallback=PartialEntry(input_cost=1e-6, output_cost=1e-6),
+        litellm_fallback=PartialEntry(input_cost=1.0, output_cost=1.0),
     )
     assert entry.input_cost == 0.0
     assert entry.output_cost == 0.0
