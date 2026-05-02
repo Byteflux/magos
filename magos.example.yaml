@@ -14,12 +14,19 @@
 # Action fields:
 #   - provider, mode (translate|passthrough), base_url, api_key_env
 
-pre_rewrites: []
+# Default: Headroom compression on every request. Token mode runs the full
+# pipeline (CacheAligner + ContentRouter + IntelligentContext) where the
+# endpoint supports it (/v1/messages, /v1/messages/count_tokens,
+# /v1/chat/completions); /v1/responses no-ops in token mode (use a per-rule
+# ``compress: { mode: cache }`` if you want cache-alignment there). To
+# disable globally, set ``pre_rewrites: []``.
+pre_rewrites:
+  - compress: {}
 
 rules:
-  # Anthropic-shape requests for claude-* models -> byte-exact passthrough
-  # to api.anthropic.com. Preserves OAuth bearers, anthropic-beta flags,
-  # version pins, and prompt-cache hashes.
+  # Anthropic-shape requests for claude-* models -> passthrough to
+  # api.anthropic.com. Preserves OAuth bearers, anthropic-beta flags,
+  # and version pins.
   - name: anthropic-messages-passthrough
     match:
       all_of:
