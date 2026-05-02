@@ -30,25 +30,55 @@ _TRACER_NAME = "magos"
 
 
 def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
-    """Configure structlog. JSON renderer if requested or MAGOS_LOG_JSON=1."""
+    """Configure structlog and bridge stdlib logging through it.
+
+    Anything emitted via ``logging`` (uvicorn startup, access logs, third-party
+    libraries) is rendered with the same processors as native structlog calls,
+    so the operator sees one consistent stream.
+    """
     use_json = json if json is not None else os.environ.get("MAGOS_LOG_JSON", "0") == "1"
     renderer: Any = (
         structlog.processors.JSONRenderer()
         if use_json
         else structlog.dev.ConsoleRenderer(colors=False)
     )
+    shared_processors: list[Any] = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso", utc=True),
+    ]
     structlog.configure(
         processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso", utc=True),
-            renderer,
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.make_filtering_bound_logger(
             getattr(logging, level.upper(), logging.INFO)
         ),
         cache_logger_on_first_use=True,
     )
+
+    formatter = structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=shared_processors,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
+    )
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+
+    # uvicorn ships its own LOGGING_CONFIG; we pass log_config=None to uvicorn
+    # so its loggers default to propagate=True. Reset any prior handlers
+    # (e.g. from a previous configure_logging call in tests) to be sure.
+    for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
+        lg = logging.getLogger(name)
+        lg.handlers = []
+        lg.propagate = True
 
 
 def configure_tracing(

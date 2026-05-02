@@ -79,6 +79,14 @@ class MagosSettings(BaseSettings):
         ),
     )
 
+    access_log: bool = Field(
+        default=True,
+        description=(
+            "Emit one structlog line per HTTP request via uvicorn's access "
+            "logger. Set MAGOS_ACCESS_LOG=0 to silence."
+        ),
+    )
+
     metrics_enabled: bool = Field(
         default=False,
         description=(

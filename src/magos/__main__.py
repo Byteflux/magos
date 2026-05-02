@@ -39,7 +39,7 @@ import uvicorn
 from magos import __version__
 from magos.cli.models_cmd import models_app
 from magos.config import MagosSettings
-from magos.obs import configure_logging, configure_tracing
+from magos.obs import configure_logging, configure_tracing, get_logger
 
 app = typer.Typer(
     name="magos",
@@ -56,12 +56,27 @@ def serve() -> None:
     settings = MagosSettings()
     configure_logging(level=settings.log_level, json=settings.log_json)
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
+    log = get_logger("magos")
+    log.info(
+        "server.starting",
+        version=__version__,
+        host=settings.host,
+        port=settings.port,
+        config_path=settings.config_path,
+        log_level=settings.log_level,
+        log_json=settings.log_json,
+        otel_enabled=settings.otel_enabled,
+        metrics_enabled=settings.metrics_enabled,
+        access_log=settings.access_log,
+        kompress_backend=settings.kompress_backend,
+    )
     uvicorn.run(
         "magos.server:create_app",
         factory=True,
         host=settings.host,
         port=settings.port,
         log_config=None,
+        access_log=settings.access_log,
     )
 
 

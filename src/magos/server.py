@@ -308,9 +308,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     if refresher is not None:
         await refresher.start()
         log.info("registry.refresher.started", providers=list(refresher._config.providers))
+    log.info(
+        "server.ready",
+        version=__version__,
+        rules=len(cfg.rules),
+        metrics=settings.metrics_enabled,
+    )
     try:
         yield
     finally:
+        log.info("server.shutting_down")
         if refresher is not None:
             await refresher.stop()
             log.info("registry.refresher.stopped")
