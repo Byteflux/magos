@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar, cast
@@ -37,15 +38,23 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
     so the operator sees one consistent stream.
     """
     use_json = json if json is not None else os.environ.get("MAGOS_LOG_JSON", "0") == "1"
-    renderer: Any = (
-        structlog.processors.JSONRenderer()
-        if use_json
-        else structlog.dev.ConsoleRenderer(colors=False)
-    )
+    if use_json:
+        renderer: Any = structlog.processors.JSONRenderer()
+        timestamp_fmt = "iso"
+    else:
+        # Auto-color when stderr is a TTY; allow MAGOS_LOG_COLOR=0/1 to override.
+        color_env = os.environ.get("MAGOS_LOG_COLOR")
+        colors = (color_env == "1") if color_env is not None else sys.stderr.isatty()
+        renderer = structlog.dev.ConsoleRenderer(
+            colors=colors,
+            force_colors=colors,
+            pad_event_to=24,
+        )
+        timestamp_fmt = "%H:%M:%S"
     shared_processors: list[Any] = [
         structlog.contextvars.merge_contextvars,
         structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
+        structlog.processors.TimeStamper(fmt=timestamp_fmt, utc=False),
     ]
     structlog.configure(
         processors=[
