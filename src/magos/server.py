@@ -351,6 +351,7 @@ async def _preload_kompress_model() -> None:
     except ImportError as exc:
         log.warning("compress.kompress_preload_unavailable", error=str(exc))
         return
+    log.info("compress.kompress_preload_started", model=HF_MODEL_ID)
     try:
         await asyncio.to_thread(_load_kompress, HF_MODEL_ID, "auto")
         log.info("compress.kompress_warmed", model=HF_MODEL_ID)
