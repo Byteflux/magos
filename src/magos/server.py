@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -352,16 +353,20 @@ async def _preload_kompress_model() -> None:
         log.warning("compress.kompress_preload_unavailable", error=str(exc))
         return
     log.info("compress.kompress_preload_started", model=HF_MODEL_ID)
+    started = time.perf_counter()
     try:
         await asyncio.to_thread(_load_kompress, HF_MODEL_ID, "auto")
-        log.info("compress.kompress_warmed", model=HF_MODEL_ID)
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
+        log.info("compress.kompress_warmed", model=HF_MODEL_ID, elapsed_ms=elapsed_ms)
     except asyncio.CancelledError:
         raise
     except Exception as exc:
+        elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
         log.warning(
             "compress.kompress_warm_failed",
             error=str(exc),
             error_type=type(exc).__name__,
+            elapsed_ms=elapsed_ms,
         )
 
 
