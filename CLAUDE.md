@@ -28,7 +28,7 @@ LLM inference API proxy built on mitmproxy. Translates between Anthropic and Ope
 
 ```
 src/magos/
-  __main__.py        # entrypoint (`python -m magos [serve|models …]`)
+  __main__.py        # entrypoint (`magos [serve|models …]`)
   config.py          # MagosSettings (pydantic-settings)
   config_loader.py   # load_full_config -> MagosConfig (routing + registry)
   server.py          # FastAPI app, lifespan starts Refresher + /metrics

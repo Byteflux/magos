@@ -2,17 +2,21 @@
 
 Default invocation starts the server::
 
-    python -m magos                          # serve
-    python -m magos serve
-    python -m magos serve --config /path/to/magos.yaml
+    magos                          # serve
+    magos serve
+    magos serve --config /path/to/magos.yaml
 
 Operator-facing subcommands::
 
-    python -m magos models list
-    python -m magos models show <id>
-    python -m magos models refresh [--provider X]
-    python -m magos models prune
-    python -m magos models discover --provider X --dry-run
+    magos models list
+    magos models show <id>
+    magos models refresh [--provider X]
+    magos models prune
+    magos models discover --provider X --dry-run
+
+The ``magos`` script is installed by the ``[project.scripts]`` entry in
+``pyproject.toml``. Inside a uv-managed venv use ``uv run magos …``;
+``python -m magos`` works as an alternative invocation.
 
 Config resolution order (highest first):
 

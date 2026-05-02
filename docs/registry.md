@@ -157,19 +157,19 @@ Operators: `eq`, `gt`, `gte`, `lt`, `lte` (numeric/string scalars),
 ## CLI
 
 ```bash
-python -m magos models list                     # in-memory state from server
-python -m magos models list --from-disk         # bypass server, read models.json
-python -m magos models list --format json       # machine-readable
+magos models list                     # in-memory state from server
+magos models list --from-disk         # bypass server, read models.json
+magos models list --format json       # machine-readable
 
-python -m magos models show openrouter/anthropic/claude-sonnet-4-6
-python -m magos models show <id> --from-disk
+magos models show openrouter/anthropic/claude-sonnet-4-6
+magos models show <id> --from-disk
 
-python -m magos models refresh                  # all providers
-python -m magos models refresh --provider openrouter
+magos models refresh                  # all providers
+magos models refresh --provider openrouter
 
-python -m magos models prune                    # sweep past-grace deprecated entries
+magos models prune                    # sweep past-grace deprecated entries
 
-python -m magos models discover --provider openrouter --dry-run
+magos models discover --provider openrouter --dry-run
 ```
 
 Every subcommand accepts `--config <path>` to point at a non-default

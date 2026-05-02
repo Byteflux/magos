@@ -35,6 +35,9 @@ dependencies = [
     "prometheus-client>=0.25.0",
 ]
 
+[project.scripts]
+magos = "magos.__main__:main"
+
 [dependency-groups]
 dev = [
     "mypy>=1.20.2",

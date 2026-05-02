@@ -2,13 +2,13 @@
 
 Subcommand layout::
 
-    python -m magos                  # serve (default)
-    python -m magos serve            # explicit form
-    python -m magos models list      # show in-memory state from running server
-    python -m magos models show <id>
-    python -m magos models refresh [--provider X]
-    python -m magos models prune
-    python -m magos models discover --provider X --dry-run
+    magos                  # serve (default)
+    magos serve            # explicit form
+    magos models list      # show in-memory state from running server
+    magos models show <id>
+    magos models refresh [--provider X]
+    magos models prune
+    magos models discover --provider X --dry-run
 
 Read commands (``list`` / ``show``) try the running server's admin
 endpoints first, then fall back to the on-disk ``models.json`` if the

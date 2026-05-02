@@ -41,9 +41,9 @@ always win; the registry only catches what the rules miss. See
 mkdir -p ~/.magos
 cp magos.example.yaml ~/.magos/magos.yaml
 # edit ~/.magos/magos.yaml
-python -m magos                                    # picks up the default
-python -m magos --config /etc/magos.yaml           # CLI override
-MAGOS_CONFIG_PATH=/etc/magos.yaml python -m magos  # env override
+magos                                    # picks up the default
+magos --config /etc/magos.yaml           # CLI override
+MAGOS_CONFIG_PATH=/etc/magos.yaml magos  # env override
 ```
 
 Config path resolution (highest wins): `--config` flag, then

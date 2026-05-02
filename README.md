@@ -34,9 +34,9 @@ uv sync --extra gpu   # GPU torch (CUDA 13.0)
 ```bash
 mkdir -p ~/.magos
 cp magos.example.yaml ~/.magos/magos.yaml      # then edit to taste
-uv run python -m magos                         # serve
-uv run python -m magos --config /etc/magos.yaml # non-default config
-uv run python -m magos models list             # CLI subcommand
+uv run magos                         # serve
+uv run magos --config /etc/magos.yaml # non-default config
+uv run magos models list             # CLI subcommand
 ```
 
 Config path resolution: `--config` flag > `MAGOS_CONFIG_PATH` env > `~/.magos/magos.yaml`. Other knobs come from environment variables (prefix `MAGOS_`) or a local `.env`. See `src/magos/config.py` for the full settings schema, `docs/routing.md` for the rule grammar, and `docs/registry.md` for the registry.
