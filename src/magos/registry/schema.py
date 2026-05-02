@@ -121,9 +121,9 @@ class RegistrySettings(_Frozen):
 class RegistryYaml(_Frozen):
     """Top-level registry-related blocks parsed from ``magos.yaml``.
 
-    Co-exists with the existing ``RoutingConfig``: the loader composes
-    both into a single config object. Empty defaults make the registry
-    optional during the migration window.
+    The loader composes this with ``RoutingConfig`` into ``MagosConfig``.
+    All fields default to empty so a yaml without any registry blocks
+    parses cleanly and the server runs in routing-only mode.
     """
 
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)

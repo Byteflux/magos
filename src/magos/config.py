@@ -2,9 +2,9 @@
 
 ``MagosSettings`` covers the small set of knobs that belong in the process
 environment: bind address, log/trace setup, and the path to ``magos.yaml``.
-Routing decisions (passthrough toggling, count_tokens mode, provider lookup)
-moved to the rule-based config in ``magos.yaml`` and live on
-``app.state.routing``.
+Routing-shape decisions (passthrough toggling, count_tokens mode, provider
+lookup) live in ``magos.yaml`` and reach the app via ``app.state.routing``;
+this module owns only what an operator sets via env or ``.env``.
 
 Example::
 
@@ -27,9 +27,9 @@ log = get_logger("magos.config")
 
 KompressBackend = Literal["auto", "pytorch"]
 
-# Env vars that controlled routing in pre-rule-based magos. ``extra="ignore"``
-# silently drops them, so we explicitly warn on startup if any are still set —
-# operators upgrading should move the equivalent intent into ``magos.yaml``.
+# Env vars that have no effect today. ``extra="ignore"`` would silently drop
+# them; we warn on startup so an operator with stale ``.env`` files notices
+# their intent isn't being applied (the equivalent now lives in ``magos.yaml``).
 _REMOVED_ENV_VARS: tuple[str, ...] = (
     "MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED",
     "MAGOS_ANTHROPIC_UPSTREAM_URL",
@@ -99,11 +99,11 @@ def get_settings() -> MagosSettings:
 
 
 def _warn_on_removed_env_vars() -> None:
-    """Log a warning when env vars from the pre-rule-based config persist."""
+    """Log a warning when an inert env var is still set in the environment."""
     for name in _REMOVED_ENV_VARS:
         if name in os.environ:
             log.warning(
                 "config.removed_env_var",
                 name=name,
-                hint="moved into magos.yaml; this env var is now ignored",
+                hint="this env var is ignored; configure the equivalent in magos.yaml",
             )

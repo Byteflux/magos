@@ -8,9 +8,10 @@ Two responsibilities:
   expression matches iff its first result value is truthy under Python rules
   (``None``, ``False``, ``0``, ``""``, empty containers all falsy).
 
-Compiled programs are not cached here; the engine layer keeps a per-rule
-cache keyed by rule identity (Slice 4) so we re-compile on demand instead of
-fighting pydantic's frozen models with private attrs.
+Compiled programs are not cached here. ``jq.compile`` is cheap enough
+at current rule counts; if that changes, the engine is the right place
+for a per-rule cache keyed by rule identity (caching here would require
+fighting pydantic's frozen models with private attrs).
 """
 
 from __future__ import annotations

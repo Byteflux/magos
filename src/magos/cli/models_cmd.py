@@ -16,7 +16,6 @@ from magos.config_loader import load_full_config, resolve_models_path
 from magos.registry.discovery import adapter_for
 from magos.registry.discovery.base import DiscoveryError
 from magos.registry.models import RegistryState
-from magos.registry.refresher import Refresher
 from magos.registry.store import deserialize, load
 
 
@@ -207,8 +206,3 @@ def main(argv: list[str] | None = None, *, out: TextIO | None = None) -> int:
         parser.print_help(target)
         return 1
     return int(func(args, settings, target))
-
-
-# Suppress unused-import warning; ``Refresher`` is referenced by future
-# expansion of the discover subcommand to the write path.
-_ = Refresher

@@ -15,12 +15,9 @@ run).
 
 The addon does not modify traffic. It only logs structured request/response
 events for any flow whose host matches a known LLM provider, which feeds the
-"strong observability" goal without adding latency or coupling.
-
-The previous addon implementation translated inbound Anthropic Messages
-requests through ``proxy.proxy_anthropic_messages``. That responsibility now
-lives in the FastAPI server (``magos.server``) so mitmproxy can do what it is
-actually good at.
+"strong observability" goal without adding latency or coupling. Translation
+and routing live in the FastAPI server (``magos.server``); mitmproxy's job
+here is purely passive observation of outbound LLM calls.
 """
 
 from __future__ import annotations

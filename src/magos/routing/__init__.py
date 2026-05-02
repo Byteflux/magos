@@ -1,8 +1,8 @@
 """Declarative rule-based routing.
 
 Public surface: load a ``RoutingConfig`` from YAML, then call ``route()`` on
-a ``RoutedRequest`` to obtain a ``RouteDecision`` or ``RouteError``. The
-dispatcher cutover (slice 5) is the consumer that ties this layer to the
+a ``RoutedRequest`` to obtain a ``RouteDecision`` or ``RouteError``.
+``magos.routing.dispatch`` consumes the decision and bridges to the
 existing ``server.py`` / ``proxy.py`` / ``passthrough.py`` modules.
 """
 

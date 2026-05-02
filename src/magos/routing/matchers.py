@@ -1,10 +1,9 @@
 """Pure evaluator for routing match expressions.
 
-Stateless: every call recompiles regex/jq programs. Slice 4 will introduce
-a per-rule compiled-artifact cache in the engine; for now ``re.compile`` is
-itself cached by the stdlib and ``jq.compile`` cost is acceptable for the
-test surface. The matcher module exposes only ``matches``; everything else
-is private dispatch helpers.
+Stateless: every call recompiles regex/jq programs. The stdlib's ``re``
+cache covers regex; ``jq.compile`` cost is small at current rule counts.
+The matcher module exposes only ``matches``; everything else is private
+dispatch helpers.
 """
 
 from __future__ import annotations

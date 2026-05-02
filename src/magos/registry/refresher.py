@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -375,9 +375,6 @@ def _default_manual_litellm_id(provider_name: str, cfg: ProviderConfig, raw_id: 
     """
     prefix = cfg.litellm_provider or provider_name
     return f"{prefix}/{raw_id}"
-
-
-_AwaitableHook = Callable[[], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)

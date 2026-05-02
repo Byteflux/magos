@@ -6,9 +6,9 @@ or a ``RouteError`` carrying the status code and message the server should
 serialise into the per-endpoint error envelope.
 
 The engine is deliberately stateless: every call recompiles regex/jq
-artifacts via the matcher and rewrite layers. A future optimisation can add
-a per-rule compiled-artifact cache here without changing the public API,
-keyed by rule identity to avoid fighting pydantic's frozen models.
+artifacts via the matcher and rewrite layers. The stdlib's ``re`` cache
+covers regex; ``jq.compile`` is fast enough at the current rule counts
+that adding our own cache would be premature.
 
 When a registry is wired in, requests that no explicit rule matches fall
 through to registry-driven auto-routing: an exact ``<provider>/<raw_id>``

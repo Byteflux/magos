@@ -1,11 +1,8 @@
 """Async input-token counting via ``litellm.acount_tokens``.
 
-LiteLLM auto-selects between local tokenizers and the upstream's native
+LiteLLM picks between an in-process tokenizer and the provider's native
 count-tokens endpoint based on the model's provider, so a single call
-covers both what magos used to call ``count_locally`` (in-process estimate)
-and ``count_tokens_mode: passthrough`` (provider-billed accuracy). The
-``count_tokens_mode`` action field and per-provider ``PASSTHROUGH_DISPATCH``
-registry were removed when the SDK fold-in landed.
+covers both the local-estimate and provider-billed paths.
 
 The ``count`` argument is the seam for tests: production wires
 ``litellm.acount_tokens``; tests inject a fake. Anything that returns an

@@ -377,13 +377,13 @@ def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) ->
 def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
     """Cache-align the ``/v1/responses`` ``instructions`` field.
 
-    Phase 1 scope: only ``mode: cache`` operates here, and only against the
-    top-level ``instructions`` string (the OpenAI Responses analogue of the
-    chat ``system`` prompt). Token-mode compression of ``input`` is out of
-    scope — its shape (string-or-list-of-typed-items) doesn't round-trip
-    cleanly through Headroom's ``messages``-shaped pipeline, and Headroom
-    has no upstream Responses path of its own. Operators wanting that today
-    should compress the input before it reaches magos.
+    Only ``mode: cache`` is supported on Responses, and only against the
+    top-level ``instructions`` string (the OpenAI analogue of the chat
+    ``system`` prompt). Token-mode compression of ``input`` is not
+    supported: its shape (string-or-list-of-typed-items) doesn't round-
+    trip cleanly through Headroom's ``messages``-shaped pipeline, and
+    Headroom has no upstream Responses path of its own. Operators
+    wanting that should compress the input before it reaches magos.
     """
     if opts.mode != "cache":
         log.debug(
