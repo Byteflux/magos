@@ -9,12 +9,21 @@ The engine is deliberately stateless: every call recompiles regex/jq
 artifacts via the matcher and rewrite layers. A future optimisation can add
 a per-rule compiled-artifact cache here without changing the public API,
 keyed by rule identity to avoid fighting pydantic's frozen models.
+
+When a registry is wired in, requests that no explicit rule matches fall
+through to registry-driven auto-routing: an exact ``<provider>/<raw_id>``
+lookup against ``RegistryState.entries``. The registry never overrides an
+explicit rule (rules win); it only catches what rules miss. ``on_unknown_model``
+controls what happens when the registry also misses (404 default,
+passthrough opt-in).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.schema import RegistrySettings
 from magos.routing.errors import (
     RouteError,
     format_dispatch_error_message,
@@ -25,18 +34,31 @@ from magos.routing.models import Action, RoutingConfig, Rule
 from magos.routing.request import RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
 
+_AUTO_ROUTE_RULE_NAME = "auto-route"
+
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
-    """Outcome of a successful route lookup, consumed by the dispatcher."""
+    """Outcome of a successful route lookup, consumed by the dispatcher.
+
+    ``entry`` is the registry record that produced an auto-routed
+    decision (None for explicit-rule decisions). Downstream code can
+    use it to read context_size, modalities, etc. without re-querying
+    the registry.
+    """
 
     rule: Rule
     request: RoutedRequest
     dispatch_model: str
+    entry: ModelEntry | None = None
 
     @property
     def action(self) -> Action:
         return self.rule.action
+
+    @property
+    def auto_routed(self) -> bool:
+        return self.entry is not None
 
     def rule_label(self, idx: int | None = None) -> str:
         """Stable human-readable identifier for logs."""
@@ -47,24 +69,46 @@ class RouteDecision:
         return "rule[?]"
 
 
-def apply_pre_rewrites(req: RoutedRequest, cfg: RoutingConfig) -> RoutedRequest:
+def apply_pre_rewrites(
+    req: RoutedRequest,
+    cfg: RoutingConfig,
+    *,
+    registry: RegistryState | None = None,
+) -> RoutedRequest:
     """Run the global pre-match rewrites against ``req``."""
-    return apply_rewrites(req, cfg.pre_rewrites)
+    return apply_rewrites(req, cfg.pre_rewrites, registry=registry)
 
 
-def apply_post_rewrites(req: RoutedRequest, rule: Rule) -> RoutedRequest:
+def apply_post_rewrites(
+    req: RoutedRequest,
+    rule: Rule,
+    *,
+    registry: RegistryState | None = None,
+) -> RoutedRequest:
     """Run the matched rule's per-rule rewrites against ``req``."""
-    return apply_rewrites(req, rule.rewrites)
+    return apply_rewrites(req, rule.rewrites, registry=registry)
 
 
-def route(req: RoutedRequest, cfg: RoutingConfig) -> RouteDecision | RouteError:
-    """Resolve ``req`` against ``cfg``; first matching rule wins."""
-    pre_applied = apply_pre_rewrites(req, cfg)
+def route(
+    req: RoutedRequest,
+    cfg: RoutingConfig,
+    *,
+    registry: RegistryState | None = None,
+    registry_settings: RegistrySettings | None = None,
+) -> RouteDecision | RouteError:
+    """Resolve ``req`` against ``cfg``; first matching rule wins.
+
+    On rules-loop fall-through, attempt registry auto-routing if a
+    ``RegistryState`` is supplied. ``registry_settings`` controls the
+    miss behavior (``on_unknown_model`` field); when omitted, defaults
+    to error-on-unknown.
+    """
+    pre_applied = apply_pre_rewrites(req, cfg, registry=registry)
     for rule in cfg.rules:
-        if not matches(rule.match, pre_applied):
+        if not matches(rule.match, pre_applied, registry=registry):
             continue
         try:
-            post_applied = apply_post_rewrites(pre_applied, rule)
+            post_applied = apply_post_rewrites(pre_applied, rule, registry=registry)
         except RewriteError as exc:
             model = str(pre_applied.body.get("model", ""))
             return RouteError(
@@ -79,6 +123,12 @@ def route(req: RoutedRequest, cfg: RoutingConfig) -> RouteDecision | RouteError:
             request=post_applied,
             dispatch_model=_compute_dispatch_model(post_applied, rule.action),
         )
+
+    if registry is not None:
+        auto = _try_auto_route(pre_applied, registry, registry_settings)
+        if auto is not None:
+            return auto
+
     model = str(pre_applied.body.get("model", ""))
     return RouteError(
         status=404,
@@ -87,6 +137,67 @@ def route(req: RoutedRequest, cfg: RoutingConfig) -> RouteDecision | RouteError:
         model=model,
         endpoint=pre_applied.endpoint,
     )
+
+
+def _try_auto_route(
+    req: RoutedRequest,
+    registry: RegistryState,
+    settings: RegistrySettings | None,
+) -> RouteDecision | None:
+    """Look up ``req.body['model']`` in the registry by exact namespaced id.
+
+    Returns a synthesized ``RouteDecision`` on hit. On miss, consults
+    ``settings.on_unknown_model``: ``"passthrough"`` returns a best-effort
+    decision that hands the raw model string to LiteLLM (which resolves
+    via its bundled registry on names like ``openai/gpt-4o``); ``"error"``
+    returns ``None`` so the caller emits the standard 404.
+    """
+    model = str(req.body.get("model", ""))
+    if not model:
+        return None
+    entry = registry.get(model)
+    if entry is not None:
+        return _decision_from_entry(req, entry)
+    if settings is not None and settings.on_unknown_model == "passthrough":
+        return _decision_for_unknown_passthrough(req, model)
+    return None
+
+
+def _decision_from_entry(req: RoutedRequest, entry: ModelEntry) -> RouteDecision:
+    """Build a synthetic Rule + RouteDecision around a registry entry."""
+    action = Action.model_validate({"provider": entry.provider, "mode": "translate"})
+    rule = Rule.model_validate(
+        {
+            "name": _AUTO_ROUTE_RULE_NAME,
+            "match": {"model": {"literal": entry.raw_id}},
+            "action": action.model_dump(),
+        }
+    )
+    return RouteDecision(
+        rule=rule,
+        request=req,
+        dispatch_model=entry.litellm_id,
+        entry=entry,
+    )
+
+
+def _decision_for_unknown_passthrough(req: RoutedRequest, model: str) -> RouteDecision:
+    """Build a synthetic decision that forwards an unknown model to LiteLLM.
+
+    Used when ``on_unknown_model: passthrough``. The dispatch model is
+    the raw inbound id; LiteLLM's bundled provider router resolves it
+    if it can, otherwise the provider replies with its own error.
+    """
+    provider = model.split("/", 1)[0] if "/" in model else "auto"
+    action = Action.model_validate({"provider": provider, "mode": "translate"})
+    rule = Rule.model_validate(
+        {
+            "name": "auto-passthrough",
+            "match": {"model": {"literal": model}},
+            "action": action.model_dump(),
+        }
+    )
+    return RouteDecision(rule=rule, request=req, dispatch_model=model)
 
 
 def _compute_dispatch_model(req: RoutedRequest, action: Action) -> str:

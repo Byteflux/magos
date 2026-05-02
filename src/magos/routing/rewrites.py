@@ -17,6 +17,7 @@ from dataclasses import replace
 from typing import Any
 
 from magos.obs import get_logger
+from magos.registry.models import RegistryState
 from magos.routing.jq_compat import evaluate_patch
 from magos.routing.models import (
     AddHeader,
@@ -52,18 +53,33 @@ _DEFAULT_MODEL_LIMIT = 200_000
 _MODEL_LIMIT_CACHE: dict[str, int] = {}
 
 
-def _resolve_model_limit(dispatch_model: str, default: int = _DEFAULT_MODEL_LIMIT) -> int:
+def _resolve_model_limit(
+    dispatch_model: str,
+    *,
+    registry: RegistryState | None = None,
+    default: int = _DEFAULT_MODEL_LIMIT,
+) -> int:
     """Look up the max input-token window for ``dispatch_model``.
 
-    Calls ``litellm.get_model_info`` and reads ``max_input_tokens`` (or
-    ``max_tokens`` as a fallback). LiteLLM accepts both bare model names
-    (``gpt-4o``) and provider-prefixed forms (``openai/gpt-4o``). On
-    lookup failure (unknown model, ``@suffix`` variants LiteLLM doesn't
-    register, network-disconnected first call, etc.), returns ``default``.
+    Resolution order (highest first):
+
+    1. ``registry`` if supplied AND the entry has ``context_size`` set —
+       bypasses the LiteLLM call entirely. Lookup is by exact namespaced
+       id, then by raw_id scan as a fallback for bare model strings.
+    2. ``litellm.get_model_info`` — reads ``max_input_tokens`` (or
+       ``max_tokens`` as a fallback). LiteLLM accepts both bare model
+       names (``gpt-4o``) and provider-prefixed forms.
+    3. ``default`` — Headroom's hardcoded 200_000 fallback.
 
     Result is cached per ``dispatch_model`` so subsequent requests for
     the same model are free and don't re-print LiteLLM's provider list.
+    Registry hits skip the cache so context_size updates on refresh
+    flow through immediately.
     """
+    registry_limit = _registry_context_size(dispatch_model, registry)
+    if registry_limit is not None:
+        return registry_limit
+
     if dispatch_model in _MODEL_LIMIT_CACHE:
         return _MODEL_LIMIT_CACHE[dispatch_model]
 
@@ -91,6 +107,25 @@ def _resolve_model_limit(dispatch_model: str, default: int = _DEFAULT_MODEL_LIMI
     else:
         log.debug("compress.model_limit_resolved", dispatch_model=dispatch_model, limit=limit)
     return limit
+
+
+def _registry_context_size(model: str, registry: RegistryState | None) -> int | None:
+    """Return the registry's ``context_size`` for ``model`` if known.
+
+    Tries an exact namespaced lookup first; if ``model`` matches a single
+    raw_id across providers, that is also accepted (the routing layer
+    typically normalizes to namespaced form before reaching here, but
+    explicit-rule paths may pass bare ids).
+    """
+    if registry is None:
+        return None
+    direct = registry.get(model)
+    if direct is not None and direct.context_size is not None:
+        return direct.context_size
+    matches = [e for e in registry.entries.values() if e.raw_id == model]
+    if len(matches) == 1 and matches[0].context_size is not None:
+        return matches[0].context_size
+    return None
 
 
 def _preload_sentence_transformers() -> None:
@@ -122,21 +157,29 @@ class RewriteError(ValueError):
     """Raised when a rewrite cannot be applied (e.g., jq_patch shape error)."""
 
 
-def apply_rewrites(req: RoutedRequest, rewrites: Sequence[Rewrite]) -> RoutedRequest:
+def apply_rewrites(
+    req: RoutedRequest,
+    rewrites: Sequence[Rewrite],
+    *,
+    registry: RegistryState | None = None,
+) -> RoutedRequest:
     """Apply ``rewrites`` in list order; return a new RoutedRequest.
 
     Empty list returns ``req`` unchanged (same identity). Original headers
-    and body are never mutated.
+    and body are never mutated. ``registry`` is plumbed through to the
+    compress rewrite so context_size resolution can prefer the registry.
     """
     if not rewrites:
         return req
     out = req
     for rw in rewrites:
-        out = _apply_one(out, rw)
+        out = _apply_one(out, rw, registry=registry)
     return out
 
 
-def _apply_one(req: RoutedRequest, rw: Rewrite) -> RoutedRequest:  # noqa: PLR0911
+def _apply_one(  # noqa: PLR0911
+    req: RoutedRequest, rw: Rewrite, *, registry: RegistryState | None = None
+) -> RoutedRequest:
     if isinstance(rw, SetModel):
         new_body = dict(req.body)
         new_body["model"] = rw.set_model
@@ -168,11 +211,16 @@ def _apply_one(req: RoutedRequest, rw: Rewrite) -> RoutedRequest:  # noqa: PLR09
             )
         return replace(req, body=dict(result), body_dirty=True)
     if isinstance(rw, Compress):
-        return _apply_compress(req, rw.compress)
+        return _apply_compress(req, rw.compress, registry=registry)
     raise TypeError(f"unhandled Rewrite variant: {type(rw).__name__}")
 
 
-def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:  # noqa: PLR0911
+def _apply_compress(  # noqa: PLR0911
+    req: RoutedRequest,
+    opts: CompressOptions,
+    *,
+    registry: RegistryState | None = None,
+) -> RoutedRequest:
     """Run Headroom compression against ``req.body``.
 
     Endpoint dispatch:
@@ -221,7 +269,11 @@ def _apply_compress(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
     # Per-rule override wins; otherwise auto-detect via LiteLLM's registry
     # so IntelligentContext fires at the right threshold and ContentRouter
     # scales pressure correctly for the actual destination model.
-    model_limit = opts.model_limit if opts.model_limit is not None else _resolve_model_limit(model)
+    model_limit = (
+        opts.model_limit
+        if opts.model_limit is not None
+        else _resolve_model_limit(model, registry=registry)
+    )
 
     cfg = CompressConfig(
         compress_user_messages=opts.compress_user_messages,

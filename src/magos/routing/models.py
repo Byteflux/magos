@@ -68,6 +68,36 @@ class JqAtom(_Frozen):
     jq: str = Field(min_length=1)
 
 
+ModelFieldOp = Literal["eq", "gt", "gte", "lt", "lte", "contains", "in"]
+
+
+class ModelFieldExpr(_Frozen):
+    """Test a registry-resolved model field with one operator.
+
+    ``field`` names a ``ModelEntry`` attribute (``context_size``,
+    ``max_output``, ``input_cost``, ``output_cost``, ``modalities``).
+    ``op`` is the comparator. ``value`` is whatever the operator
+    expects: scalars for ``eq``/``gt``/``gte``/``lt``/``lte``, a single
+    string for ``contains`` (membership in a tuple field like
+    ``modalities``), or a list for ``in`` (membership of the field's
+    scalar value in a list).
+    """
+
+    field: Literal[
+        "context_size",
+        "max_output",
+        "input_cost",
+        "output_cost",
+        "modalities",
+    ]
+    op: ModelFieldOp
+    value: int | float | str | list[int | float | str]
+
+
+class ModelFieldAtom(_Frozen):
+    model_field: ModelFieldExpr
+
+
 class AllOf(_Frozen):
     all_of: list[MatchExpr] = Field(min_length=1)
 
@@ -81,7 +111,7 @@ class Not(_Frozen):
 
 
 # Single-key + extra="forbid" lets pydantic dispatch by which key is present.
-MatchExpr = ModelAtom | HeaderAtom | EndpointAtom | JqAtom | AllOf | AnyOf | Not
+MatchExpr = ModelAtom | HeaderAtom | EndpointAtom | JqAtom | ModelFieldAtom | AllOf | AnyOf | Not
 
 
 AllOf.model_rebuild()

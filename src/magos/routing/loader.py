@@ -51,6 +51,13 @@ class RoutingConfigError(ValueError):
     """Raised on post-load validation failures (semantic, not structural)."""
 
 
+# Keys ``RoutingConfig`` knows about. Extra top-level keys are tolerated
+# at the loader level so the same YAML can carry registry blocks
+# (``providers:``, ``provider_order:``, ``registry:``); ``RoutingConfig``
+# itself stays strict (``extra="forbid"``) for direct callers.
+_ROUTING_KEYS: frozenset[str] = frozenset({"pre_rewrites", "rules"})
+
+
 def load_config(path: str | Path) -> RoutingConfig:
     """Read ``path``, parse YAML, validate, and return ``RoutingConfig``."""
     p = Path(path)
@@ -60,8 +67,9 @@ def load_config(path: str | Path) -> RoutingConfig:
         raise RoutingConfigError(
             f"{p}: top-level YAML must be a mapping, got {type(data).__name__}"
         )
+    routing_subset = {k: v for k, v in data.items() if k in _ROUTING_KEYS}
     try:
-        cfg = RoutingConfig.model_validate(data)
+        cfg = RoutingConfig.model_validate(routing_subset)
     except ValidationError as exc:
         raise RoutingConfigError(f"{p}: invalid routing config: {exc}") from exc
     _validate_compiled(cfg, source=str(p))
