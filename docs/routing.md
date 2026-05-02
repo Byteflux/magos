@@ -29,17 +29,25 @@ Rules choose:
 Plus optional **rewrites** that mutate the request body or headers before
 or after a rule matches.
 
-No match → `404` with an endpoint-shaped error envelope.
+No match → `404` with an endpoint-shaped error envelope, **unless** the
+model registry is configured: an unmatched request falls through to
+exact `<provider>/<raw_id>` lookup against the registry. Explicit rules
+always win; the registry only catches what the rules miss. See
+[registry.md](./registry.md#auto-routing) for details.
 
 ## Setup
 
 ```bash
-cp magos.example.yaml magos.yaml
-# edit magos.yaml
-MAGOS_CONFIG_PATH=./magos.yaml python -m magos
+mkdir -p ~/.magos
+cp magos.example.yaml ~/.magos/magos.yaml
+# edit ~/.magos/magos.yaml
+python -m magos                                    # picks up the default
+python -m magos --config /etc/magos.yaml           # CLI override
+MAGOS_CONFIG_PATH=/etc/magos.yaml python -m magos  # env override
 ```
 
-`MAGOS_CONFIG_PATH` defaults to `./magos.yaml`.
+Config path resolution (highest wins): `--config` flag, then
+`MAGOS_CONFIG_PATH`, then `~/.magos/magos.yaml`.
 
 ## Pipeline
 
@@ -78,12 +86,13 @@ knob; declare a regular `mode: translate` rule for `/v1/messages/count_tokens`.
 
 Atoms (each is a single-key dict):
 
-| Atom        | Shape                                              | Matches against         |
-|-------------|----------------------------------------------------|-------------------------|
-| `model`     | `{ model: <matcher> }`                             | `body.model` (string)   |
-| `header`    | `{ header: { name: <matcher>, value: <matcher> } }`| any inbound header pair |
-| `endpoint`  | `{ endpoint: <matcher> }`                          | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`, `/v1/responses/{id}`, `/v1/responses/{id}/input_items` |
-| `jq`        | `{ jq: "<expr>" }`                                 | parsed body (truthy)    |
+| Atom          | Shape                                                          | Matches against         |
+|---------------|----------------------------------------------------------------|-------------------------|
+| `model`       | `{ model: <matcher> }`                                         | `body.model` (string)   |
+| `header`      | `{ header: { name: <matcher>, value: <matcher> } }`            | any inbound header pair |
+| `endpoint`    | `{ endpoint: <matcher> }`                                      | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`, `/v1/responses/{id}`, `/v1/responses/{id}/input_items` |
+| `jq`          | `{ jq: "<expr>" }`                                             | parsed body (truthy)    |
+| `model_field` | `{ model_field: { field: <name>, op: <op>, value: <value> } }` | a registry-resolved field on the inbound model (see [registry.md](./registry.md#matcher-language-model_field)) |
 
 `<matcher>` is exactly one of:
 
@@ -221,17 +230,18 @@ Loader warns (structlog `routing.passthrough_body_touch`):
   (`set_model` or `jq_patch`) — re-serialisation breaks byte-exact
   cache hits.
 
-## Migration from the implicit-prefix era
+## Inert env vars
 
-These knobs no longer exist; the loader logs `config.removed_env_var` at
-startup for any that remain in the environment:
+The following env vars are not read. The loader logs
+`config.removed_env_var` at startup for any that are still set in the
+environment so a stale `.env` doesn't quietly fail to take effect:
 
 - `MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED`
 - `MAGOS_ANTHROPIC_UPSTREAM_URL`
 - `MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS`
 
-The shipped `magos.example.yaml` reproduces their behaviour. Copy it,
-edit, set `MAGOS_CONFIG_PATH`.
+The equivalents are expressed as routing rules in `magos.yaml`; copy
+`magos.example.yaml` for a working starting point.
 
 ## Examples
 

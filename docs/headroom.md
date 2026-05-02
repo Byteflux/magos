@@ -250,12 +250,20 @@ The LiteLLM provider implementation
 reads `max_input_tokens`.
 
 The simple `headroom.compress()` API skips all of this and trusts the
-caller. Magos's `_apply_compress` (`rewrites.py`) does the LiteLLM
-lookup itself via `_resolve_model_limit(dispatch_model)`, caching
-results per model id (success and fallback both, so unknown models
-don't keep retriggering LiteLLM's noisy "model not mapped" stderr
-print). Operators can override per-rule with `compress.model_limit:
-<int>`.
+caller. Magos's `_apply_compress` (`rewrites.py`) resolves
+`model_limit` itself via `_resolve_model_limit(dispatch_model,
+registry=...)`, walking three sources in order:
+
+1. The model registry, if loaded — picks `context_size` off the
+   matching `ModelEntry`. Bypasses the LiteLLM call entirely.
+2. `litellm.get_model_info(dispatch_model)` — reads `max_input_tokens`
+   (or `max_tokens`). Cached per dispatch id, success and fallback
+   both, so unknown models don't keep retriggering LiteLLM's noisy
+   "model not mapped" stderr print.
+3. Hardcoded `200_000` default.
+
+Operators can override per-rule with `compress.model_limit: <int>`,
+which wins over all three.
 
 Failure modes for the lookup:
 
@@ -388,24 +396,23 @@ prior research notes; not pursued.
 | `/v1/messages`                    | `messages`     | both modes       |
 | `/v1/chat/completions`            | `messages`     | both modes       |
 | `/v1/messages/count_tokens`       | `messages`     | both modes (useful: post-compression token preview) |
-| `/v1/responses`                   | `instructions` | **`mode: cache` only** — Phase 1 |
+| `/v1/responses`                   | `instructions` | **`mode: cache` only** |
 | `/v1/responses`                   | `input`        | unsupported — different shape from `messages`, no upstream Headroom path; `mode: token` silently no-ops |
 | `/v1/responses/{id}` and friends  | n/a            | no-op (no body to compress)                         |
 
-**Phase 1 (shipped):** the Responses `instructions` string is wrapped
-as a synthetic `[{"role": "system", "content": instructions}]` and
-fed to CacheAligner. The aligner mutates the message's `content` in
-place; we read it back and write it to `instructions`. No new messages
-are introduced. See `_apply_compress_responses` in `rewrites.py`.
+The Responses `instructions` string is wrapped as a synthetic
+`[{"role": "system", "content": instructions}]` and fed to CacheAligner.
+The aligner mutates the message's `content` in place; we read it back
+and write it to `instructions`. No new messages are introduced. See
+`_apply_compress_responses` in `rewrites.py`.
 
-**Phase 2+ (not planned):** compressing `input` would require a
-round-trip converter for `input_text`/`message`/`function_call`/etc.
-items, including atomicity preservation for `function_call` ↔
+Compressing `input` is not implemented. It would require a round-trip
+converter for `input_text` / `message` / `function_call` / etc. items,
+including atomicity preservation for `function_call` ↔
 `function_call_output` pairs. Headroom's `HeadroomCallback`
 (`integrations/litellm_callback.py`) explicitly filters
-`call_type ∉ {completion, acompletion}` and only reads `data["messages"]`
-— so there's no upstream conversion to mirror. Revisit if operator
-demand materialises.
+`call_type ∉ {completion, acompletion}` and only reads `data["messages"]`,
+so there's no upstream conversion to mirror.
 
 ## Magos-Headroom mode terminology
 

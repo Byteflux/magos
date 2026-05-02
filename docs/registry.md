@@ -50,7 +50,7 @@ provider_order: [openrouter, anthropic, openai]    # tie-break order
 providers:
   openrouter:
     api_key_env: OPENROUTER_API_KEY                # env-var only, no inline secrets
-    discovery: openrouter                          # adapter name (auto-inferable later)
+    discovery: openrouter                          # optional; inferred from base_url when omitted
     refresh_interval: 4h                           # optional, overrides global default
     litellm_provider: openrouter                   # optional, overrides adapter default
     models:                                        # optional per-model overrides
@@ -74,7 +74,7 @@ providers:
 registry:
   refresh_interval: 2h                             # global default
   on_unknown_model: error                          # error (404, default) | passthrough
-  models_path: ./models.json
+  models_path: ./models.json                       # relative paths anchor to the yaml file's parent
   deprecation_grace_seconds: 259200                # 3 days
   discovery_timeout_seconds: 30
   discovery_max_attempts: 3
@@ -82,8 +82,21 @@ registry:
   boot_discovery_max_attempts: 1
 ```
 
-Discovery adapters available at v1: `openai_models`, `anthropic_models`,
-`openrouter`, `noop`. Unset → defaults to `noop` (manual-only).
+`models_path` resolves relative to the config file's parent directory
+(absolute paths pass through). The server is the sole writer of
+`models.json`; out-of-process readers are fine, but mutations go
+through the admin endpoints (or the CLI, which wraps them).
+
+Discovery adapters: `openai_models`, `anthropic_models`, `openrouter`,
+`noop`. When `discovery:` is omitted, the adapter is inferred from the
+provider's `base_url` host:
+
+| Host substring         | Adapter            |
+|------------------------|--------------------|
+| `openrouter.ai`        | `openrouter`       |
+| `anthropic.com`        | `anthropic_models` |
+| anything else with `base_url` | `openai_models` |
+| `base_url` unset       | `noop` (manual-only) |
 
 ## Field-precedence merge
 
@@ -159,6 +172,10 @@ python -m magos models prune                    # sweep past-grace deprecated en
 python -m magos models discover --provider openrouter --dry-run
 ```
 
+Every subcommand accepts `--config <path>` to point at a non-default
+yaml; precedence is `--config` > `MAGOS_CONFIG_PATH` > the
+`~/.magos/magos.yaml` default.
+
 `list` and `show` fall back to disk if the server isn't reachable.
 `refresh` and `prune` require the server to be running and hit
 `POST /admin/registry/{refresh,prune}`.
@@ -173,8 +190,9 @@ OTel metrics (`magos.registry.*`) emitted by the refresher:
 - `models.total{provider}` — observable gauge (active count, includes deprecated)
 - `models.added{provider}`, `models.deprecated{provider}`, `models.pruned{provider}` — counters
 
-Set `MAGOS_METRICS_ENABLED=1` to expose them at `GET /metrics` in
-Prometheus text format.
+Set `MAGOS_METRICS_ENABLED=1` to install the OTel Prometheus exporter
+at startup and mount the `GET /metrics` endpoint. Without the env var,
+the meters bind to OTel's no-op default and `/metrics` is not served.
 
 structlog events:
 

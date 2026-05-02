@@ -1,6 +1,6 @@
 # Magos
 
-LLM inference API proxy built on mitmproxy. Translates between Anthropic and OpenAI endpoint shapes, applies Headroom context compression, and exposes a unified MCP endpoint.
+LLM inference API proxy built on mitmproxy. Translates between Anthropic and OpenAI endpoint shapes, applies Headroom context compression, drives a provider-discovered model registry with auto-routing, and (planned) exposes a unified MCP endpoint.
 
 ## Goals
 
@@ -72,8 +72,9 @@ tests/               # pytest suites (unit, integration, e2e)
   fixtures/          # test routing yaml
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
-docs/routing.md      # rule grammar, examples, migration notes
+docs/routing.md      # rule grammar, examples, env vars
 docs/registry.md     # registry lifecycle, config, CLI, observability
+docs/headroom.md     # Headroom integration notes + non-obvious findings
 ```
 
 Translation between Anthropic and OpenAI shapes is delegated to LiteLLM's
@@ -109,4 +110,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint and Headroom integration are still to come.
+Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), **Headroom compression** (`compress` rewrite primitive with token and cache-align modes), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint is the only major surface still to come.

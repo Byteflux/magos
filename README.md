@@ -1,6 +1,6 @@
 # Magos
 
-LLM inference API proxy built on [mitmproxy](https://mitmproxy.org/). Exposes Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses endpoints, applies [Headroom](https://github.com/headroom-ai/headroom) context compression, and (planned) exposes a unified MCP endpoint.
+LLM inference API proxy built on [mitmproxy](https://mitmproxy.org/). Exposes Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses endpoints, applies [Headroom](https://github.com/headroom-ai/headroom) context compression, drives a provider-discovered model registry, and (planned) exposes a unified MCP endpoint.
 
 ## Features
 
@@ -8,8 +8,12 @@ LLM inference API proxy built on [mitmproxy](https://mitmproxy.org/). Exposes An
 - **Cross-provider translation** delegated to [LiteLLM](https://github.com/BerriAI/litellm): Anthropic-shape input can target OpenAI / Azure / Bedrock / Vertex / etc., and vice versa
 - **Byte-exact passthrough**: forward same-shape requests verbatim, preserving auth, beta flags, and prompt-cache hashes
 - **Token counting** endpoint via the upstream's native count-tokens API
-- **Declarative routing** via `magos.yaml` — match on model / header / endpoint / jq expressions, rewrite headers and bodies, dispatch to translate or passthrough
-- **Observability**: structured logging (`structlog`) and OpenTelemetry tracing
+- **Declarative routing** via `magos.yaml` — match on model / header / endpoint / jq / registry-field expressions, rewrite headers and bodies, dispatch to translate or passthrough
+- **Headroom compression**: `compress` rewrite primitive with token and cache-align modes; registry-aware `model_limit` resolution
+- **Model registry**: per-provider auto-discovery (OpenAI / Anthropic / OpenRouter / manual), field-precedence merge over operator overrides and LiteLLM's bundled metadata, soft-delete deprecation, atomic `models.json` persistence
+- **Auto-routing fallback**: requests no rule matches resolve via exact `<provider>/<raw_id>` lookup against the registry
+- **Operator CLI**: `magos models {list, show, refresh, prune, discover}` against a running server (with disk fallback for read paths)
+- **Observability**: structured logging (`structlog`), OpenTelemetry tracing, OpenTelemetry metrics with optional Prometheus `/metrics` endpoint
 - **Configuration** via `pydantic-settings` (env vars prefixed `MAGOS_` or `.env`)
 
 ## Requirements
@@ -28,10 +32,14 @@ uv sync --extra gpu   # GPU torch (CUDA 13.0)
 ## Run
 
 ```bash
-uv run python -m magos
+mkdir -p ~/.magos
+cp magos.example.yaml ~/.magos/magos.yaml      # then edit to taste
+uv run python -m magos                         # serve
+uv run python -m magos --config /etc/magos.yaml # non-default config
+uv run python -m magos models list             # CLI subcommand
 ```
 
-Configuration is read from environment variables (prefix `MAGOS_`) or a local `.env` file. See `src/magos/config.py` for the full settings schema.
+Config path resolution: `--config` flag > `MAGOS_CONFIG_PATH` env > `~/.magos/magos.yaml`. Other knobs come from environment variables (prefix `MAGOS_`) or a local `.env`. See `src/magos/config.py` for the full settings schema, `docs/routing.md` for the rule grammar, and `docs/registry.md` for the registry.
 
 ## Develop
 
