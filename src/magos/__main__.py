@@ -35,9 +35,41 @@ import sys
 
 import uvicorn
 
+from magos import __version__
 from magos.cli.models_cmd import main as models_main
 from magos.config import MagosSettings
 from magos.obs import configure_logging, configure_tracing
+
+_TOP_HELP = """\
+usage: magos [--config PATH] [--version] [-h | --help] [SUBCOMMAND ...]
+
+Run the magos LLM proxy server, or invoke an operator subcommand.
+
+Subcommands:
+  serve              run the FastAPI server (default when no subcommand given)
+  models             inspect and manage the model registry; see `magos models --help`
+
+Options:
+  --config PATH      path to magos.yaml (overrides MAGOS_CONFIG_PATH and the
+                     ~/.magos/magos.yaml default); accepted by every subcommand
+  --version          print the magos version and exit
+  -h, --help         show this message and exit
+
+Config resolution (highest first): --config > MAGOS_CONFIG_PATH > ~/.magos/magos.yaml.
+"""
+
+_SERVE_HELP = """\
+usage: magos serve [--config PATH] [-h | --help]
+
+Run the FastAPI server. This is the default when no subcommand is given.
+
+Options:
+  --config PATH      path to magos.yaml
+  -h, --help         show this message and exit
+
+Server bind, logging, and tracing knobs come from environment variables
+prefixed MAGOS_ (or a local .env). See magos.config.MagosSettings.
+"""
 
 
 def _consume_config_flag(argv: list[str]) -> list[str]:
@@ -80,12 +112,30 @@ def serve() -> None:
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     args = _consume_config_flag(args)
+
+    # Top-level --help / --version are matched before subcommand dispatch.
+    # Subcommand-scoped help (e.g. ``magos models list --help``) is owned
+    # by argparse inside ``models_main`` and the per-verb subparsers.
+    if args and args[0] in {"-h", "--help"}:
+        print(_TOP_HELP, end="")
+        return 0
+    if args and args[0] == "--version":
+        print(f"magos {__version__}")
+        return 0
+
     if not args or args[0] == "serve":
+        if any(a in {"-h", "--help"} for a in args[1:]):
+            print(_SERVE_HELP, end="")
+            return 0
         serve()
         return 0
     if args[0] == "models":
         return models_main(args[1:])
-    print(f"unknown subcommand: {args[0]!r}; expected 'serve' or 'models'", file=sys.stderr)
+    print(
+        f"unknown subcommand: {args[0]!r}; expected 'serve' or 'models'. "
+        "Run `magos --help` for usage.",
+        file=sys.stderr,
+    )
     return 2
 
 
