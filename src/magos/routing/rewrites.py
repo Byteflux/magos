@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
@@ -302,7 +303,7 @@ def _apply_compress(  # noqa: PLR0911
         tokens_after=result.tokens_after,
         tokens_saved=result.tokens_saved,
         ratio=round(result.compression_ratio, 4),
-        transforms=result.transforms_applied,
+        transforms=dict(Counter(result.transforms_applied)),
     )
     new_body = dict(req.body)
     new_body["messages"] = result.messages
@@ -367,7 +368,7 @@ def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) ->
         "compress.applied",
         endpoint=req.endpoint,
         mode="cache",
-        transforms=list(result.transforms_applied),
+        transforms=dict(Counter(result.transforms_applied)),
     )
     new_body = dict(req.body)
     new_body["messages"] = result.messages
@@ -416,7 +417,7 @@ def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> Rout
         endpoint=req.endpoint,
         mode="cache",
         field="instructions",
-        transforms=list(result.transforms_applied),
+        transforms=dict(Counter(result.transforms_applied)),
     )
     new_body = dict(req.body)
     new_body["instructions"] = new_instructions
