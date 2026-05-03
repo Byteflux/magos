@@ -72,10 +72,24 @@ def test_openai_adapter_uses_litellm_provider_override() -> None:
     assert result.models[0].litellm_id == "hosted_vllm/llama-3-70b"
 
 
-def test_openai_adapter_requires_base_url() -> None:
+def test_openai_adapter_defaults_to_api_openai_com_when_base_url_unset() -> None:
+    """Operators omitting ``base_url`` hit api.openai.com.
+
+    The overwhelmingly common case for ``discovery: openai`` is OpenAI
+    proper; self-hosted OpenAI-shape backends explicitly set their own
+    base_url because they're not on api.openai.com. Defaulting here
+    removes a yaml line for the common case without surprising the
+    self-hosted users.
+    """
+    seen: dict[str, str] = {}
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json={"data": []})
+
     cfg = ProviderConfig.model_validate({})
-    with pytest.raises(DiscoveryError, match="base_url required"):
-        asyncio.run(_run_openai(cfg, _ok({"data": []})))
+    asyncio.run(_run_openai(cfg, httpx.MockTransport(_capture)))
+    assert seen["url"] == "https://api.openai.com/v1/models"
 
 
 def test_openai_adapter_raises_on_http_error() -> None:

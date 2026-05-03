@@ -26,6 +26,7 @@ from magos.registry.discovery.base import (
 from magos.registry.litellm_lookup import PartialEntry
 from magos.registry.schema import ProviderConfig
 
+_DEFAULT_BASE_URL = "https://api.openai.com"
 _DEFAULT_LITELLM_PROVIDER = "openai"
 
 
@@ -33,10 +34,12 @@ class OpenAIAdapter:
     """Calls ``GET {base_url}/v1/models`` and maps ``data[*].id`` to entries."""
 
     name = "openai"
-    # No default: openai.com is LiteLLM's built-in fallback when api_base
-    # is unset, and self-hosted OpenAI-shape backends (vLLM, etc.) have
-    # no canonical URL the adapter could pick.
-    default_base_url: str | None = None
+    # OpenAI proper is the overwhelming default for ``discovery: openai``;
+    # self-hosted OpenAI-shape backends (vLLM, SGLang, LM Studio) explicitly
+    # set their own ``base_url`` because they're not on api.openai.com, so
+    # defaulting here is a footgun-free way to remove yaml boilerplate for
+    # the common case.
+    default_base_url: str | None = _DEFAULT_BASE_URL
 
     async def discover(
         self,
@@ -44,11 +47,8 @@ class OpenAIAdapter:
         config: ProviderConfig,
         client: httpx.AsyncClient,
     ) -> DiscoveryResult:
-        if not config.base_url:
-            raise DiscoveryError(
-                f"provider {provider_name!r}: base_url required for openai adapter"
-            )
-        url = config.base_url.rstrip("/") + "/v1/models"
+        base = (config.base_url or _DEFAULT_BASE_URL).rstrip("/")
+        url = base + "/v1/models"
         headers = _auth_headers(provider_name, config)
         try:
             response = await client.get(url, headers=headers)

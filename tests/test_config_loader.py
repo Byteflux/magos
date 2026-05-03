@@ -119,13 +119,17 @@ providers:
   openai:
     api_key_env: OPENAI_API_KEY
     discovery: openai
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+    discovery: anthropic
 """,
     )
     cfg = load_full_config(cfg_path)
     assert cfg.registry.providers["vultr"].base_url == "https://api.vultrinference.com/v1"
+    assert cfg.registry.providers["openai"].base_url == "https://api.openai.com"
     # Adapters with no canonical URL stay None; LiteLLM's per-provider
-    # default handles dispatch.
-    assert cfg.registry.providers["openai"].base_url is None
+    # default handles both discovery and dispatch.
+    assert cfg.registry.providers["anthropic"].base_url is None
 
 
 def test_explicit_provider_base_url_overrides_adapter_default(tmp_path: Path) -> None:
