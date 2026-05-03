@@ -20,10 +20,11 @@ passthrough opt-in).
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from magos.registry.models import ModelEntry, RegistryState
-from magos.registry.schema import RegistrySettings
+from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.routing.errors import (
     RouteError,
     format_dispatch_error_message,
@@ -110,13 +111,19 @@ def route(
     *,
     registry: RegistryState | None = None,
     registry_settings: RegistrySettings | None = None,
+    providers: Mapping[str, ProviderConfig] | None = None,
 ) -> RouteDecision | RouteError:
     """Resolve ``req`` against ``cfg``; first matching rule wins.
 
     On rules-loop fall-through, attempt registry auto-routing if a
     ``RegistryState`` is supplied. ``registry_settings`` controls the
     miss behavior (``on_unknown_model`` field); when omitted, defaults
-    to error-on-unknown.
+    to error-on-unknown. ``providers`` carries the per-provider config
+    block (``api_key_env``, ``base_url``); auto-routed decisions need
+    it because the synthesized translate-mode action has no rule-level
+    creds to fall back on. Without it, the dispatcher hands LiteLLM no
+    api_key/api_base and the call lands on whatever provider default
+    LiteLLM picks (usually ``OPENAI_API_KEY`` against api.openai.com).
     """
     pre_applied = apply_pre_rewrites(req, cfg, registry=registry)
     for rule in cfg.rules:
@@ -140,7 +147,7 @@ def route(
         )
 
     if registry is not None:
-        auto = _try_auto_route(pre_applied, registry, registry_settings)
+        auto = _try_auto_route(pre_applied, registry, registry_settings, providers)
         if auto is not None:
             return auto
 
@@ -158,6 +165,7 @@ def _try_auto_route(
     req: RoutedRequest,
     registry: RegistryState,
     settings: RegistrySettings | None,
+    providers: Mapping[str, ProviderConfig] | None,
 ) -> RouteDecision | None:
     """Look up ``req.body['model']`` in the registry by exact namespaced id.
 
@@ -172,15 +180,38 @@ def _try_auto_route(
         return None
     entry = registry.get(model)
     if entry is not None:
-        return _decision_from_entry(req, entry)
+        provider_cfg = providers.get(entry.provider) if providers else None
+        return _decision_from_entry(req, entry, provider_cfg)
     if settings is not None and settings.on_unknown_model == "passthrough":
         return _decision_for_unknown_passthrough(req, model)
     return None
 
 
-def _decision_from_entry(req: RoutedRequest, entry: ModelEntry) -> RouteDecision:
-    """Build a synthetic Rule + RouteDecision around a registry entry."""
-    action = Action.model_validate({"provider": entry.provider, "mode": "translate"})
+def _decision_from_entry(
+    req: RoutedRequest,
+    entry: ModelEntry,
+    provider_cfg: ProviderConfig | None,
+) -> RouteDecision:
+    """Build a synthetic Rule + RouteDecision around a registry entry.
+
+    Stamps the matching ``ProviderConfig``'s ``api_key_env`` and
+    ``base_url`` onto the synthesized translate-mode ``Action``. Without
+    this, LiteLLM is invoked with no api_key/api_base and silently falls
+    back to its per-provider defaults (e.g. ``OPENAI_API_KEY`` against
+    ``api.openai.com``), producing misleading 401s for openai-compatible
+    third parties (Vultr, hosted vLLM, etc.) that route through the
+    generic ``custom_openai`` provider.
+    """
+    action_payload: dict[str, str | None] = {
+        "provider": entry.provider,
+        "mode": "translate",
+    }
+    if provider_cfg is not None:
+        if provider_cfg.api_key_env is not None:
+            action_payload["api_key_env"] = provider_cfg.api_key_env
+        if provider_cfg.base_url is not None:
+            action_payload["base_url"] = provider_cfg.base_url
+    action = Action.model_validate(action_payload)
     rule = Rule.model_validate(
         {
             "name": _AUTO_ROUTE_RULE_NAME,

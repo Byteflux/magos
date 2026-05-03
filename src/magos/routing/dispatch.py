@@ -118,6 +118,7 @@ async def dispatch_decision(  # noqa: PLR0911
             "use mode='passthrough' for auxiliary GET/DELETE endpoints"
         )
     api_key = _resolve_api_key(action.api_key_env)
+    api_base = action.base_url
 
     if req.endpoint == "/v1/messages":
         if is_streaming:
@@ -127,6 +128,7 @@ async def dispatch_decision(  # noqa: PLR0911
                 completion=completion,
                 forward_headers=forward_headers,
                 api_key=api_key,
+                api_base=api_base,
             )
             return StreamingResponse(stream, media_type="text/event-stream")
         return await proxy_anthropic_messages(
@@ -135,6 +137,7 @@ async def dispatch_decision(  # noqa: PLR0911
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
+            api_base=api_base,
         )
 
     if req.endpoint == "/v1/chat/completions":
@@ -145,6 +148,7 @@ async def dispatch_decision(  # noqa: PLR0911
                 completion=completion,
                 forward_headers=forward_headers,
                 api_key=api_key,
+                api_base=api_base,
             )
             return StreamingResponse(stream, media_type="text/event-stream")
         return await proxy_openai_chat_completions(
@@ -153,6 +157,7 @@ async def dispatch_decision(  # noqa: PLR0911
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
+            api_base=api_base,
         )
 
     # /v1/responses
@@ -163,6 +168,7 @@ async def dispatch_decision(  # noqa: PLR0911
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
+            api_base=api_base,
         )
         return StreamingResponse(stream, media_type="text/event-stream")
     return await proxy_openai_responses(
@@ -171,6 +177,7 @@ async def dispatch_decision(  # noqa: PLR0911
         completion=completion,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
 
 

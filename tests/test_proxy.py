@@ -111,6 +111,37 @@ def test_proxy_anthropic_messages_threads_api_key_and_headers() -> None:
 
 
 @pytest.mark.unit
+def test_proxy_anthropic_messages_threads_api_base_to_litellm() -> None:
+    """``api_base`` reaches the LiteLLM call so custom_openai etc. work.
+
+    The auto-route path for openai-compatible third parties (Vultr, hosted
+    vLLM) relies on this -- without ``api_base`` LiteLLM falls back to the
+    provider-default URL (api.openai.com for ``custom_openai``).
+    """
+    received: dict[str, Any] = {}
+
+    async def fake(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return {"type": "message", "role": "assistant", "content": []}
+
+    asyncio.run(
+        proxy_anthropic_messages(
+            {
+                "model": "x",
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "x"}],
+            },
+            dispatch_model="custom_openai/zai-org/GLM-5.1-FP8",
+            completion=fake,
+            api_key="vk-test",
+            api_base="https://api.vultrinference.com/v1",
+        )
+    )
+    assert received["api_base"] == "https://api.vultrinference.com/v1"
+    assert received["api_key"] == "vk-test"
+
+
+@pytest.mark.unit
 def test_stream_anthropic_messages_forwards_bytes_verbatim() -> None:
     chunks = [
         b'event: message_start\ndata: {"type": "message_start"}\n\n',

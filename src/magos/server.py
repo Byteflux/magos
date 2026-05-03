@@ -510,6 +510,7 @@ async def _run(
         cfg,
         registry=refresher.state if refresher is not None else None,
         registry_settings=registry_cfg.registry if refresher is not None else None,
+        providers=registry_cfg.providers if refresher is not None else None,
     )
 
     if isinstance(decision_or_err, RouteError):

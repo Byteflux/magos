@@ -70,6 +70,7 @@ def _build_payload(
     dispatch_model: str,
     forward_headers: dict[str, str] | None,
     api_key: str | None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     """Compose the kwargs handed to a LiteLLM SDK call.
 
@@ -80,6 +81,10 @@ def _build_payload(
     client auth, version pins, and beta flags verbatim, preserving the
     provider's billing shape. ``api_key`` is forwarded to LiteLLM when set
     so a rule's ``api_key_env`` can route across multiple keys per provider.
+    ``api_base`` overrides LiteLLM's per-provider default URL; required for
+    openai-compatible third parties (e.g. Vultr) routed through the generic
+    ``custom_openai`` provider, where LiteLLM has no built-in host to fall
+    back on.
     """
     out = dict(request)
     out["model"] = dispatch_model
@@ -92,6 +97,8 @@ def _build_payload(
             out["extra_headers"] = {**existing, **safe}
     if api_key is not None:
         out["api_key"] = api_key
+    if api_base is not None:
+        out["api_base"] = api_base
     return out
 
 
@@ -103,6 +110,7 @@ async def proxy_anthropic_messages(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``.
 
@@ -116,6 +124,7 @@ async def proxy_anthropic_messages(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="anthropic", model=dispatch_model)
     return _coerce_to_dict(await dispatch(**payload))
@@ -128,6 +137,7 @@ def stream_anthropic_messages(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream an Anthropic Messages request via ``litellm.anthropic_messages``.
 
@@ -145,6 +155,7 @@ def stream_anthropic_messages(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="anthropic", model=dispatch_model, stream=True)
     return _anthropic_bytes_iter(payload, dispatch)
@@ -185,6 +196,7 @@ async def proxy_openai_chat_completions(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     """Pass an OpenAI Chat Completions request through litellm without translation."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
@@ -193,6 +205,7 @@ async def proxy_openai_chat_completions(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="openai", model=dispatch_model)
     return _coerce_to_dict(await dispatch(**payload))
@@ -205,6 +218,7 @@ async def stream_openai_chat_completions(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream OpenAI Chat Completions chunks as SSE bytes.
 
@@ -218,6 +232,7 @@ async def stream_openai_chat_completions(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="openai", model=dispatch_model, stream=True)
     stream = await dispatch(**request)
@@ -234,6 +249,7 @@ async def proxy_openai_responses(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     """Pass an OpenAI Responses request through litellm without translation."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.aresponses
@@ -242,6 +258,7 @@ async def proxy_openai_responses(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="openai-responses", model=dispatch_model)
     return _coerce_to_dict(await dispatch(**payload))
@@ -254,6 +271,7 @@ async def stream_openai_responses(
     completion: _CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
+    api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream OpenAI Responses events as SSE bytes.
 
@@ -267,6 +285,7 @@ async def stream_openai_responses(
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
+        api_base=api_base,
     )
     log.info("dispatch", shape="openai-responses", model=dispatch_model, stream=True)
     stream = await dispatch(**request)
