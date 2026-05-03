@@ -91,3 +91,63 @@ registry:
     )
     with pytest.raises(RoutingConfigError, match="invalid registry config"):
         load_full_config(cfg_path)
+
+
+def test_provider_base_url_filled_from_adapter_default(tmp_path: Path) -> None:
+    """Operators omitting ``base_url`` get the adapter's canonical URL.
+
+    Vultr is the canary: it ships through ``custom_openai`` and therefore
+    needs an explicit api_base at dispatch time, but the URL is well-known
+    and shouldn't have to be repeated in every operator's yaml.
+    """
+    cfg_path = _write_yaml(
+        tmp_path / "magos.yaml",
+        """
+rules:
+  - name: only-rule
+    match:
+      model:
+        literal: x
+    action:
+      provider: openai
+      mode: translate
+
+providers:
+  vultr:
+    api_key_env: VULTR_API_KEY
+    discovery: vultr
+  openai:
+    api_key_env: OPENAI_API_KEY
+    discovery: openai
+""",
+    )
+    cfg = load_full_config(cfg_path)
+    assert cfg.registry.providers["vultr"].base_url == "https://api.vultrinference.com/v1"
+    # Adapters with no canonical URL stay None; LiteLLM's per-provider
+    # default handles dispatch.
+    assert cfg.registry.providers["openai"].base_url is None
+
+
+def test_explicit_provider_base_url_overrides_adapter_default(tmp_path: Path) -> None:
+    """Operator-supplied ``base_url`` wins over adapter default."""
+    cfg_path = _write_yaml(
+        tmp_path / "magos.yaml",
+        """
+rules:
+  - name: only-rule
+    match:
+      model:
+        literal: x
+    action:
+      provider: openai
+      mode: translate
+
+providers:
+  vultr:
+    api_key_env: VULTR_API_KEY
+    base_url: https://internal-vultr-proxy.example.com/v1
+    discovery: vultr
+""",
+    )
+    cfg = load_full_config(cfg_path)
+    assert cfg.registry.providers["vultr"].base_url == "https://internal-vultr-proxy.example.com/v1"

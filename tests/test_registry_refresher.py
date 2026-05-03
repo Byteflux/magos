@@ -27,6 +27,8 @@ from magos.registry.store import save as save_state
 class _StaticAdapter:
     """Adapter that returns a preset list and counts invocations."""
 
+    default_base_url: str | None = None
+
     def __init__(self, name: str, models: Iterable[DiscoveredModel]) -> None:
         self.name = name
         self._models = tuple(models)
@@ -44,6 +46,7 @@ class _StaticAdapter:
 
 class _FailingAdapter:
     name = "failing"
+    default_base_url: str | None = None
 
     def __init__(self) -> None:
         self.calls = 0
@@ -204,6 +207,7 @@ def test_refresh_failure_after_success_preserves_prior_state(tmp_path: Path) -> 
 
     class _Toggling:
         name = "toggling"
+        default_base_url: str | None = None
 
         def __init__(self) -> None:
             self.call = 0
@@ -335,6 +339,7 @@ def test_disappeared_model_is_marked_deprecated(tmp_path: Path) -> None:
 
     class _ShrinkingAdapter:
         name = "shrinking"
+        default_base_url: str | None = None
 
         def __init__(self) -> None:
             self.call = 0

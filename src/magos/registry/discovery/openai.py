@@ -33,6 +33,10 @@ class OpenAIAdapter:
     """Calls ``GET {base_url}/v1/models`` and maps ``data[*].id`` to entries."""
 
     name = "openai"
+    # No default: openai.com is LiteLLM's built-in fallback when api_base
+    # is unset, and self-hosted OpenAI-shape backends (vLLM, etc.) have
+    # no canonical URL the adapter could pick.
+    default_base_url: str | None = None
 
     async def discover(
         self,

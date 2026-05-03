@@ -246,7 +246,7 @@ def test_vultr_adapter_populates_partial_from_lookup_endpoint(
     assert captured["url"].endswith("/v1/models/lookup")
     m = result.models[0]
     assert m.raw_id == "MiniMaxAI/MiniMax-M2.7"
-    assert m.litellm_id == "openai/MiniMaxAI/MiniMax-M2.7"
+    assert m.litellm_id == "custom_openai/MiniMaxAI/MiniMax-M2.7"
     assert m.partial.context_size == 1048576
     # 30 cents per million tokens -> $0.30 per million tokens.
     assert m.partial.input_cost == pytest.approx(0.30)

@@ -30,6 +30,10 @@ _ANTHROPIC_VERSION = "2023-06-01"
 
 class AnthropicAdapter:
     name = "anthropic"
+    # LiteLLM's anthropic provider already knows api.anthropic.com; no
+    # need to override unless a future deployment uses an alternate host
+    # (Bedrock, Vertex, internal proxy).
+    default_base_url: str | None = None
 
     async def discover(
         self,

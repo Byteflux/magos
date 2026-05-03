@@ -161,24 +161,21 @@ rules:
 # always win; the registry only catches the unmatched. See docs/registry.md
 # for the full grammar and lifecycle.
 #
-provider_order: [openrouter, anthropic, openai]
+provider_order: [anthropic, openai, openrouter, vultr]
 
 providers:
-  openrouter:
-    api_key_env: OPENROUTER_API_KEY
-    discovery: openrouter
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
     discovery: anthropic
   openai:
     api_key_env: OPENAI_API_KEY
     discovery: openai
-    base_url: https://api.openai.com
-  # Vultr Cloud Inference (openai-compatible). Discovery uses the richer
-  # /v1/models/lookup endpoint for context_length and pricing.
-  # vultr:
-  #   api_key_env: VULTR_API_KEY
-  #   discovery: vultr
+  openrouter:
+    api_key_env: OPENROUTER_API_KEY
+    discovery: openrouter
+  vultr:
+    api_key_env: VULTR_API_KEY
+    discovery: vultr
 
 # registry:
 #   refresh_interval: 2h

@@ -21,7 +21,8 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from magos.registry.schema import RegistryYaml
+from magos.registry.discovery.factory import adapter_for
+from magos.registry.schema import ProviderConfig, RegistryYaml
 from magos.routing.loader import RoutingConfigError
 from magos.routing.loader import load_config as load_routing_config
 from magos.routing.models import RoutingConfig
@@ -61,7 +62,33 @@ def load_full_config(path: str | Path) -> MagosConfig:
     """
     routing = load_routing_config(path)
     registry = _parse_registry_block(path)
+    registry = _normalize_provider_base_urls(registry)
     return MagosConfig(routing=routing, registry=registry, source=Path(path))
+
+
+def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
+    """Fill ``ProviderConfig.base_url`` from the adapter's canonical URL.
+
+    Operators shouldn't have to repeat a vendor's well-known URL in
+    ``providers.<name>.base_url`` -- the discovery adapter already knows
+    it (Vultr, future custom_openai-routed providers). When operators
+    omit ``base_url``, stamp the adapter's ``default_base_url`` so both
+    discovery and dispatch see the same URL without per-provider yaml
+    boilerplate. Adapters with no canonical host (openai, anthropic,
+    openrouter, noop) leave the field None and rely on LiteLLM's
+    built-in provider defaults at dispatch time.
+    """
+    if not registry.providers:
+        return registry
+    updated: dict[str, ProviderConfig] = {}
+    for name, cfg in registry.providers.items():
+        resolved = cfg
+        if resolved.base_url is None:
+            adapter = adapter_for(resolved)
+            if adapter.default_base_url is not None:
+                resolved = resolved.model_copy(update={"base_url": adapter.default_base_url})
+        updated[name] = resolved
+    return registry.model_copy(update={"providers": updated})
 
 
 def _parse_registry_block(path: str | Path) -> RegistryYaml:

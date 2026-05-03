@@ -54,6 +54,16 @@ class DiscoveryAdapter(Protocol):
 
     name: str
 
+    # Adapter-canonical base URL used for both discovery and LiteLLM
+    # dispatch when the operator hasn't set ``base_url`` in providers
+    # config. ``None`` means: the adapter has no opinion (either the
+    # provider has no fixed host, e.g. self-hosted vLLM, or the host is
+    # already covered by a LiteLLM-native provider that knows its own
+    # default URL). For openai-compatible third parties routed through
+    # ``custom_openai`` (e.g. Vultr), this value is the only place the
+    # dispatch URL comes from when operators omit ``base_url``.
+    default_base_url: str | None
+
     async def discover(
         self,
         provider_name: str,

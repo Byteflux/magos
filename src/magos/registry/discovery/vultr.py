@@ -6,11 +6,14 @@ metadata endpoint. ``/v1/models/lookup`` returns ``context_length`` and
 ``/v1/models`` endpoint does not. We hit the lookup endpoint and map the
 extra fields into a ``PartialEntry``.
 
-LiteLLM has no native ``vultr`` provider, so the adapter defaults
-``litellm_provider`` to ``openai`` — operators dispatch via the
-openai-compatible shape with ``base_url`` pointing at Vultr. Override
-``litellm_provider`` in the provider config if a future LiteLLM release
-adds native support.
+LiteLLM has no vultr-specific provider, so the adapter defaults
+``litellm_provider`` to ``custom_openai`` — LiteLLM's generic
+openai-compatible shape, which requires an explicit ``api_base`` and
+won't silently fall back to ``api.openai.com`` + ``OPENAI_API_KEY``
+the way bare ``openai`` does. Operators must still supply ``base_url``
+and ``api_key_env`` so the dispatcher hands both to LiteLLM. Override
+``litellm_provider`` in the provider config if a future LiteLLM
+release adds vendor-specific support.
 """
 
 from __future__ import annotations
@@ -28,8 +31,8 @@ from magos.registry.discovery.base import (
 from magos.registry.litellm_lookup import PartialEntry
 from magos.registry.schema import ProviderConfig
 
-_DEFAULT_BASE_URL = "https://api.vultrinference.com"
-_DEFAULT_LITELLM_PROVIDER = "openai"
+_DEFAULT_BASE_URL = "https://api.vultrinference.com/v1"
+_DEFAULT_LITELLM_PROVIDER = "custom_openai"
 
 # Vultr's pricing fields are integer cents per million tokens (e.g. ``30``
 # means $0.30 per million tokens). magos tracks USD per million tokens,
@@ -41,6 +44,7 @@ class VultrAdapter:
     """Calls ``GET {base_url}/v1/models/lookup`` and maps the model array."""
 
     name = "vultr"
+    default_base_url: str | None = _DEFAULT_BASE_URL
 
     async def discover(
         self,

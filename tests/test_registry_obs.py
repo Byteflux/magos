@@ -53,6 +53,7 @@ def _noop_client(timeout: float) -> httpx.AsyncClient:
 
 class _StaticAdapter:
     name = "static"
+    default_base_url: str | None = None
 
     def __init__(self, models: tuple[DiscoveredModel, ...]) -> None:
         self._models = models
@@ -65,6 +66,7 @@ class _StaticAdapter:
 
 class _FailingAdapter:
     name = "failing"
+    default_base_url: str | None = None
 
     async def discover(
         self, provider_name: str, config: ProviderConfig, client: httpx.AsyncClient
@@ -188,6 +190,7 @@ def test_deprecated_and_pruned_counts_propagate(
 
     class _Shrinking:
         name = "shrinking"
+        default_base_url: str | None = None
         call = 0
 
         async def discover(

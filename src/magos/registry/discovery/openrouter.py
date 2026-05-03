@@ -31,6 +31,9 @@ _DEFAULT_LITELLM_PROVIDER = "openrouter"
 
 class OpenRouterAdapter:
     name = "openrouter"
+    # LiteLLM's openrouter provider already knows openrouter.ai; no need
+    # to override unless an alternate host is in play.
+    default_base_url: str | None = None
 
     async def discover(
         self,

@@ -17,6 +17,7 @@ from magos.registry.schema import ProviderConfig
 
 class NoopAdapter:
     name = "noop"
+    default_base_url: str | None = None
 
     async def discover(
         self,
