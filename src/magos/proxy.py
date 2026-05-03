@@ -30,6 +30,17 @@ from magos.obs import get_logger, traced
 
 log = get_logger("magos.proxy")
 
+# Cross-shape translation routinely surfaces params one provider supports and
+# another does not (e.g. Anthropic's ``context_management`` arriving on a
+# request routed to ``custom_openai`` for Vultr). LiteLLM's per-provider
+# allow-lists raise ``UnsupportedParamsError`` by default; flipping
+# ``drop_params`` to True makes it silently drop unsupported params at the
+# destination only — supported providers (Anthropic for ``context_management``)
+# still receive them. Without this, every new client-side feature that lands
+# in Claude Code or the OpenAI SDK breaks routing to alt providers until we
+# patch a request rewrite.
+litellm.drop_params = True
+
 # Headers that the upstream HTTP client (litellm/openai-sdk/httpx) generates
 # from the serialized request body. Forwarding the inbound values into
 # ``extra_headers`` conflicts with that machinery: e.g. an inbound
@@ -40,6 +51,127 @@ log = get_logger("magos.proxy")
 _DISPATCH_BLOCKED_HEADERS: frozenset[str] = frozenset(
     {"content-type", "content-length", "content-encoding", "accept-encoding"}
 )
+
+# Auth headers describing the inbound (client -> magos) hop. When the
+# operator has chosen an upstream key explicitly via ``api_key``, these
+# must NOT be forwarded into ``extra_headers``: the openai-sdk lets
+# ``extra_headers`` override the ``api_key`` kwarg, so leaking the
+# inbound bearer to a different upstream provider produces a misleading
+# "Invalid API key" 401 even though magos was invoked with a valid key.
+# When ``api_key`` is None (rule has no ``api_key_env``), these stay in
+# place so litellm's per-provider env-var resolution still wins.
+_INBOUND_AUTH_HEADERS: frozenset[str] = frozenset({"authorization", "x-api-key"})
+
+# Canonical Anthropic Messages body fields that LiteLLM's
+# ``anthropic_messages`` translator knows how to map to non-Anthropic
+# providers. Anything outside this set (e.g. ``context_management``,
+# ``output_config``, future Anthropic-only additions) falls into ``**kwargs``
+# and leaks straight into the OpenAI SDK on cross-provider routes, producing
+# ``unexpected keyword argument`` errors. ``litellm.drop_params=True`` only
+# helps for params LiteLLM *recognizes* but the destination doesn't support;
+# unknown fields slip past it. We pre-filter the body when dispatching to a
+# non-Anthropic upstream so new client-side features can't break routing.
+_ANTHROPIC_MESSAGES_CANONICAL_FIELDS: frozenset[str] = frozenset(
+    {
+        "model",
+        "messages",
+        "max_tokens",
+        "system",
+        "temperature",
+        "top_p",
+        "top_k",
+        "stop_sequences",
+        "stream",
+        "metadata",
+        "tools",
+        "tool_choice",
+        "thinking",
+        # OpenAI-shape fields produced by ``_translate_output_config``. They
+        # ride through LiteLLM's ``anthropic_messages`` ``**kwargs`` to the
+        # destination translator, which knows them.
+        "reasoning_effort",
+        "response_format",
+    }
+)
+
+# Anthropic's ``output_config.effort`` accepts levels OpenAI's
+# ``reasoning_effort`` does not (``xhigh`` and ``max``); clamp the high end so
+# the destination doesn't reject the value. ``minimal`` is OpenAI-only and not
+# emitted by Anthropic, so no inbound mapping is needed.
+_ANTHROPIC_EFFORT_TO_OPENAI: dict[str, str] = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "xhigh": "high",
+    "max": "high",
+}
+
+
+def _translate_output_config(body: dict[str, Any]) -> dict[str, Any]:
+    """Map Anthropic ``output_config`` onto OpenAI-shape equivalents.
+
+    Anthropic's ``output_config`` carries two operationally important fields:
+
+    - ``effort`` -> OpenAI ``reasoning_effort`` (``xhigh``/``max`` clamp to ``high``)
+    - ``format`` (json_schema) -> OpenAI ``response_format``
+
+    LiteLLM's ``anthropic_messages`` translator predates ``output_config`` and
+    forwards it as an unrecognized kwarg, which the destination SDK rejects.
+    Dropping it loses structured-output and reasoning-effort behavior on
+    cross-provider routes, so translate before dispatch. Caller-supplied
+    ``reasoning_effort`` / ``response_format`` win over the derived values.
+    """
+    cfg = body.get("output_config")
+    if not isinstance(cfg, dict):
+        return body
+    out = {k: v for k, v in body.items() if k != "output_config"}
+    effort = cfg.get("effort")
+    if isinstance(effort, str) and "reasoning_effort" not in out:
+        mapped = _ANTHROPIC_EFFORT_TO_OPENAI.get(effort)
+        if mapped is not None:
+            out["reasoning_effort"] = mapped
+    fmt = cfg.get("format")
+    if isinstance(fmt, dict) and fmt.get("type") == "json_schema" and "response_format" not in out:
+        # Anthropic nests the schema directly under ``format``; OpenAI wraps
+        # it in a ``json_schema`` object. The schema body itself is identical.
+        schema = fmt.get("schema")
+        if isinstance(schema, dict):
+            out["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": fmt.get("name", "response"),
+                    "schema": schema,
+                    **({"strict": True} if fmt.get("strict") else {}),
+                },
+            }
+    return out
+
+
+def _strip_anthropic_extras(body: dict[str, Any], dispatch_model: str) -> dict[str, Any]:
+    """Drop Anthropic-only body fields when dispatching to a non-Anthropic upstream.
+
+    ``litellm.anthropic_messages`` forwards Anthropic-shape requests verbatim
+    to Anthropic and translates them to OpenAI/Bedrock/etc. for everything
+    else. The translator only handles canonical fields; unknown extras flow
+    through ``**kwargs`` and surface as ``unexpected keyword argument`` errors
+    inside the destination SDK. ``output_config`` is translated to OpenAI
+    equivalents first so structured-output / reasoning-effort behavior carries
+    over; remaining Anthropic-only fields (``context_management``, future
+    additions) are dropped. Anthropic-bound traffic is left untouched so
+    everything passes through verbatim.
+    """
+    if dispatch_model.startswith("anthropic/"):
+        return body
+    body = _translate_output_config(body)
+    extras = set(body) - _ANTHROPIC_MESSAGES_CANONICAL_FIELDS
+    if not extras:
+        return body
+    log.info(
+        "anthropic.dropped_unknown_fields",
+        model=dispatch_model,
+        fields=sorted(extras),
+    )
+    return {k: v for k, v in body.items() if k in _ANTHROPIC_MESSAGES_CANONICAL_FIELDS}
 
 
 class _CompletionFn(Protocol):
@@ -89,9 +221,13 @@ def _build_payload(
     out = dict(request)
     out["model"] = dispatch_model
     if forward_headers:
-        safe = {
-            k: v for k, v in forward_headers.items() if k.lower() not in _DISPATCH_BLOCKED_HEADERS
-        }
+        blocked = _DISPATCH_BLOCKED_HEADERS
+        if api_key is not None:
+            # Operator picked the upstream key; don't let the inbound auth
+            # header (claude code's anthropic token, etc.) leak into
+            # extra_headers and override it on the openai-sdk hop.
+            blocked = blocked | _INBOUND_AUTH_HEADERS
+        safe = {k: v for k, v in forward_headers.items() if k.lower() not in blocked}
         if safe:
             existing = out.get("extra_headers") or {}
             out["extra_headers"] = {**existing, **safe}
@@ -120,7 +256,7 @@ async def proxy_anthropic_messages(
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.anthropic_messages
     payload = _build_payload(
-        anthropic_request,
+        _strip_anthropic_extras(anthropic_request, dispatch_model),
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
@@ -151,7 +287,7 @@ def stream_anthropic_messages(
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.anthropic_messages
     payload = _build_payload(
-        {**anthropic_request, "stream": True},
+        {**_strip_anthropic_extras(anthropic_request, dispatch_model), "stream": True},
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
