@@ -1,15 +1,15 @@
-"""Smoke tests for observability scaffolding.
+"""Smoke tests for ``magos.telemetry.tracing``.
 
-These don't try to assert on emitted spans or log records; they verify the
-no-op contract: configure_* is idempotent, traced preserves behavior, and
-get_logger never raises.
+The ``traced`` decorator must preserve return values and propagate
+exceptions whether or not OTel is configured. ``configure_tracing`` is
+a no-op when ``MAGOS_OTEL_ENABLED`` is unset.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from magos.telemetry import configure_logging, configure_tracing, get_logger, traced
+from magos.telemetry import configure_tracing, traced
 
 
 @pytest.mark.unit
@@ -32,21 +32,8 @@ def test_traced_propagates_exceptions() -> None:
 
 
 @pytest.mark.unit
-def test_get_logger_emits_without_raising() -> None:
-    log = get_logger("magos.test")
-    log.info("ping", key="value")
-
-
-@pytest.mark.unit
 def test_configure_tracing_is_noop_when_disabled(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.delenv("MAGOS_OTEL_ENABLED", raising=False)
     configure_tracing()
-
-
-@pytest.mark.unit
-def test_configure_logging_is_idempotent() -> None:
-    configure_logging()
-    configure_logging(json=True)
-    get_logger().info("ok")
