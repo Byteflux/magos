@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from magos.registry.state import ModelEntry
 from magos.routing import RoutingConfig
 from magos.routing.engine import RouteDecision, route
 from magos.routing.errors import RouteError
 
+from ._helpers import make_registry
 from ._helpers import make_req as _req
 
 
@@ -285,6 +287,83 @@ def test_passthrough_mode_keeps_bare_model() -> None:
     decision = route(_req(body={"model": "claude-haiku-4-5-20251001"}), cfg)
     assert isinstance(decision, RouteDecision)
     assert decision.dispatch_model == "claude-haiku-4-5-20251001"
+
+
+def test_translate_mode_resolves_namespaced_id_via_registry() -> None:
+    """``set_model: vultr/Qwen/...`` style: registry hit returns litellm_id."""
+    cfg = _cfg(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "vultr", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    registry = make_registry(
+        ModelEntry(
+            provider="vultr",
+            raw_id="Qwen/Qwen3.5-397B-A17B-FP8",
+            litellm_id="custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
+        )
+    )
+    decision = route(
+        _req(body={"model": "vultr/Qwen/Qwen3.5-397B-A17B-FP8"}),
+        cfg,
+        registry=registry,
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.dispatch_model == "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"
+
+
+def test_translate_mode_resolves_bare_id_via_action_provider() -> None:
+    """``set_model: Qwen/...`` infers provider from action; registry resolves."""
+    cfg = _cfg(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "vultr", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    registry = make_registry(
+        ModelEntry(
+            provider="vultr",
+            raw_id="Qwen/Qwen3.5-397B-A17B-FP8",
+            litellm_id="custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
+        )
+    )
+    decision = route(
+        _req(body={"model": "Qwen/Qwen3.5-397B-A17B-FP8"}),
+        cfg,
+        registry=registry,
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.dispatch_model == "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"
+
+
+def test_translate_mode_registry_miss_falls_back_to_existing_behavior() -> None:
+    """Unknown model with ``/``: pass to LiteLLM as-is (existing behavior)."""
+    cfg = _cfg(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "openai", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    decision = route(
+        _req(body={"model": "openai/gpt-4-turbo"}),
+        cfg,
+        registry=make_registry(),
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.dispatch_model == "openai/gpt-4-turbo"
 
 
 # --- Rule labelling ---

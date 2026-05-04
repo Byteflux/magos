@@ -141,6 +141,27 @@ Under `mode: passthrough`, a dirty body forces re-serialisation,
 breaking prompt-cache byte-exactness; the loader debug-logs each
 offending rule at startup (event `routing.passthrough_body_touch`).
 
+#### `set_model` and the registry
+
+For `mode: translate`, the engine resolves the dispatch model id in this
+order before handing it to LiteLLM:
+
+1. Literal registry hit on the body model — e.g.
+   `set_model: vultr/Qwen/Qwen3.5-...` looks up that exact key and
+   substitutes the entry's `litellm_id` (`custom_openai/Qwen/...`).
+2. Registry hit on `<action.provider>/<model>` — e.g. with
+   `provider: vultr` in the action, `set_model: Qwen/Qwen3.5-...`
+   resolves the same entry without the prefix.
+3. Otherwise, the model is passed through as-is if it already contains
+   `/`, or prefixed with `<action.provider>/` if bare.
+
+This matters for openai-compatible third parties (Vultr, hosted vLLM,
+etc.) that route through the `custom_openai` provider in LiteLLM: the
+magos namespace (`vultr/`) and LiteLLM's dispatch id (`custom_openai/`)
+diverge, and registry consultation reconciles them. Configure providers
+under `providers:` so the registry knows the mapping; see
+[registry.md](./registry.md).
+
 #### `compress`
 
 Runs Headroom against `body.messages`. Two modes:

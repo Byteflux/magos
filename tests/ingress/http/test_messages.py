@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from magos.ingress.http import create_app
+from magos.ingress.http.handlers import get_anthropic_messages_completion
+from magos.registry.schema import RegistryYaml
+from magos.registry.state import ModelEntry, RegistryState
+from magos.registry.store import save as save_state
 from magos.routing import RoutingConfig
 
 from ._helpers import (
@@ -83,6 +88,77 @@ def test_messages_streams_anthropic_bytes_verbatim() -> None:
         line[len("event: ") :] for line in text.splitlines() if line.startswith("event: ")
     ]
     assert event_types == ["message_start", "content_block_delta", "message_stop"]
+
+
+@pytest.mark.integration
+def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
+    tmp_path: Any,
+) -> None:
+    """``set_model: vultr/Qwen/...`` style body model is translated to the
+    registry entry's ``litellm_id`` (``custom_openai/Qwen/...``) before
+    dispatch — without this LiteLLM rejects the unknown ``vultr/`` prefix.
+
+    Also exercises the bare-id form (``Qwen/...`` with ``provider: vultr``)
+    which is resolved by prepending the action's provider for lookup.
+    """
+    received: dict[str, Any] = {}
+
+    async def fake_anthropic(**kwargs: Any) -> dict[str, Any]:
+        received["model"] = kwargs["model"]
+        return ANTHROPIC_MESSAGE_RESPONSE
+
+    entry = ModelEntry(
+        provider="vultr",
+        raw_id="Qwen/Qwen3.5-397B-A17B-FP8",
+        litellm_id="custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
+    )
+    models_path = tmp_path / "models.json"
+    save_state(
+        RegistryState(
+            entries={entry.namespaced_id: entry},
+            refreshed_at={"vultr": datetime(2026, 5, 4, tzinfo=UTC)},
+        ),
+        models_path,
+    )
+    registry_cfg = RegistryYaml.model_validate(
+        {
+            "providers": {"vultr": {"discovery": "noop"}},
+            "registry": {"models_path": str(models_path)},
+        }
+    )
+    routing = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "vultr", "mode": "translate"},
+                }
+            ]
+        }
+    )
+
+    for body_model, expected in (
+        ("vultr/Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
+        ("Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
+    ):
+        received.clear()
+        app = create_app(routing=routing, registry=registry_cfg)
+        app.dependency_overrides[get_anthropic_messages_completion] = lambda: fake_anthropic
+        try:
+            with TestClient(app) as client:
+                resp = client.post(
+                    "/v1/messages",
+                    json={
+                        "model": body_model,
+                        "max_tokens": 8,
+                        "messages": [{"role": "user", "content": "hi"}],
+                    },
+                )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert resp.status_code == 200, body_model
+        assert received["model"] == expected, body_model
 
 
 @pytest.mark.integration
