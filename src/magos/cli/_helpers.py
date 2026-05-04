@@ -37,7 +37,7 @@ def admin_client(settings: MagosSettings) -> AdminClient:
     from magos.serve import resolve_bind  # noqa: PLC0415  - keeps cli import tree light
 
     cfg = load_full_config(settings.config_path)
-    resolved_host, resolved_port = resolve_bind(settings, cfg.server)
+    resolved_host, resolved_port = resolve_bind(settings, cfg.ingress.http)
     # Bind addresses like 0.0.0.0 / :: aren't valid HTTP hosts; resolve to
     # loopback so the CLI talks to the local instance.
     bind_all = {"0.0.0.0", "::"}  # noqa: S104  - not binding, just comparing

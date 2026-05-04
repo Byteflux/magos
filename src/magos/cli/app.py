@@ -1,19 +1,17 @@
-"""Root Typer app: top-level options, ``serve`` (default), and the
-``magos models`` subapp.
+"""Root Typer app: top-level options and subcommands.
 
-Default invocation runs the server::
+Subcommands::
 
-    magos                          # serve (no subcommand)
-    magos serve                    # explicit
-    magos --config /etc/x.yaml     # config override
-
-Operator-facing subcommands::
-
+    magos serve                    # run the FastAPI server
+    magos serve --config x.yaml    # with a non-default config
     magos models list
     magos models show <id>
     magos models refresh [--provider X]
     magos models prune
     magos models discover --provider X [--dry-run / --no-dry-run]
+
+Invoking ``magos`` with no subcommand prints help; ``serve`` is required
+to start the server.
 
 The ``magos`` script is installed by the ``[project.scripts]`` entry in
 ``pyproject.toml``. Inside a uv-managed venv use ``uv run magos …``;
@@ -42,7 +40,7 @@ from magos.cli import models, serve
 app = typer.Typer(
     name="magos",
     help="LLM proxy server with provider-discovered model registry.",
-    no_args_is_help=False,
+    no_args_is_help=True,
     add_completion=False,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
@@ -58,7 +56,6 @@ def _version_callback(value: bool) -> None:
 
 @app.callback(invoke_without_command=True)
 def _root(
-    ctx: typer.Context,
     config: Annotated[
         str | None,
         typer.Option(
@@ -78,8 +75,6 @@ def _root(
 ) -> None:
     if config is not None:
         os.environ["MAGOS_CONFIG_PATH"] = config
-    if ctx.invoked_subcommand is None:
-        serve.bootstrap_and_serve()
 
 
 def main() -> None:

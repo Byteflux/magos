@@ -14,27 +14,30 @@
 # Action fields:
 #   - provider, mode (translate|passthrough), base_url, api_key_env
 
-# server: process-level binding + optional in-process mitm ingress.
+# ingress: how requests reach magos. Two channels feed the same routing
+# engine -- the always-on FastAPI HTTP listener (ingress.http) and the
+# optional in-process mitmproxy HTTPS_PROXY listener (ingress.mitm).
 #
-# host/port are the FastAPI bind. They can also be set via MAGOS_HOST /
-# MAGOS_PORT (env wins). When ingress.enabled is true, an embedded
-# mitmproxy listener runs alongside FastAPI on the same process and same
-# asyncio loop. A client whose ``HTTPS_PROXY`` points at
-# ``listen_host:listen_port`` will see TLS interception (and routing-rule
-# evaluation) for any host that matches ``intercept_hosts`` (or its
-# subdomains). Everything else flows through un-MITM'd. See
-# docs/ingress.md for the one-time CA trust step.
+# ingress.http.host / ingress.http.port are the FastAPI bind. They can
+# also be set via MAGOS_HOST / MAGOS_PORT (env wins). When
+# ingress.mitm.enabled is true, an embedded mitmproxy listener runs
+# alongside FastAPI on the same process and same asyncio loop. A client
+# whose ``HTTPS_PROXY`` points at ``mitm.host:mitm.port`` will see
+# TLS interception (and routing-rule evaluation) for any host that
+# matches ``intercept_hosts`` (or its subdomains). Everything else flows
+# through un-MITM'd. See docs/ingress.md for the one-time CA trust step.
 #
 # Loop hazard: don't set HTTPS_PROXY system-wide, or magos's own outbound
 # httpx will be re-intercepted. Restrict it to the client environment, or
 # set NO_PROXY=localhost,127.0.0.1 for the magos process.
-server:
-  host: 127.0.0.1
-  port: 8000
-  ingress:
+ingress:
+  http:
+    host: 127.0.0.1
+    port: 8000
+  mitm:
     enabled: false
-    listen_host: 127.0.0.1
-    listen_port: 8080
+    host: 127.0.0.1
+    port: 8080
     intercept_hosts:
       - api.anthropic.com
 

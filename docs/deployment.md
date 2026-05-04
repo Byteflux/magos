@@ -122,7 +122,7 @@ back to loopback unless you know what you're doing.
 
 ## Loop hazard with mitmproxy ingress
 
-If you enable `server.ingress.enabled: true` in yaml, the container
+If you enable `ingress.mitm.enabled: true` in yaml, the container
 runs both FastAPI (default 2570) and mitmproxy (default 8080). The
 client `HTTPS_PROXY` setting is yours to manage on the host;
 [`docs/ingress.md`](ingress.md) covers the loop-hazard caveat in

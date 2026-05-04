@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from magos.telemetry import get_logger
@@ -71,7 +71,7 @@ class MagosSettings(BaseSettings):
         default=None,
         description=(
             "HTTP listen host override. When unset, falls back to "
-            "``server.host`` in magos.yaml (which itself defaults to 127.0.0.1)."
+            "``ingress.http.host`` in magos.yaml (which itself defaults to 127.0.0.1)."
         ),
     )
     port: int | None = Field(
@@ -80,9 +80,51 @@ class MagosSettings(BaseSettings):
         le=65535,
         description=(
             "HTTP listen port override. When unset, falls back to "
-            "``server.port`` in magos.yaml (which itself defaults to 8000)."
+            "``ingress.http.port`` in magos.yaml (which itself defaults to 8000)."
         ),
     )
+
+    mitm_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Enable the embedded mitmproxy HTTPS_PROXY listener. When unset, "
+            "falls back to ``ingress.mitm.enabled`` in magos.yaml (which "
+            "defaults to false)."
+        ),
+    )
+    mitm_host: str | None = Field(
+        default=None,
+        description=(
+            "mitmproxy listener host override. When unset, falls back to "
+            "``ingress.mitm.host`` in magos.yaml (which defaults to 127.0.0.1)."
+        ),
+    )
+    mitm_port: int | None = Field(
+        default=None,
+        ge=1,
+        le=65535,
+        description=(
+            "mitmproxy listener port override. When unset, falls back to "
+            "``ingress.mitm.port`` in magos.yaml (which defaults to 8080)."
+        ),
+    )
+    mitm_intercept_hosts: tuple[str, ...] | None = Field(
+        default=None,
+        description=(
+            "Comma-separated list of hosts (and their subdomains) the "
+            "mitmproxy ingress should TLS-terminate and route through magos. "
+            "When unset, falls back to ``ingress.mitm.intercept_hosts`` in "
+            "magos.yaml. Empty string yields an empty tuple."
+        ),
+    )
+
+    @field_validator("mitm_intercept_hosts", mode="before")
+    @classmethod
+    def _split_intercept_hosts(cls, v: object) -> object:
+        """Allow comma-separated env strings (``MAGOS_MITM_INTERCEPT_HOSTS=a.com,b.com``)."""
+        if isinstance(v, str):
+            return tuple(host.strip() for host in v.split(",") if host.strip())
+        return v
 
     log_level: str = Field(default="INFO", description="structlog filter level")
     log_json: bool = Field(default=False, description="render structlog as JSON")

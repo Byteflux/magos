@@ -23,11 +23,19 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MAGOS_MODELS_PATH", raising=False)
     monkeypatch.delenv("MAGOS_HOST", raising=False)
     monkeypatch.delenv("MAGOS_PORT", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_ENABLED", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_HOST", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_PORT", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_INTERCEPT_HOSTS", raising=False)
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    # ``host``/``port`` default to None on MagosSettings now; the actual
-    # bind values come from yaml's server block via ``resolve_bind``.
+    # ``host``/``port``/``mitm_*`` default to None on MagosSettings; the actual
+    # values come from yaml's ``ingress`` block via ``resolve_bind``/``resolve_mitm``.
     assert s.host is None
     assert s.port is None
+    assert s.mitm_enabled is None
+    assert s.mitm_host is None
+    assert s.mitm_port is None
+    assert s.mitm_intercept_hosts is None
     assert s.log_level == "INFO"
     assert s.log_json is False
     assert s.otel_enabled is False
@@ -75,6 +83,32 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.otel_enabled is True
     assert s.otel_endpoint == "http://collector.local:4318/v1/traces"
     assert s.config_path == "/etc/magos.yaml"
+
+
+def test_mitm_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MITM_ENABLED", "1")
+    monkeypatch.setenv("MAGOS_MITM_HOST", "0.0.0.0")
+    monkeypatch.setenv("MAGOS_MITM_PORT", "9090")
+    monkeypatch.setenv("MAGOS_MITM_INTERCEPT_HOSTS", " api.anthropic.com , api.openai.com ")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mitm_enabled is True
+    assert s.mitm_host == "0.0.0.0"
+    assert s.mitm_port == 9090
+    assert s.mitm_intercept_hosts == ("api.anthropic.com", "api.openai.com")
+
+
+def test_mitm_intercept_hosts_empty_string_yields_empty_tuple(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("MAGOS_MITM_INTERCEPT_HOSTS", "")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.mitm_intercept_hosts == ()
+
+
+def test_invalid_mitm_port_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MITM_PORT", "0")
+    with pytest.raises(ValidationError):
+        MagosSettings(_env_file=None)  # type: ignore[call-arg]
 
 
 def test_invalid_port_rejected(monkeypatch: pytest.MonkeyPatch) -> None:

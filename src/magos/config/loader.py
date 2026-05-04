@@ -2,10 +2,10 @@
 
 ``magos.yaml`` carries three concerns under separate top-level keys:
 ``rules`` / ``pre_rewrites`` (routing), ``providers`` / ``provider_order``
-/ ``registry`` (the model registry), and ``server`` (process bind +
-ingress). Each maps to its own pydantic schema; this module parses the
-same file once per schema and returns a single ``MagosConfig`` container
-so callers don't see the split.
+/ ``registry`` (the model registry), and ``ingress`` (HTTP bind + the
+optional mitmproxy proxy). Each maps to its own pydantic schema; this
+module parses the same file once per schema and returns a single
+``MagosConfig`` container so callers don't see the split.
 
 The narrow ``load_routing_config`` (in ``routing.loader``) is for
 callers that only need the routing rules. Server lifespan and CLI use
@@ -20,7 +20,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from magos.config.schema import MagosServerConfig
+from magos.config.schema import MagosIngressConfig
 from magos.config.settings import magos_home
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.schema import ProviderConfig, RegistryYaml
@@ -35,7 +35,7 @@ class MagosConfig:
 
     routing: RoutingConfig
     registry: RegistryYaml
-    server: MagosServerConfig = field(default_factory=MagosServerConfig)
+    ingress: MagosIngressConfig = field(default_factory=MagosIngressConfig)
     source: Path = Path()  # the yaml file the config was loaded from
 
 
@@ -83,8 +83,8 @@ def load_full_config(path: str | Path) -> MagosConfig:
     routing = load_routing_config(path)
     registry = _parse_registry_block(path)
     registry = _normalize_provider_base_urls(registry)
-    server = _parse_server_block(path)
-    return MagosConfig(routing=routing, registry=registry, server=server, source=Path(path))
+    ingress = _parse_ingress_block(path)
+    return MagosConfig(routing=routing, registry=registry, ingress=ingress, source=Path(path))
 
 
 def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
@@ -129,7 +129,7 @@ def _parse_registry_block(path: str | Path) -> RegistryYaml:
         raise RoutingConfigError(f"{p}: invalid registry config: {exc}") from exc
 
 
-def _parse_server_block(path: str | Path) -> MagosServerConfig:
+def _parse_ingress_block(path: str | Path) -> MagosIngressConfig:
     p = Path(path)
     raw = p.read_text(encoding="utf-8")
     data = yaml.safe_load(raw) or {}
@@ -137,8 +137,8 @@ def _parse_server_block(path: str | Path) -> MagosServerConfig:
         raise RoutingConfigError(
             f"{p}: top-level YAML must be a mapping, got {type(data).__name__}"
         )
-    block = data.get("server", {})
+    block = data.get("ingress", {})
     try:
-        return MagosServerConfig.model_validate(block)
+        return MagosIngressConfig.model_validate(block)
     except ValidationError as exc:
-        raise RoutingConfigError(f"{p}: invalid server config: {exc}") from exc
+        raise RoutingConfigError(f"{p}: invalid ingress config: {exc}") from exc

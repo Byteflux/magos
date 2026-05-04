@@ -17,7 +17,7 @@ Inbound requests (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses)
 - **Operator CLI** — `magos serve`, `magos models {list, show, refresh, prune, discover}` against a running server with disk fallback for read paths.
 - **Optional `HTTPS_PROXY` ingress** via embedded mitmproxy on the same process; useful for clients whose behaviour changes when their base URL is rewritten.
 - **Observability**: `structlog` structured logging, OpenTelemetry tracing, OpenTelemetry metrics with optional Prometheus `/metrics` endpoint.
-- **Configuration** via `pydantic-settings` (env vars prefixed `MAGOS_`, or a local `.env`) plus `magos.yaml` for routing / registry / server blocks.
+- **Configuration** via `pydantic-settings` (env vars prefixed `MAGOS_`, or a local `.env`) plus `magos.yaml` for routing / registry / ingress blocks.
 
 ## Requirements
 
@@ -53,7 +53,7 @@ Resolution order, highest first:
 
 1. CLI flags (`--config`, `--host`, `--port`).
 2. Environment variables (`MAGOS_*`, optionally via `.env`).
-3. `magos.yaml` blocks: `pre_rewrites` / `rules` (routing), `providers` / `provider_order` / `registry` (the model registry), `server` (process bind + ingress).
+3. `magos.yaml` blocks: `pre_rewrites` / `rules` (routing), `providers` / `provider_order` / `registry` (the model registry), `ingress` (FastAPI bind + optional mitmproxy proxy).
 4. Built-in defaults.
 
 `MAGOS_HOME` (default `~/.magos`) anchors `MAGOS_CONFIG_PATH` and `MAGOS_MODELS_PATH`. Full env-var table in [`docs/cli.md`](docs/cli.md).

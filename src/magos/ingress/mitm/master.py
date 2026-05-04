@@ -12,13 +12,13 @@ from __future__ import annotations
 from mitmproxy.options import Options
 from mitmproxy.tools.dump import DumpMaster
 
-from magos.config.schema import IngressConfig
+from magos.config.schema import MitmIngressConfig
 from magos.egress.observer import MagosObserverAddon
 from magos.ingress.mitm.addon import MagosIngressAddon
 
 
 def build_ingress_master(
-    config: IngressConfig,
+    config: MitmIngressConfig,
     *,
     target_host: str,
     target_port: int,
@@ -33,8 +33,8 @@ def build_ingress_master(
     ``docs/ingress.md`` "Loop hazard").
     """
     options = Options(
-        listen_host=config.listen_host,
-        listen_port=config.listen_port,
+        listen_host=config.host,
+        listen_port=config.port,
     )
     master = DumpMaster(options, with_termlog=False, with_dumper=False)
     master.addons.add(  # type: ignore[no-untyped-call]

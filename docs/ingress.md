@@ -77,20 +77,21 @@ fails with a TLS error.
 ### 2. Enable ingress in `magos.yaml`
 
 ```yaml
-server:
-  host: 127.0.0.1
-  port: 8000
-  ingress:
+ingress:
+  http:
+    host: 127.0.0.1
+    port: 8000
+  mitm:
     enabled: true
-    listen_host: 127.0.0.1
-    listen_port: 8080
+    host: 127.0.0.1
+    port: 8080
     intercept_hosts:
       - api.anthropic.com
 ```
 
-`server.host` / `server.port` are the FastAPI bind. `MAGOS_HOST` /
-`MAGOS_PORT` env vars override yaml when set; CLI `--host` / `--port`
-flags override env.
+`ingress.http.host` / `ingress.http.port` are the FastAPI bind.
+`MAGOS_HOST` / `MAGOS_PORT` env vars override yaml when set; CLI
+`--host` / `--port` flags override env.
 
 `intercept_hosts` lists the hosts (and their subdomains) magos should
 MITM. Anything else passes through un-touched.
@@ -149,7 +150,8 @@ hop) instead of infinite, but it doesn't fix the underlying loop.
   matching is exact-or-subdomain (e.g. `api.anthropic.com` matches
   `eu.api.anthropic.com`).
 - **`Address already in use` on :8080**: another mitmdump or service
-  has the port. Change `listen_port` in yaml.
+  has the port. Change `ingress.mitm.port` in yaml (or set
+  `MAGOS_MITM_PORT`, or pass `--mitm-port`).
 - **Clients that don't honor `HTTPS_PROXY`**: some tools have their
   own proxy logic. Check the tool's docs; the `HTTP_PROXY` /
   `HTTPS_PROXY` env vars are the de-facto standard but not universal.
@@ -173,6 +175,6 @@ hop) instead of infinite, but it doesn't fix the underlying loop.
 
 ## Disabling
 
-Set `server.ingress.enabled: false` (or remove the `ingress:` block
+Set `ingress.mitm.enabled: false` (or remove the `mitm:` sub-block
 entirely). FastAPI keeps running on its bind address; the mitm task
 isn't started; nothing else changes.

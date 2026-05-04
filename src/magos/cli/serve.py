@@ -26,19 +26,33 @@ from magos.serve import serve as serve_orchestrator
 from magos.telemetry import configure_logging, configure_tracing, get_logger
 
 
-def bootstrap_and_serve(host: str | None = None, port: int | None = None) -> None:
+def bootstrap_and_serve(
+    host: str | None = None,
+    port: int | None = None,
+    enable_mitm: bool | None = None,
+    mitm_host: str | None = None,
+    mitm_port: int | None = None,
+) -> None:
     """Boot the FastAPI server (and optional mitm ingress) under one process.
 
-    ``host`` and ``port`` override the values resolved from the environment
-    (``MAGOS_HOST`` / ``MAGOS_PORT``); env in turn overrides ``server.host``
-    / ``server.port`` from ``magos.yaml``. The mitm ingress is started
-    alongside FastAPI when ``server.ingress.enabled`` is true in yaml — see
+    ``host`` / ``port`` override the values resolved from the environment
+    (``MAGOS_HOST`` / ``MAGOS_PORT``); env in turn overrides
+    ``ingress.http.host`` / ``ingress.http.port`` from ``magos.yaml``.
+    ``enable_mitm`` / ``mitm_host`` / ``mitm_port`` follow the same
+    layering against ``MAGOS_MITM_ENABLED`` / ``MAGOS_MITM_HOST`` /
+    ``MAGOS_MITM_PORT`` and the ``ingress.mitm`` yaml block. See
     ``docs/ingress.md`` for setup.
     """
     if host is not None:
         os.environ["MAGOS_HOST"] = host
     if port is not None:
         os.environ["MAGOS_PORT"] = str(port)
+    if enable_mitm is not None:
+        os.environ["MAGOS_MITM_ENABLED"] = "1" if enable_mitm else "0"
+    if mitm_host is not None:
+        os.environ["MAGOS_MITM_HOST"] = mitm_host
+    if mitm_port is not None:
+        os.environ["MAGOS_MITM_PORT"] = str(mitm_port)
     settings = MagosSettings()
     configure_logging(level=settings.log_level, json=settings.log_json)
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
@@ -80,6 +94,38 @@ def register(app: typer.Typer) -> None:
                 help="HTTP listen port (overrides MAGOS_PORT; default 8000).",
             ),
         ] = None,
+        enable_mitm: Annotated[
+            bool | None,
+            typer.Option(
+                "--enable-mitm/--disable-mitm",
+                help=(
+                    "Toggle the embedded mitmproxy HTTPS_PROXY listener "
+                    "(overrides MAGOS_MITM_ENABLED and ingress.mitm.enabled)."
+                ),
+            ),
+        ] = None,
+        mitm_host: Annotated[
+            str | None,
+            typer.Option(
+                "--mitm-host",
+                help=("mitmproxy listener host (overrides MAGOS_MITM_HOST; default 127.0.0.1)."),
+            ),
+        ] = None,
+        mitm_port: Annotated[
+            int | None,
+            typer.Option(
+                "--mitm-port",
+                min=1,
+                max=65535,
+                help=("mitmproxy listener port (overrides MAGOS_MITM_PORT; default 8080)."),
+            ),
+        ] = None,
     ) -> None:
-        """Run the FastAPI server (the default when no subcommand is given)."""
-        bootstrap_and_serve(host=host, port=port)
+        """Run the FastAPI server (and the optional mitmproxy ingress)."""
+        bootstrap_and_serve(
+            host=host,
+            port=port,
+            enable_mitm=enable_mitm,
+            mitm_host=mitm_host,
+            mitm_port=mitm_port,
+        )

@@ -1,12 +1,13 @@
-"""Pydantic schemas for the ``server:`` block in ``magos.yaml``.
+"""Pydantic schemas for the ``ingress:`` block in ``magos.yaml``.
 
-Holds two concerns: the FastAPI bind address and the optional in-process
-mitmproxy ingress proxy. Both default to off-the-shelf safe values so a
-yaml without a ``server:`` block parses cleanly and behaves like before.
+Two ingress channels feed the same routing engine: the always-on FastAPI
+HTTP listener (``ingress.http``) and the optional in-process mitmproxy
+``HTTPS_PROXY`` listener (``ingress.mitm``). Both default to off-the-shelf
+safe values so a yaml without an ``ingress:`` block parses cleanly.
 
 ``MAGOS_HOST`` / ``MAGOS_PORT`` env vars (via :class:`MagosSettings`)
-override ``server.host`` / ``server.port`` at runtime; this module only
-declares the yaml shape.
+override ``ingress.http.host`` / ``ingress.http.port`` at runtime; this
+module only declares the yaml shape.
 """
 
 from __future__ import annotations
@@ -18,7 +19,14 @@ class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
 
-class IngressConfig(_Frozen):
+class HttpIngressConfig(_Frozen):
+    """FastAPI bind address for the primary HTTP ingress."""
+
+    host: str = Field(default="127.0.0.1", min_length=1)
+    port: int = Field(default=8000, ge=1, le=65535)
+
+
+class MitmIngressConfig(_Frozen):
     """In-process mitmproxy ingress proxy configuration.
 
     When ``enabled`` is true, ``magos serve`` starts a ``DumpMaster`` task
@@ -34,14 +42,13 @@ class IngressConfig(_Frozen):
     """
 
     enabled: bool = False
-    listen_host: str = Field(default="127.0.0.1", min_length=1)
-    listen_port: int = Field(default=8080, ge=1, le=65535)
+    host: str = Field(default="127.0.0.1", min_length=1)
+    port: int = Field(default=8080, ge=1, le=65535)
     intercept_hosts: tuple[str, ...] = ()
 
 
-class MagosServerConfig(_Frozen):
-    """Top-level ``server:`` block: FastAPI bind + ingress."""
+class MagosIngressConfig(_Frozen):
+    """Top-level ``ingress:`` block: HTTP bind + optional mitm proxy."""
 
-    host: str = Field(default="127.0.0.1", min_length=1)
-    port: int = Field(default=8000, ge=1, le=65535)
-    ingress: IngressConfig = Field(default_factory=IngressConfig)
+    http: HttpIngressConfig = Field(default_factory=HttpIngressConfig)
+    mitm: MitmIngressConfig = Field(default_factory=MitmIngressConfig)

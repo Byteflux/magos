@@ -2,8 +2,7 @@
 
 Subcommand layout::
 
-    magos                  # serve (default)
-    magos serve            # explicit form
+    magos serve            # run the FastAPI server (and optional mitm)
     magos models list      # show in-memory state from running server
     magos models show <id>
     magos models refresh [--provider X]

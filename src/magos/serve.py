@@ -1,6 +1,6 @@
 """Process orchestrator: run FastAPI and (optional) mitmproxy on one loop.
 
-When ``server.ingress.enabled`` is true in ``magos.yaml``, an embedded
+When ``ingress.mitm.enabled`` is true in ``magos.yaml``, an embedded
 ``DumpMaster`` runs alongside uvicorn as a sibling asyncio task. A
 client pointing ``HTTPS_PROXY`` at the ingress listener can then reach
 magos's routing rules transparently — see ``docs/ingress.md`` for
@@ -10,8 +10,8 @@ Bind-address layering for FastAPI:
 
 1. ``--host`` / ``--port`` CLI flags (poked into env by ``__main__``)
 2. ``MAGOS_HOST`` / ``MAGOS_PORT`` env vars
-3. ``server.host`` / ``server.port`` in ``magos.yaml``
-4. Schema defaults (127.0.0.1 / 8000) in :class:`MagosServerConfig`
+3. ``ingress.http.host`` / ``ingress.http.port`` in ``magos.yaml``
+4. Schema defaults (127.0.0.1 / 8000) in :class:`HttpIngressConfig`
 
 Steps 1+2 funnel through :class:`MagosSettings`; this module merges
 that with the yaml block via :func:`resolve_bind`.
@@ -25,7 +25,7 @@ import uvicorn
 
 from magos import __version__
 from magos.config.loader import MagosConfig, load_full_config
-from magos.config.schema import MagosServerConfig
+from magos.config.schema import HttpIngressConfig, MitmIngressConfig
 from magos.config.settings import MagosSettings
 from magos.ingress.http import create_app
 from magos.ingress.mitm.log_bridge import install_log_bridge
@@ -42,15 +42,39 @@ log = get_logger("magos.serve")
 _FASTAPI_READY_POLL_SECONDS = 0.05
 
 
-def resolve_bind(settings: MagosSettings, server_cfg: MagosServerConfig) -> tuple[str, int]:
+def resolve_bind(settings: MagosSettings, http_cfg: HttpIngressConfig) -> tuple[str, int]:
     """Resolve FastAPI bind host/port from env-or-yaml, env winning.
 
     Treats empty strings from env as unset so an accidentally-blank
     ``MAGOS_HOST=`` doesn't shadow a real yaml default.
     """
-    host = settings.host or server_cfg.host
-    port = settings.port if settings.port is not None else server_cfg.port
+    host = settings.host or http_cfg.host
+    port = settings.port if settings.port is not None else http_cfg.port
     return host, port
+
+
+def resolve_mitm(settings: MagosSettings, mitm_cfg: MitmIngressConfig) -> MitmIngressConfig:
+    """Merge ``MAGOS_MITM_*`` env overrides over the yaml ``ingress.mitm`` block.
+
+    Each env var is optional; an unset value leaves the yaml field
+    untouched. ``MAGOS_MITM_HOST=""`` is treated as unset (mirroring
+    :func:`resolve_bind`) so an accidentally-blank export doesn't shadow
+    a real yaml default.
+    """
+    enabled = settings.mitm_enabled if settings.mitm_enabled is not None else mitm_cfg.enabled
+    host = settings.mitm_host or mitm_cfg.host
+    port = settings.mitm_port if settings.mitm_port is not None else mitm_cfg.port
+    intercept_hosts = (
+        settings.mitm_intercept_hosts
+        if settings.mitm_intercept_hosts is not None
+        else mitm_cfg.intercept_hosts
+    )
+    return MitmIngressConfig(
+        enabled=enabled,
+        host=host,
+        port=port,
+        intercept_hosts=intercept_hosts,
+    )
 
 
 def serve(*, settings: MagosSettings | None = None) -> None:
@@ -67,14 +91,15 @@ async def serve_async(*, settings: MagosSettings) -> None:
     orphan listeners.
     """
     cfg: MagosConfig = load_full_config(settings.config_path)
-    bind_host, bind_port = resolve_bind(settings, cfg.server)
+    bind_host, bind_port = resolve_bind(settings, cfg.ingress.http)
+    mitm_cfg = resolve_mitm(settings, cfg.ingress.mitm)
 
     log.info(
         "serve.starting",
         version=__version__,
         host=bind_host,
         port=bind_port,
-        ingress_enabled=cfg.server.ingress.enabled,
+        ingress_enabled=mitm_cfg.enabled,
         config_path=settings.config_path,
     )
 
@@ -90,11 +115,11 @@ async def serve_async(*, settings: MagosSettings) -> None:
 
     fastapi_task = asyncio.create_task(uvi_server.serve(), name="magos.fastapi")
 
-    if not cfg.server.ingress.enabled or not cfg.server.ingress.intercept_hosts:
-        if cfg.server.ingress.enabled:
+    if not mitm_cfg.enabled or not mitm_cfg.intercept_hosts:
+        if mitm_cfg.enabled:
             log.warning(
                 "ingress.no_intercept_hosts",
-                hint="server.ingress.enabled is true but intercept_hosts is empty; ingress proxy not started",
+                hint="ingress.mitm.enabled is true but intercept_hosts is empty; ingress proxy not started",
             )
         await fastapi_task
         return
@@ -112,13 +137,13 @@ async def serve_async(*, settings: MagosSettings) -> None:
         return
 
     install_log_bridge()
-    master = build_ingress_master(cfg.server.ingress, target_host=bind_host, target_port=bind_port)
+    master = build_ingress_master(mitm_cfg, target_host=bind_host, target_port=bind_port)
     mitm_task = asyncio.create_task(master.run(), name="magos.mitm")
     log.info(
         "ingress.started",
-        listen=f"{cfg.server.ingress.listen_host}:{cfg.server.ingress.listen_port}",
+        listen=f"{mitm_cfg.host}:{mitm_cfg.port}",
         target=f"{bind_host}:{bind_port}",
-        intercept_hosts=list(cfg.server.ingress.intercept_hosts),
+        intercept_hosts=list(mitm_cfg.intercept_hosts),
     )
 
     done, pending = await asyncio.wait(

@@ -14,7 +14,7 @@ For component-specific deep-dives:
 
 Magos runs as a **single Python process**. By default it listens only
 on the FastAPI port and clients hit it directly. When
-`server.ingress.enabled` is true in `magos.yaml`, an embedded
+`ingress.mitm.enabled` is true in `magos.yaml`, an embedded
 `mitmproxy` listener runs alongside FastAPI on the same asyncio loop
 (`magos.serve`) so a client pointed at `HTTPS_PROXY=...` sees TLS
 interception too — see `docs/ingress.md` for the operator guide.
@@ -184,15 +184,15 @@ Two phases — `create_app()` (synchronous, builds the FastAPI app) and
 
 1. Resolve config path: `--config` flag → `MAGOS_CONFIG_PATH` →
    `$MAGOS_HOME/magos.yaml` (default `~/.magos/magos.yaml`).
-   `load_full_config()` parses routing + registry + server blocks.
-2. Resolve FastAPI bind via `resolve_bind(settings, server_cfg)`:
-   `MAGOS_HOST` env > `server.host` yaml > schema default
+   `load_full_config()` parses routing + registry + ingress blocks.
+2. Resolve FastAPI bind via `resolve_bind(settings, http_cfg)`:
+   `MAGOS_HOST` env > `ingress.http.host` yaml > schema default
    (`127.0.0.1`). Same for port.
 3. Build the FastAPI app via `create_app(routing=..., registry=...)`
    and the uvicorn `Server`.
 4. Start the FastAPI task; wait on `Server.started` (poll, no event
    surface) so the lifespan completes before any ingress accepts.
-5. If `server.ingress.enabled` and `intercept_hosts` non-empty:
+5. If `ingress.mitm.enabled` and `intercept_hosts` non-empty:
    install the structlog bridge, build the `DumpMaster` via
    `build_ingress_master`, start the mitm task.
 6. `asyncio.wait(..., FIRST_COMPLETED)`: when one task ends, signal
@@ -310,8 +310,12 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 |------------------------------|---------------|--------------------------------------------------------|
 | `MAGOS_HOME`                 | `~/.magos`    | Data dir; anchors config and registry paths           |
 | `MAGOS_CONFIG_PATH`          | `$MAGOS_HOME/magos.yaml` | Routing config YAML                       |
-| `MAGOS_HOST`                 | (unset)       | Override `server.host` from yaml; yaml default is `127.0.0.1` |
-| `MAGOS_PORT`                 | (unset)       | Override `server.port` from yaml; yaml default is `8000` |
+| `MAGOS_HOST`                 | (unset)       | Override `ingress.http.host` from yaml; yaml default is `127.0.0.1` |
+| `MAGOS_PORT`                 | (unset)       | Override `ingress.http.port` from yaml; yaml default is `8000` |
+| `MAGOS_MITM_ENABLED`         | (unset)       | Override `ingress.mitm.enabled`; yaml default is `false`            |
+| `MAGOS_MITM_HOST`            | (unset)       | Override `ingress.mitm.host`; yaml default is `127.0.0.1`           |
+| `MAGOS_MITM_PORT`            | (unset)       | Override `ingress.mitm.port`; yaml default is `8080`                |
+| `MAGOS_MITM_INTERCEPT_HOSTS` | (unset)       | Comma-separated hosts; overrides `ingress.mitm.intercept_hosts`     |
 | `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level                                        |
 | `MAGOS_LOG_JSON`             | `0`           | `1` flips renderer to JSON                             |
 | `MAGOS_LOG_COLOR`            | auto-TTY      | `0`/`1` overrides TTY autodetect                       |
@@ -373,7 +377,7 @@ Removed env vars (warn on startup, now in YAML —
   normalisation. No LiteLLM round-trip.
 - **`litellm.drop_params=True` is global.** Suspect this first when a
   param vanishes.
-- **mitmproxy is opt-in for ingress.** When `server.ingress.enabled`
+- **mitmproxy is opt-in for ingress.** When `ingress.mitm.enabled`
   is false (the default), mitmproxy is completely dormant — no
   listener, no addon hooks running. When enabled, it terminates TLS
   for allowlisted hosts and rewrites to FastAPI loopback; routing

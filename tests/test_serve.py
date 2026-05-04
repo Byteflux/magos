@@ -15,16 +15,16 @@ from typing import Any
 
 import pytest
 
-from magos.config.schema import IngressConfig, MagosServerConfig
+from magos.config.schema import HttpIngressConfig, MagosIngressConfig, MitmIngressConfig
 from magos.config.settings import MagosSettings
-from magos.serve import resolve_bind, serve_async
+from magos.serve import resolve_bind, resolve_mitm, serve_async
 
 
 @pytest.mark.unit
 def test_resolve_bind_yaml_default_when_env_unset() -> None:
     settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    server_cfg = MagosServerConfig(host="0.0.0.0", port=9000)
-    assert resolve_bind(settings, server_cfg) == ("0.0.0.0", 9000)
+    http_cfg = HttpIngressConfig(host="0.0.0.0", port=9000)
+    assert resolve_bind(settings, http_cfg) == ("0.0.0.0", 9000)
 
 
 @pytest.mark.unit
@@ -32,8 +32,8 @@ def test_resolve_bind_env_overrides_yaml(monkeypatch: pytest.MonkeyPatch) -> Non
     monkeypatch.setenv("MAGOS_HOST", "10.0.0.1")
     monkeypatch.setenv("MAGOS_PORT", "7000")
     settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    server_cfg = MagosServerConfig(host="0.0.0.0", port=9000)
-    assert resolve_bind(settings, server_cfg) == ("10.0.0.1", 7000)
+    http_cfg = HttpIngressConfig(host="0.0.0.0", port=9000)
+    assert resolve_bind(settings, http_cfg) == ("10.0.0.1", 7000)
 
 
 @pytest.mark.unit
@@ -42,9 +42,71 @@ def test_resolve_bind_empty_env_treated_as_unset(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("MAGOS_HOST", "")
     monkeypatch.delenv("MAGOS_PORT", raising=False)
     settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    server_cfg = MagosServerConfig(host="0.0.0.0")
-    host, _ = resolve_bind(settings, server_cfg)
+    http_cfg = HttpIngressConfig(host="0.0.0.0")
+    host, _ = resolve_bind(settings, http_cfg)
     assert host == "0.0.0.0"
+
+
+def _clear_mitm_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in (
+        "MAGOS_MITM_ENABLED",
+        "MAGOS_MITM_HOST",
+        "MAGOS_MITM_PORT",
+        "MAGOS_MITM_INTERCEPT_HOSTS",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+
+def test_resolve_mitm_yaml_default_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    _clear_mitm_env(monkeypatch)
+    settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    yaml_cfg = MitmIngressConfig(
+        enabled=True,
+        host="10.0.0.1",
+        port=9090,
+        intercept_hosts=("api.anthropic.com",),
+    )
+    resolved = resolve_mitm(settings, yaml_cfg)
+    assert resolved == yaml_cfg
+
+
+def test_resolve_mitm_env_overrides_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MITM_ENABLED", "1")
+    monkeypatch.setenv("MAGOS_MITM_HOST", "0.0.0.0")
+    monkeypatch.setenv("MAGOS_MITM_PORT", "9999")
+    monkeypatch.setenv("MAGOS_MITM_INTERCEPT_HOSTS", "api.anthropic.com,api.openai.com")
+    settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    yaml_cfg = MitmIngressConfig(
+        enabled=False, host="127.0.0.1", port=8080, intercept_hosts=("ignored.com",)
+    )
+    resolved = resolve_mitm(settings, yaml_cfg)
+    assert resolved.enabled is True
+    assert resolved.host == "0.0.0.0"
+    assert resolved.port == 9999
+    assert resolved.intercept_hosts == ("api.anthropic.com", "api.openai.com")
+
+
+def test_resolve_mitm_empty_intercept_hosts_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty ``MAGOS_MITM_INTERCEPT_HOSTS`` clears the yaml allowlist."""
+    monkeypatch.setenv("MAGOS_MITM_INTERCEPT_HOSTS", "")
+    monkeypatch.delenv("MAGOS_MITM_ENABLED", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_HOST", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_PORT", raising=False)
+    settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    yaml_cfg = MitmIngressConfig(intercept_hosts=("api.anthropic.com",))
+    resolved = resolve_mitm(settings, yaml_cfg)
+    assert resolved.intercept_hosts == ()
+
+
+def test_resolve_mitm_empty_host_env_treated_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MITM_HOST", "")
+    monkeypatch.delenv("MAGOS_MITM_ENABLED", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_PORT", raising=False)
+    monkeypatch.delenv("MAGOS_MITM_INTERCEPT_HOSTS", raising=False)
+    settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    yaml_cfg = MitmIngressConfig(host="10.0.0.1")
+    resolved = resolve_mitm(settings, yaml_cfg)
+    assert resolved.host == "10.0.0.1"
 
 
 class _StubServer:
@@ -99,7 +161,7 @@ def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     # Capture the real loader BEFORE monkeypatch so our stub can reuse it.
     from magos.config.loader import load_full_config as real_load_full_config  # noqa: PLC0415
 
-    state: dict[str, Any] = {"server_cfg": MagosServerConfig()}
+    state: dict[str, Any] = {"ingress_cfg": MagosIngressConfig()}
 
     def fake_create_app(**kwargs: Any) -> object:
         state["create_app_kwargs"] = kwargs
@@ -126,7 +188,7 @@ def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     def fake_load(_path: str | Path):  # type: ignore[no-untyped-def]
         real = real_load_full_config(_FIXTURE_YAML)
-        return dataclasses.replace(real, server=state["server_cfg"])
+        return dataclasses.replace(real, ingress=state["ingress_cfg"])
 
     monkeypatch.setattr("magos.serve.create_app", fake_create_app)
     monkeypatch.setattr("magos.serve.uvicorn.Config", fake_uvi_config)
@@ -143,7 +205,7 @@ def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 def test_orchestrator_skips_ingress_when_disabled(
     patched_orchestrator: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    patched_orchestrator["server_cfg"] = MagosServerConfig(ingress=IngressConfig(enabled=False))
+    patched_orchestrator["ingress_cfg"] = MagosIngressConfig(mitm=MitmIngressConfig(enabled=False))
     settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
 
     async def runner() -> None:
@@ -164,8 +226,8 @@ def test_orchestrator_skips_ingress_when_disabled(
 def test_orchestrator_skips_ingress_when_no_intercept_hosts(
     patched_orchestrator: dict[str, Any],
 ) -> None:
-    patched_orchestrator["server_cfg"] = MagosServerConfig(
-        ingress=IngressConfig(enabled=True, intercept_hosts=())
+    patched_orchestrator["ingress_cfg"] = MagosIngressConfig(
+        mitm=MitmIngressConfig(enabled=True, intercept_hosts=())
     )
     settings = MagosSettings(_env_file=None)  # type: ignore[call-arg]
 
@@ -182,8 +244,8 @@ def test_orchestrator_skips_ingress_when_no_intercept_hosts(
 
 @pytest.mark.unit
 def test_orchestrator_starts_both_when_enabled(patched_orchestrator: dict[str, Any]) -> None:
-    patched_orchestrator["server_cfg"] = MagosServerConfig(
-        ingress=IngressConfig(
+    patched_orchestrator["ingress_cfg"] = MagosIngressConfig(
+        mitm=MitmIngressConfig(
             enabled=True,
             intercept_hosts=("api.anthropic.com",),
         )

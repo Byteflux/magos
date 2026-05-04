@@ -54,8 +54,8 @@ src/magos/
 
   config/            # process + yaml configuration
     settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
-    schema.py        # MagosServerConfig + IngressConfig (yaml `server:` block)
-    loader.py        # load_full_config -> MagosConfig (routing + registry + server) + resolve_models_path
+    schema.py        # MagosIngressConfig + HttpIngressConfig + MitmIngressConfig (yaml `ingress:` block)
+    loader.py        # load_full_config -> MagosConfig (routing + registry + ingress) + resolve_models_path
 
   telemetry/         # observability scaffolding
     logging.py       # structlog setup, get_logger
