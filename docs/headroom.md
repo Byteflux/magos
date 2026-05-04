@@ -42,7 +42,7 @@ Headroom encodes the constants in `headroom/cache/anthropic.py`:
 
 ## The compression pipeline
 
-Default ordering (`compress.py:340-345`):
+Default ordering (defined upstream in `headroom.compress`):
 
 ```
 CacheAligner -> ContentRouter -> IntelligentContext
@@ -338,7 +338,8 @@ against optional extras (kompress weights, etc.) being missing — log
 Two distinct init costs:
 
 1. **TransformPipeline construction.** `_get_pipeline()` is a
-   thread-locked lazy singleton (`compress.py:327-347`). First call
+   thread-locked lazy singleton in upstream `headroom.compress` (magos
+   imports it via `ingress/http/lifespan.py:129`). First call
    constructs the pipeline, the underlying tokenizer, transform
    instances. Subsequent calls reuse. Magos warms this once at FastAPI
    startup via the lifespan hook in `ingress/http/lifespan.py` if any routing rule

@@ -42,12 +42,13 @@ Three roles for the mitmproxy machinery:
    outbound LLM provider traffic when magos's own outbound transits
    mitmproxy (which it doesn't by default — see `docs/ingress.md`
    "Loop hazard"). Can also be run standalone via
-   `mitmdump -s -m magos.egress.observer` if the operator prefers an
-   out-of-process observer.
+   `mitmdump -s src/magos/egress/observer.py --listen-port 8080` if
+   the operator prefers an out-of-process observer.
 3. **Transitive runtime dependency**: `mitmproxy.http` is imported
-   by `tests/ingress/mitm/test_addon.py` and `tests/egress/test_observer.py`
-   (and therefore the test suite) regardless of whether ingress is
-   enabled. That import triggers the Windows pyarrow load-order
+   directly by `tests/ingress/mitm/test_addon.py`, and transitively by
+   `tests/egress/test_observer.py` (via `magos.egress.observer`),
+   regardless of whether ingress is enabled. That import triggers the
+   Windows pyarrow load-order
    workaround in `tests/conftest.py` — see `docs/headroom.md`
    "CacheAligner".
 
@@ -79,18 +80,19 @@ Per request, the FastAPI app does this:
    `on_unknown_model: error|passthrough`. **Explicit rules always win
    over the registry**; the registry only catches misses.
 4. **Dispatch** (`egress/dispatch.py`). Decision enum drives one of
-   eight branches:
+   nine branches:
 
 | Mode          | Endpoint                       | Streaming | Implementation                       |
 |---------------|--------------------------------|-----------|--------------------------------------|
 | `count_tokens`| `/v1/messages/count_tokens`    | n/a       | `egress.tokens.count_tokens` (litellm) |
 | `passthrough` | any of the six (incl. auxiliary GET/DELETE) | non-stream | `egress.passthrough.call_passthrough` |
 | `passthrough` | any of the six (incl. auxiliary GET/DELETE) | stream     | `egress.passthrough.stream_passthrough` |
-| `translate`   | `/v1/messages`                 | non-stream| `egress.translate.anthropic.proxy`   |
-| `translate`   | `/v1/messages`                 | stream    | `egress.translate.anthropic.stream`  |
-| `translate`   | `/v1/chat/completions`         | non-stream| `egress.translate.openai_chat.proxy` |
-| `translate`   | `/v1/chat/completions`         | stream    | `egress.translate.openai_chat.stream`|
-| `translate`   | `/v1/responses`                | both      | `egress.translate.openai_responses`  |
+| `translate`   | `/v1/messages`                 | non-stream| `egress.translate.proxy_anthropic_messages`        |
+| `translate`   | `/v1/messages`                 | stream    | `egress.translate.stream_anthropic_messages`       |
+| `translate`   | `/v1/chat/completions`         | non-stream| `egress.translate.proxy_openai_chat_completions`   |
+| `translate`   | `/v1/chat/completions`         | stream    | `egress.translate.stream_openai_chat_completions`  |
+| `translate`   | `/v1/responses`                | non-stream| `egress.translate.proxy_openai_responses`          |
+| `translate`   | `/v1/responses`                | stream    | `egress.translate.stream_openai_responses`         |
 
 The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
@@ -178,10 +180,13 @@ LiteLLM as the `api_key` kwarg; it does not write headers.)
 
 **Resolution order for the header shape (highest first):**
 
-1. **OAuth detection** — value starts with `sk-ant-oat` →
+1. **OAuth detection** — `provider: anthropic` rule whose
+   `api_key_env` value starts with `sk-ant-oat` →
    `Authorization: Bearer <token>` + `anthropic-beta: oauth-2025-04-20`
    (overrides everything; api.anthropic.com 401s on `x-api-key` for
-   that credential class).
+   that credential class). The provider guard is required: a
+   non-anthropic rule whose env var happens to start with that prefix
+   does not get OAuth headers.
 2. **Per-rule `action.auth_header` override** — explicit
    `x-api-key` or `bearer` value on the rule.
 3. **Provider default** — `provider: anthropic` → `x-api-key`,
@@ -227,6 +232,8 @@ Two phases — `create_app()` (synchronous, builds the FastAPI app) and
    Refresher exists.
 4. Register the four POST handlers + three auxiliary GET/DELETE
    handlers (`ingress/http/handlers.py`) for `/v1/responses/{id}*`.
+5. Register the `GET /v1/models` registry-backed endpoint
+   (`ingress/http/models.py`).
 
 **`_lifespan()` — async, runs at startup:**
 

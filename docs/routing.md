@@ -138,8 +138,8 @@ Each is a single-key dict applied in list order:
 
 `jq_patch`, `set_model`, and `compress` mark the request body as dirty.
 Under `mode: passthrough`, a dirty body forces re-serialisation,
-breaking prompt-cache byte-exactness; the loader logs a warning per
-offending rule at startup.
+breaking prompt-cache byte-exactness; the loader debug-logs each
+offending rule at startup (event `routing.passthrough_body_touch`).
 
 #### `compress`
 
@@ -239,7 +239,7 @@ Loader rejects (raises `RoutingConfigError`):
 - regex / glob / jq programs that fail to compile
 - `mode: passthrough` rules without `base_url`
 
-Loader warns (structlog `routing.passthrough_body_touch`):
+Loader debug-logs (structlog `routing.passthrough_body_touch`):
 
 - a `mode: passthrough` rule combined with a body-touching rewrite
   (`set_model` or `jq_patch`) — re-serialisation breaks byte-exact

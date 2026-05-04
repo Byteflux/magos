@@ -67,7 +67,7 @@ src/magos/
       lifespan.py   # async context manager (Headroom warmup, refresher start, kompress)
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
-      headers.py    # _BLOCKED_FORWARD_HEADERS + filter
+      headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
       models.py     # GET /v1/models (registry-backed, OpenAI/Anthropic shape)
       admin.py      # /admin/registry/* mount
     mitm/            # optional in-process mitmproxy ingress (HTTPS_PROXY interception)
@@ -76,7 +76,7 @@ src/magos/
       log_bridge.py # mitmproxy stdlib-logging records -> structlog
 
   routing/           # the rule engine (the product)
-    schema.py        # pydantic schemas for magos.yaml rules
+    schema.py        # pydantic schemas for magos.yaml rules (incl. GuardedRewrites)
     request.py       # RoutedRequest dataclass
     matchers.py      # match-expression evaluator (registry-aware)
     engine.py        # route(req, cfg, registry=...) -> RouteDecision | RouteError
@@ -91,7 +91,7 @@ src/magos/
       compress.py    # Compress + model_limit resolution + sentence_transformers preload
 
   egress/            # how requests leave
-    dispatch.py      # RouteDecision -> execution branch
+    dispatch.py      # RouteDecision -> execution branch (re-exports DispatchError)
     auth.py          # provider-aware API-key + header injection
     passthrough.py   # byte-exact same-shape forwarding
     tokens.py        # async count_tokens via litellm.acount_tokens
@@ -124,7 +124,7 @@ src/magos/
       noop.py
 
   cli/               # operator CLI; entrypoint is magos.cli.app:main
-    app.py           # root Typer app, --config / --version, default-to-serve
+    app.py           # root Typer app, --home / --config / --models / --version
     serve.py         # `serve` command + bootstrap (logging/tracing config + log event)
     models.py        # `magos models {list,show,refresh,prune,discover}` subapp
     _helpers.py      # shared state-loading + print helpers (admin_client, load_state, print_list)
@@ -156,9 +156,9 @@ tests/
   conftest.py            # pytest fixtures (loaded automatically)
   fixtures/              # test routing yaml
   cli/, config/, egress/{translate/}, ingress/{http,mitm}/,
-  registry/, routing/{rewrites/}/
+  registry/, routing/{rewrites/}/, telemetry/
   test_main_module.py, test_serve.py, test_smoke.py,
-  test_telemetry.py, test_e2e.py, test_e2e_agent_sdk.py
+  test_e2e.py, test_e2e_agent_sdk.py
 ```
 
 Plain helper functions (request builders, sample payloads, TestClient
