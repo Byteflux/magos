@@ -1,8 +1,8 @@
 # Headroom integration notes
 
 Reference for how Headroom works under magos and the non-obvious findings
-behind the integration in `src/magos/routing/rewrites.py`. Verified
-against `headroom-ai==0.10.16`.
+behind the integration in `src/magos/routing/rewrites/compress.py`.
+Verified against `headroom-ai==0.10.16`.
 
 ## What Headroom is
 
@@ -91,14 +91,14 @@ CacheAligner -> ContentRouter -> IntelligentContext
   and works around the load-order bug by force-importing
   `sentence_transformers` first. Two preload sites:
 
-  - `_preload_sentence_transformers()` in `rewrites.py` runs
+  - `_preload_sentence_transformers()` in `rewrites/compress.py` runs
     immediately before any headroom import inside `_apply_compress`
     and `_apply_cache_aligner`. In a pure FastAPI deployment this is
     sufficient because `magos.ingress.http` does not transitively load
     cryptography at import time (verified against `litellm` and
     `magos.ingress.http`'s `sys.modules` graph).
   - `tests/conftest.py` does the preload at session start. Required
-    because `tests/test_addon.py` imports `mitmproxy.http` which loads
+    because `tests/ingress/mitm/test_addon.py` imports `mitmproxy.http` which loads
     cryptography Rust before the cache-align test gets a chance to
     preload.
 
@@ -250,7 +250,7 @@ The LiteLLM provider implementation
 reads `max_input_tokens`.
 
 The simple `headroom.compress()` API skips all of this and trusts the
-caller. Magos's `_apply_compress` (`rewrites.py`) resolves
+caller. Magos's `_apply_compress` (`rewrites/compress.py`) resolves
 `model_limit` itself via `_resolve_model_limit(dispatch_model,
 registry=...)`, walking three sources in order:
 
@@ -404,7 +404,7 @@ The Responses `instructions` string is wrapped as a synthetic
 `[{"role": "system", "content": instructions}]` and fed to CacheAligner.
 The aligner mutates the message's `content` in place; we read it back
 and write it to `instructions`. No new messages are introduced. See
-`_apply_compress_responses` in `rewrites.py`.
+`_apply_compress_responses` in `rewrites/compress.py`.
 
 Compressing `input` is not implemented. It would require a round-trip
 converter for `input_text` / `message` / `function_call` / etc. items,
@@ -448,13 +448,14 @@ Magos mirrors these as the `mode: token | cache` switch on the
 
 ## Where this lives in magos
 
-| File                                  | Purpose                                              |
-|---------------------------------------|------------------------------------------------------|
-| `src/magos/routing/schema.py`         | `Compress`, `CompressOptions`, `CompressMode` schema |
-| `src/magos/routing/rewrites.py`       | `_apply_compress`, `_apply_cache_aligner`            |
-| `src/magos/routing/loader.py`         | `Compress` listed in `_rewrites_touch_body`          |
-| `src/magos/ingress/http/lifespan.py`                 | Lifespan warmup hook                                 |
-| `tests/test_routing_rewrites.py`      | Unit tests for both modes + endpoint scoping         |
-| `tests/test_routing_loader.py`        | YAML round-trip + body-touch warning                 |
-| `tests/test_server.py`                | Lifespan warmup behaviour                            |
-| `docs/routing.md`                     | Operator-facing rewrite-op docs                      |
+| File                                            | Purpose                                              |
+|--------------------------------------------------|------------------------------------------------------|
+| `src/magos/routing/schema.py`                    | `Compress`, `CompressOptions`, `CompressMode` schema |
+| `src/magos/routing/rewrites/compress.py`         | `_apply_compress`, `_apply_cache_aligner`, model_limit resolution |
+| `src/magos/routing/loader.py`                    | `Compress` listed in `_rewrites_touch_body`          |
+| `src/magos/ingress/http/lifespan.py`             | Lifespan warmup hook + kompress backend override     |
+| `tests/routing/rewrites/test_compress.py`        | Unit tests for both modes + endpoint scoping         |
+| `tests/routing/rewrites/test_compress_registry.py` | `model_limit` resolution against registry           |
+| `tests/routing/test_loader.py`                   | YAML round-trip + body-touch warning                 |
+| `tests/ingress/http/test_lifespan.py`            | Lifespan warmup + kompress backend behaviour         |
+| `docs/routing.md`                                | Operator-facing rewrite-op docs                      |

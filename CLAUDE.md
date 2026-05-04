@@ -52,10 +52,9 @@ src/magos/
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
 
   config/            # process + yaml configuration
-    settings.py      # MagosSettings (pydantic-settings; env-only overrides)
+    settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
     schema.py        # MagosServerConfig + IngressConfig (yaml `server:` block)
-    loader.py        # load_full_config -> MagosConfig (routing + registry + server)
-    paths.py         # magos_home(), resolve_models_path()
+    loader.py        # load_full_config -> MagosConfig (routing + registry + server) + resolve_models_path
 
   telemetry/         # observability scaffolding
     logging.py       # structlog setup, get_logger
@@ -132,10 +131,12 @@ tests/               # mirrors src/magos/ — see "Test layout" below
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/architecture.md # request lifecycle, lifespan, dispatch matrix, env vars, gotchas
-docs/ingress.md      # mitmproxy HTTPS_PROXY ingress: setup, CA trust, gotchas
-docs/routing.md      # rule grammar, examples, env vars
-docs/registry.md     # registry lifecycle, config, CLI, observability
+docs/cli.md          # operator CLI: top-level options, subcommands, env-var table
+docs/deployment.md   # Docker + compose deployment, GPU/CPU build, volume layout
 docs/headroom.md     # Headroom integration notes + non-obvious findings
+docs/ingress.md      # mitmproxy HTTPS_PROXY ingress: setup, CA trust, gotchas
+docs/registry.md     # registry lifecycle, config, CLI, observability
+docs/routing.md      # rule grammar, examples, env vars
 ```
 
 ### Test layout

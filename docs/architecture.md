@@ -45,10 +45,11 @@ Three roles for the mitmproxy machinery:
    `mitmdump -s -m magos.egress.observer` if the operator prefers an
    out-of-process observer.
 3. **Transitive runtime dependency**: `mitmproxy.http` is imported
-   by `tests/test_addon.py` (and therefore the test suite) regardless
-   of whether ingress is enabled. That import triggers the Windows
-   pyarrow load-order workaround in `tests/conftest.py` — see
-   `docs/headroom.md` "CacheAligner".
+   by `tests/ingress/mitm/test_addon.py` and `tests/egress/test_observer.py`
+   (and therefore the test suite) regardless of whether ingress is
+   enabled. That import triggers the Windows pyarrow load-order
+   workaround in `tests/conftest.py` — see `docs/headroom.md`
+   "CacheAligner".
 
 When ingress is **disabled**, both `magos.ingress.mitm` and
 `magos.egress.observer` are dormant. Routing-layer bugs are still
@@ -249,11 +250,10 @@ directly.
 
 ## `litellm.drop_params = True` is process-global
 
-Set once in `egress/translate/__init__.py` (or
-`egress/translate/payload.py` — wherever the LiteLLM import lives in
-the new layout). LiteLLM silently drops any parameter the destination
-provider doesn't accept (e.g. `reasoning_effort` against a
-non-reasoning model). This is **not per-rule** and not toggleable.
+Set once at module import in `egress/translate/payload.py`. LiteLLM
+silently drops any parameter the destination provider doesn't accept
+(e.g. `reasoning_effort` against a non-reasoning model). This is
+**not per-rule** and not toggleable.
 
 When debugging "param X isn't reaching provider Y": this is the first
 suspect. Confirm by checking LiteLLM's per-provider supported-params
@@ -302,7 +302,9 @@ Resolution order (highest first) for the routing config path:
 `MAGOS_HOME` is a **bootstrap-only env var**: it has no settings field
 on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 `models.json`, and is the resolution base for relative registry paths
-(not CWD, not the yaml file's parent). See `config/paths.py`.
+(not CWD, not the yaml file's parent). The resolution helpers live in
+`config/settings.py` (`magos_home()`) and `config/loader.py`
+(`resolve_models_path`).
 
 | Variable                     | Default       | Purpose                                                |
 |------------------------------|---------------|--------------------------------------------------------|
@@ -354,8 +356,11 @@ Removed env vars (warn on startup, now in YAML —
 - **Completion mocking**: tests use FastAPI's `dependency_overrides`
   against all four DI seams:
   `get_completion`, `get_anthropic_messages_completion`,
-  `get_responses_completion`, `get_count_tokens_completion`
-  (`test_server.py:66-72`).
+  `get_responses_completion`, `get_count_tokens_completion`. The
+  shared TestClient factory lives in `tests/ingress/http/_helpers.py`;
+  per-endpoint files (`test_messages.py`, `test_chat_completions.py`,
+  `test_count_tokens.py`, `test_responses.py`) wire each completion
+  override.
 
 ## Subtleties worth not forgetting
 
