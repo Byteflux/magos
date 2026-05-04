@@ -61,20 +61,21 @@ when `options.baseURL` isn't set. Resolution order:
 
 ## How it works
 
-1. On startup, OpenCode loads `magos.ts` and calls its `server` hook.
-2. The hook's `config` callback ensures `provider.magos` exists in
-   the merged config (no-op if the user already declared one).
-3. The hook's `provider` callback registers `id: "magos"` and a
-   `models()` function.
-4. OpenCode invokes `provider.models(provider, ctx)`, passing the
-   merged provider config. The plugin resolves the magos host
-   (priority: `provider.options.baseURL` → `MAGOS_BASE_URL` →
-   `http://localhost:6246`), `fetch`es `${host}/admin/registry` with a
-   3s timeout, and maps each entry to OpenCode's `ModelV2` shape.
-5. Each `ModelV2` carries `api.npm` and `api.url`, so OpenCode can
-   instantiate the SDK without needing those fields in `opencode.json`.
-6. If magos isn't reachable, the plugin logs a single warning and
-   returns no models — OpenCode still starts cleanly.
+1. On startup, OpenCode loads `magos.ts` and calls its `server` hook,
+   which returns a `config` callback.
+2. The `config` callback fires before OpenCode reads `cfg.provider`,
+   so it can both default missing fields and inject the model dict
+   directly into `cfg.provider.magos.models`.
+3. It resolves the magos host (priority: `provider.magos.options.baseURL`
+   → `MAGOS_BASE_URL` → `http://localhost:6246`), `fetch`es
+   `${host}/admin/registry` with a 3s timeout, and translates each entry
+   to OpenCode's config-model shape.
+4. OpenCode then parses `cfg.provider.magos` (now fully populated)
+   through its config-providers loop and registers magos as a custom
+   provider, models and all.
+5. If magos isn't reachable, the plugin logs a single warning and skips
+   model injection — OpenCode still starts cleanly, but the magos
+   provider will have no models.
 
 Model ids are namespaced (`<magos-provider>/<raw-id>`, e.g.
 `openrouter/x-ai/grok-4.3`) and surface in the OpenCode model picker as
@@ -82,6 +83,13 @@ Model ids are namespaced (`<magos-provider>/<raw-id>`, e.g.
 magos is the same namespaced id (`openrouter/x-ai/grok-4.3`), which is
 what `magos.yaml` rules and the registry-driven auto-router match
 against.
+
+> **Why not `provider.models()`?** That hook exists, but as of opencode
+> 1.14.33 it's silently skipped for any provider not already in the
+> `models.dev` catalog (see `provider/provider.ts:1153` in the opencode
+> source). magos isn't in the catalog, so the only way to register
+> models is through `cfg.provider.magos.models` — which is what the
+> `config` hook populates.
 
 ## Verify
 
