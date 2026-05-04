@@ -27,6 +27,7 @@ Exception ladder around the dispatch call:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Awaitable, Callable
 from typing import Any, cast
@@ -84,7 +85,14 @@ async def run_endpoint(
     cfg = cast(RoutingConfig, request.app.state.routing)
     refresher = cast("Refresher | None", request.app.state.refresher)
     registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
-    decision_or_err = route(
+    # Routing is sync by design but can block on Headroom's Kompress
+    # thread-locked singleton during a cold-cache download (the lock is
+    # held for the full HF download, easily 5-10s on first run).
+    # Offload to a worker thread so the asyncio loop keeps servicing
+    # other requests — and, critically, so the embedded mitm proxy can
+    # flush bytes back to the client instead of stalling the TLS stream.
+    decision_or_err = await asyncio.to_thread(
+        route,
         routed,
         cfg,
         registry=refresher.state if refresher is not None else None,
