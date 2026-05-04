@@ -73,10 +73,15 @@ tests/               # pytest suites (unit, integration, e2e)
   fixtures/          # test routing yaml
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
+docs/architecture.md # request lifecycle, lifespan, dispatch matrix, env vars, gotchas
 docs/routing.md      # rule grammar, examples, env vars
 docs/registry.md     # registry lifecycle, config, CLI, observability
 docs/headroom.md     # Headroom integration notes + non-obvious findings
 ```
+
+**Start with `docs/architecture.md`** for cross-cutting facts (request
+flow, body_dirty contract, passthrough byte-exactness, auth-header
+injection, env vars, gotchas) that aren't tied to a single component.
 
 Translation between Anthropic and OpenAI shapes is delegated to LiteLLM's
 SDK (``litellm.anthropic_messages`` for ``/v1/messages``,
@@ -103,7 +108,7 @@ uv run pre-commit run --all-files
 
 - **Style**: `ruff` (lint + format), 100-col lines, double quotes, PEP 8.
 - **Types**: `mypy --strict` in src/. Tests are exempt from `disallow_untyped_defs`.
-- **Tests**: pytest with markers `unit`, `integration`, `e2e`. Target 80% coverage.
+- **Tests**: pytest; markers `unit`, `integration`, `e2e` are declared but only applied in a handful of files. End-to-end tests gate on `MAGOS_E2E=1`. No coverage threshold is enforced today.
 - **Logging**: `structlog`, never `print()` in src/.
 - **Config**: declarative, parsed via `pydantic` models.
 - **Errors**: handle explicitly at boundaries, never silently swallow.
