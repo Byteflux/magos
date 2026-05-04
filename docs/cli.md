@@ -50,7 +50,7 @@ magos serve --mitm-port 9090           # override MAGOS_MITM_PORT and yaml
 
 Bind precedence (highest first): CLI flags > `MAGOS_*` env >
 yaml `ingress.http` / `ingress.mitm` block > schema defaults
-(`127.0.0.1:8000` for HTTP, `127.0.0.1:8080` for mitm).
+(`127.0.0.1:6246` for HTTP, `127.0.0.1:6247` for mitm).
 
 The CLI bootstrap (logging + tracing config + the
 `server.bootstrapping` log event) happens here, then control hands
@@ -94,10 +94,10 @@ Settings (read from the process env, optionally via `.env`):
 | `MAGOS_CONFIG_PATH`         | `$MAGOS_HOME/magos.yaml`      | Routing config. CLI `--config` wins.       |
 | `MAGOS_MODELS_PATH`         | yaml `registry.models_path` or `$MAGOS_HOME/models.json` | Override registry persistence path.        |
 | `MAGOS_HOST`                | yaml `ingress.http.host` or `127.0.0.1` | HTTP listen host. CLI `--host` wins.   |
-| `MAGOS_PORT`                | yaml `ingress.http.port` or `8000`  | HTTP listen port. CLI `--port` wins.       |
+| `MAGOS_PORT`                | yaml `ingress.http.port` or `6246`  | HTTP listen port. CLI `--port` wins.       |
 | `MAGOS_MITM_ENABLED`        | yaml `ingress.mitm.enabled` or `0`  | Toggle mitm ingress. CLI `--enable-mitm` wins. |
 | `MAGOS_MITM_HOST`           | yaml `ingress.mitm.host` or `127.0.0.1` | mitm listen host. CLI `--mitm-host` wins. |
-| `MAGOS_MITM_PORT`           | yaml `ingress.mitm.port` or `8080`  | mitm listen port. CLI `--mitm-port` wins.  |
+| `MAGOS_MITM_PORT`           | yaml `ingress.mitm.port` or `6247`  | mitm listen port. CLI `--mitm-port` wins.  |
 | `MAGOS_MITM_INTERCEPT_HOSTS`| yaml `ingress.mitm.intercept_hosts` | Comma-separated allow-list of hosts to TLS-terminate. |
 | `MAGOS_LOG_LEVEL`           | `INFO`                        | structlog filter level.                    |
 | `MAGOS_LOG_JSON`            | `0`                           | `1` to emit JSON instead of structured text. |

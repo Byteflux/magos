@@ -33,11 +33,11 @@
 ingress:
   http:
     host: 127.0.0.1
-    port: 8000
+    port: 6246
   mitm:
     enabled: false
     host: 127.0.0.1
-    port: 8080
+    port: 6247
     intercept_hosts:
       - api.anthropic.com
 

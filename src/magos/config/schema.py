@@ -23,7 +23,7 @@ class HttpIngressConfig(_Frozen):
     """FastAPI bind address for the primary HTTP ingress."""
 
     host: str = Field(default="127.0.0.1", min_length=1)
-    port: int = Field(default=8000, ge=1, le=65535)
+    port: int = Field(default=6246, ge=1, le=65535)
 
 
 class MitmIngressConfig(_Frozen):
@@ -43,7 +43,7 @@ class MitmIngressConfig(_Frozen):
 
     enabled: bool = False
     host: str = Field(default="127.0.0.1", min_length=1)
-    port: int = Field(default=8080, ge=1, le=65535)
+    port: int = Field(default=6247, ge=1, le=65535)
     intercept_hosts: tuple[str, ...] = ()
 
 

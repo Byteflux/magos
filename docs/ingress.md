@@ -1,14 +1,14 @@
 # Ingress: transparent HTTPS proxy via mitmproxy
 
 magos's normal mode of operation has clients pointing directly at the
-FastAPI listener (e.g. `ANTHROPIC_BASE_URL=http://localhost:8000`).
+FastAPI listener (e.g. `ANTHROPIC_BASE_URL=http://localhost:6246`).
 For clients that change behavior when their base URL is overridden —
 notably **Claude Code**, which alters auth/feature handling when
 `ANTHROPIC_BASE_URL` is set — that mode is unusable.
 
 The ingress proxy is the workaround. magos runs an embedded
 `mitmproxy` listener alongside FastAPI in the same process. A client
-pointed at `HTTPS_PROXY=http://127.0.0.1:8080` keeps thinking it's
+pointed at `HTTPS_PROXY=http://127.0.0.1:6247` keeps thinking it's
 talking to `api.anthropic.com`; mitmproxy terminates TLS, the addon
 rewrites the decrypted request to magos's loopback FastAPI listener,
 and the response flows back transparently.
@@ -22,27 +22,27 @@ and the response flows back transparently.
 
 For native-`base_url`-aware clients (most LLM SDKs, including
 `anthropic`, `openai`, `litellm`), you don't need the ingress proxy —
-just point them at `http://localhost:8000`.
+just point them at `http://localhost:6246`.
 
 ## Architecture
 
 ```
 ┌──────────── single magos process ─────────────────┐
 │  asyncio event loop                               │
-│  ├── FastAPI (uvicorn)        → listens :8000     │
-│  └── mitmproxy (DumpMaster)   → listens :8080     │
+│  ├── FastAPI (uvicorn)        → listens :6246     │
+│  └── mitmproxy (DumpMaster)   → listens :6247     │
 │       ├── MagosIngressAddon   (rewrite host)      │
 │       ├── MagosObserverAddon  (egress logging)    │
 │       └── structlog bridge    (uniform log shape) │
 └───────────────────────────────────────────────────┘
 ```
 
-Per request: client speaks HTTPS to mitmproxy on 8080 with
+Per request: client speaks HTTPS to mitmproxy on 6247 with
 SNI=`api.anthropic.com`. The addon's `tls_clienthello` hook checks the
 SNI against the allowlist; if it matches, mitmproxy terminates TLS
 with a CA-signed cert for that hostname. The decrypted request hits
 the addon's `request` hook, which rewrites `host`/`port`/`scheme` to
-`127.0.0.1:8000` (HTTP). FastAPI processes per the existing routing
+`127.0.0.1:6246` (HTTP). FastAPI processes per the existing routing
 rules (passthrough or translate), and the response streams back
 through mitmproxy to the client.
 
@@ -80,11 +80,11 @@ fails with a TLS error.
 ingress:
   http:
     host: 127.0.0.1
-    port: 8000
+    port: 6246
   mitm:
     enabled: true
     host: 127.0.0.1
-    port: 8080
+    port: 6247
     intercept_hosts:
       - api.anthropic.com
 ```
@@ -105,13 +105,13 @@ uv run magos serve
 Both listeners come up. Look for:
 
 ```
-ingress.started listen=127.0.0.1:8080 target=127.0.0.1:8000 intercept_hosts=['api.anthropic.com']
+ingress.started listen=127.0.0.1:6247 target=127.0.0.1:6246 intercept_hosts=['api.anthropic.com']
 ```
 
 ### 4. Point Claude Code at it
 
 ```bash
-HTTPS_PROXY=http://127.0.0.1:8080 claude --print "hi"
+HTTPS_PROXY=http://127.0.0.1:6247 claude --print "hi"
 ```
 
 Claude Code keeps using `api.anthropic.com` as the base URL and its
@@ -122,7 +122,7 @@ fires as if the client had hit FastAPI directly.
 ## Loop hazard
 
 **Do not set `HTTPS_PROXY` system-wide while magos is running.** If
-the magos process inherits `HTTPS_PROXY=http://127.0.0.1:8080`, its
+the magos process inherits `HTTPS_PROXY=http://127.0.0.1:6247`, its
 own outbound httpx (passthrough/translate calls to
 `api.anthropic.com`) will re-enter mitmproxy, and you'll see infinite
 loops or stalls.
@@ -149,7 +149,7 @@ hop) instead of infinite, but it doesn't fix the underlying loop.
   `intercept_hosts` includes the host the client is using. SNI
   matching is exact-or-subdomain (e.g. `api.anthropic.com` matches
   `eu.api.anthropic.com`).
-- **`Address already in use` on :8080**: another mitmdump or service
+- **`Address already in use` on :6247**: another mitmdump or service
   has the port. Change `ingress.mitm.port` in yaml (or set
   `MAGOS_MITM_PORT`, or pass `--mitm-port`).
 - **Clients that don't honor `HTTPS_PROXY`**: some tools have their

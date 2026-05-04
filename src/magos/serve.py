@@ -11,7 +11,7 @@ Bind-address layering for FastAPI:
 1. ``--host`` / ``--port`` CLI flags (poked into env by ``__main__``)
 2. ``MAGOS_HOST`` / ``MAGOS_PORT`` env vars
 3. ``ingress.http.host`` / ``ingress.http.port`` in ``magos.yaml``
-4. Schema defaults (127.0.0.1 / 8000) in :class:`HttpIngressConfig`
+4. Schema defaults (127.0.0.1 / 6246) in :class:`HttpIngressConfig`
 
 Steps 1+2 funnel through :class:`MagosSettings`; this module merges
 that with the yaml block via :func:`resolve_bind`.

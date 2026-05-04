@@ -91,7 +91,7 @@ def register(app: typer.Typer) -> None:
                 "-p",
                 min=1,
                 max=65535,
-                help="HTTP listen port (overrides MAGOS_PORT; default 8000).",
+                help="HTTP listen port (overrides MAGOS_PORT; default 6246).",
             ),
         ] = None,
         enable_mitm: Annotated[
@@ -117,7 +117,7 @@ def register(app: typer.Typer) -> None:
                 "--mitm-port",
                 min=1,
                 max=65535,
-                help=("mitmproxy listener port (overrides MAGOS_MITM_PORT; default 8080)."),
+                help=("mitmproxy listener port (overrides MAGOS_MITM_PORT; default 6247)."),
             ),
         ] = None,
     ) -> None:

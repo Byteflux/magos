@@ -21,11 +21,11 @@ interception too — see `docs/ingress.md` for the operator guide.
 
 ```
                        ┌─────────────────── single magos process ──────────────────┐
-client (direct) ──────▶│ FastAPI (uvicorn) :8000                                   │──▶ provider API
+client (direct) ──────▶│ FastAPI (uvicorn) :6246                                   │──▶ provider API
                        │   ingress.http → routing.engine → egress.dispatch         │
                        │                                                           │
-client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :8080  (optional)                    │
-                       │   ├── ingress.mitm.addon (TLS terminate + rewrite to :8000)│
+client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :6247  (optional)                    │
+                       │   ├── ingress.mitm.addon (TLS terminate + rewrite to :6246)│
                        │   ├── egress.observer    (egress logging)                 │
                        │   └── ingress.mitm.log_bridge (mitmproxy log → structlog) │
                        └───────────────────────────────────────────────────────────┘
@@ -311,10 +311,10 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 | `MAGOS_HOME`                 | `~/.magos`    | Data dir; anchors config and registry paths           |
 | `MAGOS_CONFIG_PATH`          | `$MAGOS_HOME/magos.yaml` | Routing config YAML                       |
 | `MAGOS_HOST`                 | (unset)       | Override `ingress.http.host` from yaml; yaml default is `127.0.0.1` |
-| `MAGOS_PORT`                 | (unset)       | Override `ingress.http.port` from yaml; yaml default is `8000` |
+| `MAGOS_PORT`                 | (unset)       | Override `ingress.http.port` from yaml; yaml default is `6246` |
 | `MAGOS_MITM_ENABLED`         | (unset)       | Override `ingress.mitm.enabled`; yaml default is `false`            |
 | `MAGOS_MITM_HOST`            | (unset)       | Override `ingress.mitm.host`; yaml default is `127.0.0.1`           |
-| `MAGOS_MITM_PORT`            | (unset)       | Override `ingress.mitm.port`; yaml default is `8080`                |
+| `MAGOS_MITM_PORT`            | (unset)       | Override `ingress.mitm.port`; yaml default is `6247`                |
 | `MAGOS_MITM_INTERCEPT_HOSTS` | (unset)       | Comma-separated hosts; overrides `ingress.mitm.intercept_hosts`     |
 | `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level                                        |
 | `MAGOS_LOG_JSON`             | `0`           | `1` flips renderer to JSON                             |

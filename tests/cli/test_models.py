@@ -173,7 +173,7 @@ def test_refresh_returns_nonzero_when_server_unreachable(
 ) -> None:
     class _Unreachable:
         def post_refresh(self, *, provider: str | None = None) -> dict[str, Any]:
-            raise AdminClientError("server unreachable at http://localhost:8000")
+            raise AdminClientError("server unreachable at http://localhost:6246")
 
     monkeypatch.setattr(_helpers, "admin_client", lambda _s: _Unreachable())
     result = runner.invoke(models.models_app, ["refresh"])

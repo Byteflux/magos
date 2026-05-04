@@ -23,7 +23,7 @@ def _install_transport(
     so we substitute thin wrappers on the imported ``httpx`` module that
     delegate to a sync ``httpx.Client`` backed by the mock transport.
     """
-    base_url = "http://localhost:8000"
+    base_url = "http://localhost:6246"
     inner = httpx.Client(transport=transport, base_url=base_url)
     monkeypatch.setattr(httpx, "get", lambda url, **_kw: inner.get(url))
     monkeypatch.setattr(

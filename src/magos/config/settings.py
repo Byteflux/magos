@@ -67,7 +67,7 @@ class MagosSettings(BaseSettings):
         le=65535,
         description=(
             "HTTP listen port override. When unset, falls back to "
-            "``ingress.http.port`` in magos.yaml (which itself defaults to 8000)."
+            "``ingress.http.port`` in magos.yaml (which itself defaults to 6246)."
         ),
     )
 
@@ -92,7 +92,7 @@ class MagosSettings(BaseSettings):
         le=65535,
         description=(
             "mitmproxy listener port override. When unset, falls back to "
-            "``ingress.mitm.port`` in magos.yaml (which defaults to 8080)."
+            "``ingress.mitm.port`` in magos.yaml (which defaults to 6247)."
         ),
     )
     mitm_intercept_hosts: tuple[str, ...] | None = Field(

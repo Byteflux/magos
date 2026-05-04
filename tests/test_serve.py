@@ -271,4 +271,4 @@ def test_orchestrator_starts_both_when_enabled(patched_orchestrator: dict[str, A
     # Bind layering propagated through to the master factory.
     kwargs = patched_orchestrator["build_master_kwargs"]
     assert kwargs["target_host"] == "127.0.0.1"
-    assert kwargs["target_port"] == 8000
+    assert kwargs["target_port"] == 6246

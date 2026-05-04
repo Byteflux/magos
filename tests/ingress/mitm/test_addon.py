@@ -24,7 +24,7 @@ def _addon(intercept: tuple[str, ...] = ("api.anthropic.com",)) -> MagosIngressA
     return MagosIngressAddon(
         intercept_hosts=frozenset(intercept),
         target_host="127.0.0.1",
-        target_port=8000,
+        target_port=6246,
     )
 
 
@@ -80,7 +80,7 @@ def test_request_rewrites_allowlisted_host_to_target() -> None:
     flow = _flow("api.anthropic.com")
     addon.request(flow)
     assert flow.request.host == "127.0.0.1"
-    assert flow.request.port == 8000
+    assert flow.request.port == 6246
     assert flow.request.scheme == "http"
     # Path/method/body untouched.
     assert flow.request.path == "/v1/messages"
@@ -93,7 +93,7 @@ def test_request_rewrites_allowlisted_subdomain() -> None:
     flow = _flow("eu.api.anthropic.com")
     addon.request(flow)
     assert flow.request.host == "127.0.0.1"
-    assert flow.request.port == 8000
+    assert flow.request.port == 6246
 
 
 @pytest.mark.unit
@@ -114,9 +114,9 @@ def test_request_skips_when_already_at_target() -> None:
     keeps the loop visible at most once instead of silently swallowing it.
     """
     addon = _addon(intercept=("127.0.0.1",))  # forced overlap
-    flow = _flow("127.0.0.1", port=8000, scheme="http")
+    flow = _flow("127.0.0.1", port=6246, scheme="http")
     addon.request(flow)
     # Still the same target; addon was a no-op.
     assert flow.request.host == "127.0.0.1"
-    assert flow.request.port == 8000
+    assert flow.request.port == 6246
     assert flow.request.scheme == "http"

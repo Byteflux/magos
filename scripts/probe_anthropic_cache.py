@@ -7,7 +7,7 @@ pre_rewrite over the Anthropic passthrough rule) preserve cache hits.
 
 Two passes:
 
-1. Through magos (default ``http://127.0.0.1:8000``).
+1. Through magos (default ``http://127.0.0.1:6246``).
 2. Direct to ``api.anthropic.com`` as a control.
 
 For each pass: call once to write the cache, call again to read it. A
@@ -26,7 +26,7 @@ Usage::
 
 Optional env::
 
-    MAGOS_URL=http://127.0.0.1:8000        (default)
+    MAGOS_URL=http://127.0.0.1:6246        (default)
     MODEL=claude-sonnet-4-6                (default; must satisfy Anthropic's
                                             min cacheable tokens for the model)
 """
@@ -46,7 +46,7 @@ from dotenv import load_dotenv
 # way our tests pick it up.
 load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
 
-MAGOS_URL = os.environ.get("MAGOS_URL", "http://127.0.0.1:8000").rstrip("/")
+MAGOS_URL = os.environ.get("MAGOS_URL", "http://127.0.0.1:6246").rstrip("/")
 ANTHROPIC_URL = "https://api.anthropic.com"
 MODEL = os.environ.get("MODEL", "claude-haiku-4-5-20251001")
 API_KEY = os.environ.get("ANTHROPIC_API_KEY")

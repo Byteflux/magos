@@ -9,7 +9,7 @@ out-of-process::
 
 Then point magos's outbound calls at it::
 
-    HTTPS_PROXY=http://localhost:8080 python -m magos
+    HTTPS_PROXY=http://localhost:8080 python -m magos serve
 
 LiteLLM uses ``httpx`` under the hood and ``httpx`` honours ``HTTPS_PROXY``
 automatically. mitmproxy must be trusted as a CA in the runtime environment

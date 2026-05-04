@@ -114,7 +114,7 @@ first:
 2. `.env` / `env_file` / shell env.
 3. `Dockerfile` `ENV` defaults.
 4. yaml defaults from `magos.yaml`.
-5. magos's hardcoded fallbacks (`127.0.0.1:8000`, etc.).
+5. magos's schema defaults (`127.0.0.1:6246` HTTP, `:6247` mitm).
 
 Notable: `MAGOS_HOST=0.0.0.0` in the Dockerfile is what makes the
 container reachable from the host's mapped port. Don't override it
@@ -123,7 +123,7 @@ back to loopback unless you know what you're doing.
 ## Loop hazard with mitmproxy ingress
 
 If you enable `ingress.mitm.enabled: true` in yaml, the container
-runs both FastAPI (default 2570) and mitmproxy (default 8080). The
+runs both FastAPI (default 2570) and mitmproxy (default 6247). The
 client `HTTPS_PROXY` setting is yours to manage on the host;
 [`docs/ingress.md`](ingress.md) covers the loop-hazard caveat in
 detail. Map both ports if you intend to use the proxy from outside the
