@@ -1,0 +1,141 @@
+"""Process orchestrator: run FastAPI and (optional) mitmproxy on one loop.
+
+When ``server.ingress.enabled`` is true in ``magos.yaml``, an embedded
+``DumpMaster`` runs alongside uvicorn as a sibling asyncio task. A
+client pointing ``HTTPS_PROXY`` at the ingress listener can then reach
+magos's routing rules transparently — see ``docs/ingress.md`` for
+operator setup.
+
+Bind-address layering for FastAPI:
+
+1. ``--host`` / ``--port`` CLI flags (poked into env by ``__main__``)
+2. ``MAGOS_HOST`` / ``MAGOS_PORT`` env vars
+3. ``server.host`` / ``server.port`` in ``magos.yaml``
+4. Schema defaults (127.0.0.1 / 8000) in :class:`MagosServerConfig`
+
+Steps 1+2 funnel through :class:`MagosSettings`; this module merges
+that with the yaml block via :func:`resolve_bind`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+import uvicorn
+
+from magos import __version__
+from magos.config import MagosSettings
+from magos.config_loader import MagosConfig, load_full_config
+from magos.ingress.log_bridge import install_log_bridge
+from magos.ingress.master import build_ingress_master
+from magos.obs import get_logger
+from magos.server import create_app
+from magos.server_config import MagosServerConfig
+
+log = get_logger("magos.serve")
+
+# How long to wait for FastAPI to finish lifespan startup before kicking
+# off the mitm task. Polling is fine here — uvicorn flips ``started``
+# only after the lifespan completes (Headroom warmup, registry refresher
+# init), so the mitm listener can't accept a request that races a
+# half-warm app.
+_FASTAPI_READY_POLL_SECONDS = 0.05
+
+
+def resolve_bind(settings: MagosSettings, server_cfg: MagosServerConfig) -> tuple[str, int]:
+    """Resolve FastAPI bind host/port from env-or-yaml, env winning.
+
+    Treats empty strings from env as unset so an accidentally-blank
+    ``MAGOS_HOST=`` doesn't shadow a real yaml default.
+    """
+    host = settings.host or server_cfg.host
+    port = settings.port if settings.port is not None else server_cfg.port
+    return host, port
+
+
+def serve(*, settings: MagosSettings | None = None) -> None:
+    """Synchronous entrypoint: build app, run orchestrator under asyncio."""
+    settings = settings or MagosSettings()
+    asyncio.run(serve_async(settings=settings))
+
+
+async def serve_async(*, settings: MagosSettings) -> None:
+    """Run uvicorn + (optional) mitm ingress until either shuts down.
+
+    On first task done (clean exit, crash, or signal), cancels the
+    other so a single SIGINT brings the whole process down without
+    orphan listeners.
+    """
+    cfg: MagosConfig = load_full_config(settings.config_path)
+    bind_host, bind_port = resolve_bind(settings, cfg.server)
+
+    log.info(
+        "serve.starting",
+        version=__version__,
+        host=bind_host,
+        port=bind_port,
+        ingress_enabled=cfg.server.ingress.enabled,
+        config_path=settings.config_path,
+    )
+
+    app = create_app(routing=cfg.routing, registry=cfg.registry)
+    uvi_config = uvicorn.Config(
+        app,
+        host=bind_host,
+        port=bind_port,
+        log_config=None,
+        access_log=settings.access_log,
+    )
+    uvi_server = uvicorn.Server(uvi_config)
+
+    fastapi_task = asyncio.create_task(uvi_server.serve(), name="magos.fastapi")
+
+    if not cfg.server.ingress.enabled or not cfg.server.ingress.intercept_hosts:
+        if cfg.server.ingress.enabled:
+            log.warning(
+                "ingress.no_intercept_hosts",
+                hint="server.ingress.enabled is true but intercept_hosts is empty; ingress proxy not started",
+            )
+        await fastapi_task
+        return
+
+    # Wait for the FastAPI lifespan to complete (Headroom warmup,
+    # registry refresher start, /metrics provider configured) before
+    # the ingress listener can accept its first request. uvicorn flips
+    # ``Server.started`` when its lifespan event finishes — there is no
+    # event we can await directly, so polling is the documented idiom.
+    while not uvi_server.started and not fastapi_task.done():  # noqa: ASYNC110
+        await asyncio.sleep(_FASTAPI_READY_POLL_SECONDS)
+    if fastapi_task.done():
+        # FastAPI failed during startup; surface the exception.
+        fastapi_task.result()
+        return
+
+    install_log_bridge()
+    master = build_ingress_master(cfg.server.ingress, target_host=bind_host, target_port=bind_port)
+    mitm_task = asyncio.create_task(master.run(), name="magos.mitm")
+    log.info(
+        "ingress.started",
+        listen=f"{cfg.server.ingress.listen_host}:{cfg.server.ingress.listen_port}",
+        target=f"{bind_host}:{bind_port}",
+        intercept_hosts=list(cfg.server.ingress.intercept_hosts),
+    )
+
+    done, pending = await asyncio.wait(
+        {fastapi_task, mitm_task}, return_when=asyncio.FIRST_COMPLETED
+    )
+    # Whichever finished first triggers shutdown of the other. Use the
+    # task's own shutdown hook when available so listeners close cleanly
+    # before we cancel.
+    if mitm_task in pending:
+        master.shutdown()  # type: ignore[no-untyped-call]
+    if fastapi_task in pending:
+        uvi_server.should_exit = True
+    for task in pending:
+        try:
+            await asyncio.wait_for(task, timeout=5.0)
+        except (TimeoutError, asyncio.CancelledError):
+            task.cancel()
+    # Re-raise the first exception, if any, so process exit code reflects it.
+    for task in done:
+        task.result()

@@ -21,9 +21,13 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
     monkeypatch.delenv("MAGOS_HOME", raising=False)
     monkeypatch.delenv("MAGOS_MODELS_PATH", raising=False)
+    monkeypatch.delenv("MAGOS_HOST", raising=False)
+    monkeypatch.delenv("MAGOS_PORT", raising=False)
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    assert s.host == "127.0.0.1"
-    assert s.port == 8000
+    # ``host``/``port`` default to None on MagosSettings now; the actual
+    # bind values come from yaml's server block via ``resolve_bind``.
+    assert s.host is None
+    assert s.port is None
     assert s.log_level == "INFO"
     assert s.log_json is False
     assert s.otel_enabled is False

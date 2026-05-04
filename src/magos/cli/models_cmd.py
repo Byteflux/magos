@@ -34,12 +34,20 @@ models_app = typer.Typer(
 
 
 def _admin_client(settings: MagosSettings) -> AdminClient:
-    """Build an admin client targeting the local server's bind address."""
+    """Build an admin client targeting the local server's bind address.
+
+    Mirrors the env-over-yaml layering :func:`magos.serve.resolve_bind`
+    uses so the CLI hits the same listener the orchestrator opens.
+    """
+    from magos.serve import resolve_bind  # noqa: PLC0415  - keeps cli import tree light
+
+    cfg = load_full_config(settings.config_path)
+    resolved_host, resolved_port = resolve_bind(settings, cfg.server)
     # Bind addresses like 0.0.0.0 / :: aren't valid HTTP hosts; resolve to
     # loopback so the CLI talks to the local instance.
     bind_all = {"0.0.0.0", "::"}  # noqa: S104  - not binding, just comparing
-    host = "127.0.0.1" if settings.host in bind_all else settings.host
-    return AdminClient(f"http://{host}:{settings.port}")
+    host = "127.0.0.1" if resolved_host in bind_all else resolved_host
+    return AdminClient(f"http://{host}:{resolved_port}")
 
 
 def _load_state_from_disk(settings: MagosSettings) -> RegistryState:

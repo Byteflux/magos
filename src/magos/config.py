@@ -67,8 +67,22 @@ class MagosSettings(BaseSettings):
         frozen=True,
     )
 
-    host: str = Field(default="127.0.0.1", description="HTTP listen host")
-    port: int = Field(default=8000, ge=1, le=65535, description="HTTP listen port")
+    host: str | None = Field(
+        default=None,
+        description=(
+            "HTTP listen host override. When unset, falls back to "
+            "``server.host`` in magos.yaml (which itself defaults to 127.0.0.1)."
+        ),
+    )
+    port: int | None = Field(
+        default=None,
+        ge=1,
+        le=65535,
+        description=(
+            "HTTP listen port override. When unset, falls back to "
+            "``server.port`` in magos.yaml (which itself defaults to 8000)."
+        ),
+    )
 
     log_level: str = Field(default="INFO", description="structlog filter level")
     log_json: bool = Field(default=False, description="render structlog as JSON")

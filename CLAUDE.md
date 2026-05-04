@@ -29,14 +29,20 @@ LLM inference API proxy built on mitmproxy. Translates between Anthropic and Ope
 ```
 src/magos/
   __main__.py        # entrypoint (`magos [serve|models …]`)
-  config.py          # MagosSettings (pydantic-settings)
-  config_loader.py   # load_full_config -> MagosConfig (routing + registry)
-  server.py          # FastAPI app, lifespan starts Refresher + /metrics
+  config.py          # MagosSettings (pydantic-settings; env-only overrides)
+  config_loader.py   # load_full_config -> MagosConfig (routing + registry + server)
+  server_config.py   # MagosServerConfig schema (yaml `server:` block + ingress)
+  serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
+  server.py          # FastAPI app + lifespan
   proxy.py           # translate-mode dispatch into litellm SDK call sites
-  addon.py           # mitmproxy addon
+  addon.py           # mitmproxy egress observer addon (host-allowlisted logging)
   passthrough.py     # byte-exact same-shape forwarding
   tokens.py          # async count_tokens via litellm.acount_tokens
   obs.py             # logging + tracing setup
+  ingress/           # in-process mitmproxy ingress (HTTPS_PROXY interception)
+    addon.py         # MagosIngressAddon: TLS termination + rewrite to FastAPI
+    log_bridge.py    # mitmproxy stdlib-logging records -> structlog
+    master.py        # build_ingress_master factory (DumpMaster + addons)
   routing/           # declarative rule-based routing
     models.py        # pydantic schemas for magos.yaml (incl. ModelFieldAtom)
     request.py       # RoutedRequest dataclass
@@ -74,6 +80,7 @@ tests/               # pytest suites (unit, integration, e2e)
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/architecture.md # request lifecycle, lifespan, dispatch matrix, env vars, gotchas
+docs/ingress.md      # mitmproxy HTTPS_PROXY ingress: setup, CA trust, gotchas
 docs/routing.md      # rule grammar, examples, env vars
 docs/registry.md     # registry lifecycle, config, CLI, observability
 docs/headroom.md     # Headroom integration notes + non-obvious findings

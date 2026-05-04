@@ -12,27 +12,46 @@ For component-specific deep-dives:
 
 ## Process topology
 
-Magos is a **single FastAPI process**. The mitmproxy addon
-(`src/magos/addon.py`) is **optional, observational, and lives in a
-separate `mitmdump` process**. It logs egress LLM-provider traffic and
-does not modify, route, or translate anything. Routing bugs are never
-in `addon.py`.
+Magos runs as a **single Python process**. By default it listens only
+on the FastAPI port and clients hit it directly. When
+`server.ingress.enabled` is true in `magos.yaml`, an embedded
+`mitmproxy` listener runs alongside FastAPI on the same asyncio loop
+(`magos.serve`) so a client pointed at `HTTPS_PROXY=...` sees TLS
+interception too — see `docs/ingress.md` for the operator guide.
 
 ```
-                      ┌─────────────────────────────────────┐
-client ─── HTTP ──▶   │ FastAPI (uvicorn)                   │ ──▶ provider API
-                      │  server.py → route() → dispatch()   │
-                      └─────────────────────────────────────┘
-                                                                  ▲
-                      (optional, observational only) ──────────── │
-                      ┌──────────────────────┐                    │
-                      │ mitmdump + addon.py  │ ───── HTTPS MITM ──┘
-                      └──────────────────────┘
+                       ┌─────────────────── single magos process ──────────────────┐
+client (direct) ──────▶│ FastAPI (uvicorn) :8000                                   │──▶ provider API
+                       │   server.py → route() → dispatch()                        │
+                       │                                                           │
+client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :8080  (optional)                    │
+                       │   ├── MagosIngressAddon  (TLS terminate + rewrite to :8000)│
+                       │   ├── MagosObserverAddon (egress logging)                 │
+                       │   └── structlog bridge   (uniform log shape)              │
+                       └───────────────────────────────────────────────────────────┘
 ```
 
-The two processes share **no state**. Anything the FastAPI process
-warms (Headroom pipeline, Kompress weights, registry, env-driven
-monkey-patches) does not propagate to the mitmproxy process.
+Three roles for the mitmproxy machinery:
+
+1. **In-process ingress (when configured)**: rewrites incoming
+   intercepted requests to the FastAPI loopback. Same process, same
+   asyncio loop — `magos.serve.serve_async` gathers both as named
+   tasks and shuts both down on first-task-done.
+2. **Optional out-of-process egress observer**: the historical use
+   for `src/magos/addon.py`. Run separately as
+   `mitmdump -s src/magos/addon.py` with `HTTPS_PROXY` set on
+   magos's own outbound to log provider responses. Today this is
+   rarely useful — `MagosObserverAddon` is also loaded by the
+   in-process master, so most operators won't need a second process.
+3. **Transitive runtime dependency**: `mitmproxy.http` is imported
+   by `tests/test_addon.py` (and therefore the test suite) regardless
+   of whether ingress is enabled. That import triggers the Windows
+   pyarrow load-order workaround in `tests/conftest.py` — see
+   `docs/headroom.md` "CacheAligner".
+
+When ingress is **disabled**, `addon.py` and `ingress/` are dormant.
+Routing-layer bugs are still never in either; routing always lives in
+`magos.routing` regardless of how the request entered.
 
 ## Request lifecycle
 
@@ -155,17 +174,33 @@ account.
 Two phases — `create_app()` (synchronous, builds the FastAPI app) and
 `_lifespan()` (async, runs once when uvicorn starts the app).
 
+**`magos.serve.serve_async()` — top-level orchestrator:**
+
+1. Resolve config path: `--config` flag → `MAGOS_CONFIG_PATH` →
+   `$MAGOS_HOME/magos.yaml` (default `~/.magos/magos.yaml`).
+   `load_full_config()` parses routing + registry + server blocks.
+2. Resolve FastAPI bind via `resolve_bind(settings, server_cfg)`:
+   `MAGOS_HOST` env > `server.host` yaml > schema default
+   (`127.0.0.1`). Same for port.
+3. Build the FastAPI app via `create_app(routing=..., registry=...)`
+   and the uvicorn `Server`.
+4. Start the FastAPI task; wait on `Server.started` (poll, no event
+   surface) so the lifespan completes before any ingress accepts.
+5. If `server.ingress.enabled` and `intercept_hosts` non-empty:
+   install the structlog bridge, build the `DumpMaster` via
+   `build_ingress_master`, start the mitm task.
+6. `asyncio.wait(..., FIRST_COMPLETED)`: when one task ends, signal
+   the other to shut down (uvicorn `should_exit`, mitm `shutdown()`),
+   then surface any exception.
+
 **`create_app()` — sync, builds app object:**
 
-1. Resolve config: `--config` flag → `MAGOS_CONFIG_PATH` →
-   `$MAGOS_HOME/magos.yaml` (default `~/.magos/magos.yaml`).
-   `load_full_config()` parses both routing + registry blocks.
-2. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
+1. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
    (RegistryYaml), `refresher` (Refresher | None — None when
    `providers:` is empty).
-3. Mount `/metrics` endpoint if `MAGOS_METRICS_ENABLED=1`.
-4. Mount `/admin/registry/*` endpoints if a Refresher exists.
-5. Register the four POST handlers + three auxiliary
+2. Mount `/metrics` endpoint if `MAGOS_METRICS_ENABLED=1`.
+3. Mount `/admin/registry/*` endpoints if a Refresher exists.
+4. Register the four POST handlers + three auxiliary
    GET/DELETE handlers for `/v1/responses/{id}*`.
 
 **`_lifespan()` — async, runs at startup:**
@@ -264,8 +299,8 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 |------------------------------|---------------|--------------------------------------------------------|
 | `MAGOS_HOME`                 | `~/.magos`    | Data dir; anchors config and registry paths           |
 | `MAGOS_CONFIG_PATH`          | `$MAGOS_HOME/magos.yaml` | Routing config YAML                       |
-| `MAGOS_HOST`                 | `127.0.0.1`   | HTTP bind host                                         |
-| `MAGOS_PORT`                 | `8000`        | HTTP bind port                                         |
+| `MAGOS_HOST`                 | (unset)       | Override `server.host` from yaml; yaml default is `127.0.0.1` |
+| `MAGOS_PORT`                 | (unset)       | Override `server.port` from yaml; yaml default is `8000` |
 | `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level                                        |
 | `MAGOS_LOG_JSON`             | `0`           | `1` flips renderer to JSON                             |
 | `MAGOS_LOG_COLOR`            | auto-TTY      | `0`/`1` overrides TTY autodetect                       |
@@ -322,7 +357,11 @@ Removed env vars (warn on startup, now in YAML — `config.py:39-41`):
   normalisation. No LiteLLM round-trip.
 - **`litellm.drop_params=True` is global.** Suspect this first when a
   param vanishes.
-- **mitmproxy addon is observational.** It is not in the request path.
+- **mitmproxy is opt-in for ingress.** When `server.ingress.enabled`
+  is false (the default), mitmproxy is completely dormant — no
+  listener, no addon hooks running. When enabled, it terminates TLS
+  for allowlisted hosts and rewrites to FastAPI loopback; routing
+  itself still happens in FastAPI.
 - **`sentence_transformers` preload in conftest is load-bearing**
   (Windows-only crash, but the preload is unconditional so CI/Linux
   pays nothing).

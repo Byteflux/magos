@@ -15,7 +15,7 @@ use ``load_full_config`` to get both halves.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -27,14 +27,16 @@ from magos.registry.schema import ProviderConfig, RegistryYaml
 from magos.routing.loader import RoutingConfigError
 from magos.routing.loader import load_config as load_routing_config
 from magos.routing.models import RoutingConfig
+from magos.server_config import MagosServerConfig
 
 
 @dataclass(frozen=True, slots=True)
 class MagosConfig:
-    """Routing rules and registry config parsed from a single YAML file."""
+    """Routing rules, registry config, and server config from a single YAML file."""
 
     routing: RoutingConfig
     registry: RegistryYaml
+    server: MagosServerConfig = field(default_factory=MagosServerConfig)
     source: Path = Path()  # the yaml file the config was loaded from
 
 
@@ -82,7 +84,8 @@ def load_full_config(path: str | Path) -> MagosConfig:
     routing = load_routing_config(path)
     registry = _parse_registry_block(path)
     registry = _normalize_provider_base_urls(registry)
-    return MagosConfig(routing=routing, registry=registry, source=Path(path))
+    server = _parse_server_block(path)
+    return MagosConfig(routing=routing, registry=registry, server=server, source=Path(path))
 
 
 def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
@@ -125,3 +128,18 @@ def _parse_registry_block(path: str | Path) -> RegistryYaml:
         return RegistryYaml.model_validate(subset)
     except ValidationError as exc:
         raise RoutingConfigError(f"{p}: invalid registry config: {exc}") from exc
+
+
+def _parse_server_block(path: str | Path) -> MagosServerConfig:
+    p = Path(path)
+    raw = p.read_text(encoding="utf-8")
+    data = yaml.safe_load(raw) or {}
+    if not isinstance(data, dict):
+        raise RoutingConfigError(
+            f"{p}: top-level YAML must be a mapping, got {type(data).__name__}"
+        )
+    block = data.get("server", {})
+    try:
+        return MagosServerConfig.model_validate(block)
+    except ValidationError as exc:
+        raise RoutingConfigError(f"{p}: invalid server config: {exc}") from exc

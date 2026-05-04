@@ -34,12 +34,12 @@ import os
 from typing import Annotated
 
 import typer
-import uvicorn
 
 from magos import __version__
 from magos.cli.models_cmd import models_app
 from magos.config import MagosSettings
 from magos.obs import configure_logging, configure_tracing, get_logger
+from magos.serve import serve as serve_orchestrator
 
 app = typer.Typer(
     name="magos",
@@ -52,10 +52,13 @@ app.add_typer(models_app, name="models")
 
 
 def serve(host: str | None = None, port: int | None = None) -> None:
-    """Boot the FastAPI server under uvicorn using current ``MagosSettings``.
+    """Boot the FastAPI server (and optional mitm ingress) under one process.
 
     ``host`` and ``port`` override the values resolved from the environment
-    (``MAGOS_HOST`` / ``MAGOS_PORT``) when supplied via the CLI.
+    (``MAGOS_HOST`` / ``MAGOS_PORT``); env in turn overrides ``server.host``
+    / ``server.port`` from ``magos.yaml``. The mitm ingress is started
+    alongside FastAPI when ``server.ingress.enabled`` is true in yaml — see
+    ``docs/ingress.md`` for setup.
     """
     if host is not None:
         os.environ["MAGOS_HOST"] = host
@@ -66,10 +69,8 @@ def serve(host: str | None = None, port: int | None = None) -> None:
     configure_tracing(endpoint=settings.otel_endpoint, enabled=settings.otel_enabled)
     log = get_logger("magos")
     log.info(
-        "server.starting",
+        "server.bootstrapping",
         version=__version__,
-        host=settings.host,
-        port=settings.port,
         config_path=settings.config_path,
         models_path_override=settings.models_path,
         log_level=settings.log_level,
@@ -79,14 +80,7 @@ def serve(host: str | None = None, port: int | None = None) -> None:
         access_log=settings.access_log,
         kompress_backend=settings.kompress_backend,
     )
-    uvicorn.run(
-        "magos.server:create_app",
-        factory=True,
-        host=settings.host,
-        port=settings.port,
-        log_config=None,
-        access_log=settings.access_log,
-    )
+    serve_orchestrator(settings=settings)
 
 
 def _version_callback(value: bool) -> None:
