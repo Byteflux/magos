@@ -171,6 +171,17 @@ filterwarnings = [
     # we do not use websockets, but the import path triggers the warning.
     "ignore:websockets.legacy is deprecated:DeprecationWarning",
     "ignore:websockets.server.WebSocketServerProtocol is deprecated:DeprecationWarning",
+    # mitmproxy's flowfilter / command_lexer use pyparsing's pre-2.x camelCase
+    # API. Pyparsing now warns on every alias; nothing we can fix downstream.
+    "ignore::pyparsing.warnings.PyparsingDeprecationWarning",
+    # ldap3 (a transitive dep of mitmproxy) accesses removed pyasn1 globals
+    # (tagMap, typeMap) on import.
+    "ignore:tagMap is deprecated:DeprecationWarning",
+    "ignore:typeMap is deprecated:DeprecationWarning",
+    # SWIG-generated bindings (pulled in via pdfminer / mitmproxy chain) lack
+    # __module__ on their builtin types; importlib whines on every load.
+    "ignore:builtin type Swig.* has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
 ]
 
 [tool.coverage.run]
