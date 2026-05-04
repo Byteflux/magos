@@ -121,8 +121,11 @@ src/magos/
       vultr.py
       noop.py
 
-  cli/               # operator CLI dispatched from __main__
-    models_cmd.py    # magos models {list,show,refresh,prune,discover}
+  cli/               # operator CLI; entrypoint is magos.cli.app:main
+    app.py           # root Typer app, --config / --version, default-to-serve
+    serve.py         # `serve` command + bootstrap (logging/tracing config + log event)
+    models.py        # `magos models {list,show,refresh,prune,discover}` subapp
+    _helpers.py      # shared state-loading + print helpers (admin_client, load_state, print_list)
     admin_client.py  # tiny httpx wrapper for /admin/registry endpoints
 magos.example.yaml   # routing config to copy and customise
 tests/               # mirrors src/magos/ — see "Test layout" below

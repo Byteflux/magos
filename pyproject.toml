@@ -37,7 +37,7 @@ dependencies = [
 ]
 
 [project.scripts]
-magos = "magos.__main__:main"
+magos = "magos.cli.app:main"
 
 [dependency-groups]
 dev = [

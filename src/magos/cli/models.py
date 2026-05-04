@@ -1,28 +1,33 @@
-"""``magos models`` Typer subapp."""
+"""``magos models`` Typer subapp: inspect and manage the model registry.
+
+Read commands (``list`` / ``show``) try the running server's admin
+endpoints first and fall back to the on-disk ``models.json`` if the
+server isn't reachable. Mutating commands (``refresh`` / ``prune``)
+require the server. ``discover`` is the odd one out — it bypasses the
+server entirely and queries the discovery adapter directly, useful for
+debugging a provider before wiring it into ``magos.yaml``.
+
+Per-state-loading and print helpers live in :mod:`magos.cli._helpers`
+so future subapps can reuse them without re-implementing the
+env-over-yaml bind layering.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
-from enum import StrEnum
 from typing import Annotated
 
 import httpx
 import typer
 
-from magos.cli.admin_client import AdminClient, AdminClientError
-from magos.config.loader import load_full_config, resolve_models_path
+from magos.cli import _helpers
+from magos.cli._helpers import ListFormat
+from magos.cli.admin_client import AdminClientError
+from magos.config.loader import load_full_config
 from magos.config.settings import MagosSettings
 from magos.registry.discovery import adapter_for
 from magos.registry.discovery.base import DiscoveryError
-from magos.registry.state import RegistryState
-from magos.registry.store import deserialize, load
-
-
-class _ListFormat(StrEnum):
-    text = "text"
-    json = "json"
-
 
 models_app = typer.Typer(
     name="models",
@@ -33,81 +38,19 @@ models_app = typer.Typer(
 )
 
 
-def _admin_client(settings: MagosSettings) -> AdminClient:
-    """Build an admin client targeting the local server's bind address.
-
-    Mirrors the env-over-yaml layering :func:`magos.serve.resolve_bind`
-    uses so the CLI hits the same listener the orchestrator opens.
-    """
-    from magos.serve import resolve_bind  # noqa: PLC0415  - keeps cli import tree light
-
-    cfg = load_full_config(settings.config_path)
-    resolved_host, resolved_port = resolve_bind(settings, cfg.server)
-    # Bind addresses like 0.0.0.0 / :: aren't valid HTTP hosts; resolve to
-    # loopback so the CLI talks to the local instance.
-    bind_all = {"0.0.0.0", "::"}  # noqa: S104  - not binding, just comparing
-    host = "127.0.0.1" if resolved_host in bind_all else resolved_host
-    return AdminClient(f"http://{host}:{resolved_port}")
-
-
-def _load_state_from_disk(settings: MagosSettings) -> RegistryState:
-    cfg = load_full_config(settings.config_path)
-    return load(resolve_models_path(cfg.registry, override=settings.models_path))
-
-
-def _load_state(settings: MagosSettings, *, prefer_disk: bool) -> tuple[RegistryState, str]:
-    """Return ``(state, source)`` where ``source`` is ``'server'`` or ``'disk'``."""
-    if prefer_disk:
-        return _load_state_from_disk(settings), "disk"
-    client = _admin_client(settings)
-    try:
-        raw = client.get_registry()
-    except AdminClientError as exc:
-        typer.echo(f"server returned an error: {exc}")
-        raise typer.Exit(2) from exc
-    if raw is not None:
-        return deserialize(raw), "server"
-    typer.echo("server unreachable, falling back to disk")
-    return _load_state_from_disk(settings), "disk"
-
-
-def _print_list(state: RegistryState, source: str, *, fmt: _ListFormat) -> None:
-    entries = sorted(state.entries.values(), key=lambda e: e.namespaced_id)
-    if fmt is _ListFormat.json:
-        payload = [
-            {
-                "id": e.namespaced_id,
-                "litellm_id": e.litellm_id,
-                "context_size": e.context_size,
-                "deprecated": e.is_deprecated,
-            }
-            for e in entries
-        ]
-        typer.echo(json.dumps({"source": source, "entries": payload}, indent=2))
-        return
-    typer.echo(f"# source: {source}")
-    if not entries:
-        typer.echo("(no entries)")
-        return
-    for entry in entries:
-        marker = " [deprecated]" if entry.is_deprecated else ""
-        ctx = f" ctx={entry.context_size}" if entry.context_size else ""
-        typer.echo(f"{entry.namespaced_id}{ctx}{marker}")
-
-
 @models_app.command("list")
 def models_list(
     from_disk: Annotated[
         bool, typer.Option("--from-disk", help="Bypass the server and read models.json directly.")
     ] = False,
     output_format: Annotated[
-        _ListFormat, typer.Option("--format", help="Output format.")
-    ] = _ListFormat.text,
+        ListFormat, typer.Option("--format", help="Output format.")
+    ] = ListFormat.text,
 ) -> None:
     """Show registry entries (server-state by default, --from-disk to bypass)."""
     settings = MagosSettings()
-    state, source = _load_state(settings, prefer_disk=from_disk)
-    _print_list(state, source, fmt=output_format)
+    state, source = _helpers.load_state(settings, prefer_disk=from_disk)
+    _helpers.print_list(state, source, fmt=output_format)
 
 
 @models_app.command("show")
@@ -119,7 +62,7 @@ def models_show(
 ) -> None:
     """Show one entry by namespaced id."""
     settings = MagosSettings()
-    state, source = _load_state(settings, prefer_disk=from_disk)
+    state, source = _helpers.load_state(settings, prefer_disk=from_disk)
     entry = state.get(model_id)
     if entry is None:
         typer.echo(f"not found in {source}: {model_id}")
@@ -150,7 +93,7 @@ def models_refresh(
 ) -> None:
     """Trigger a refresh via the running server."""
     settings = MagosSettings()
-    client = _admin_client(settings)
+    client = _helpers.admin_client(settings)
     try:
         result = client.post_refresh(provider=provider)
     except AdminClientError as exc:
@@ -165,7 +108,7 @@ def models_refresh(
 def models_prune() -> None:
     """Trigger a deprecation sweep via refresh."""
     settings = MagosSettings()
-    client = _admin_client(settings)
+    client = _helpers.admin_client(settings)
     try:
         result = client.post_prune()
     except AdminClientError as exc:
