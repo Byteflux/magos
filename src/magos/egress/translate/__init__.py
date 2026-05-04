@@ -13,9 +13,10 @@ wires the matching SDK function. Anthropic streaming returns raw SSE bytes
 from LiteLLM, forwarded verbatim. OpenAI streaming wraps chunks into SSE
 frames here because the SDK yields parsed objects.
 
-Caller (``magos.egress.dispatch``) supplies ``dispatch_model`` already in
-the form LiteLLM expects (``<provider>/<name>`` for unprefixed inputs);
-this package no longer infers a provider from the model name.
+``dispatch_model`` arrives in the form LiteLLM expects
+(``<provider>/<name>`` for unprefixed inputs); the routing layer
+prefixes it before dispatch, so this package never infers a provider
+from the model name itself.
 
 Per-endpoint logic lives in sibling modules (:mod:`anthropic`,
 :mod:`openai_chat`, :mod:`openai_responses`); :mod:`payload` holds the

@@ -1,14 +1,15 @@
-"""Bridge from a ``RouteDecision`` to the existing translate/passthrough seams.
+"""Bridge from a ``RouteDecision`` to the translate / passthrough seams.
 
-The dispatcher is the only routing-layer module that knows about FastAPI
-response types. ``magos.ingress.http.run`` calls ``dispatch_decision`` with
-a decision already produced by ``route()``; the dispatcher then picks the right
-underlying call based on endpoint, ``action.mode``, and the request's
-``stream`` flag.
+The dispatcher is the only egress module that knows about FastAPI
+response types. ``magos.ingress.http.run`` hands it a decision already
+produced by ``route()``; the dispatcher picks the right underlying call
+based on ``req.endpoint``, ``action.mode``, and the request's ``stream``
+flag.
 
-API-key handling lives in :mod:`magos.egress.auth` — this module just
-calls into it. ``DispatchError`` is re-exported here for backwards-import
-compatibility within the egress package.
+API-key resolution and per-provider auth-header injection live in
+:mod:`magos.egress.auth`. ``DispatchError`` is re-exported from this
+module because callers catch it at the dispatch boundary — keeping the
+exception in one logical place with the function that raises it.
 """
 
 from __future__ import annotations

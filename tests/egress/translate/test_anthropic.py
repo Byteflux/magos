@@ -1,11 +1,11 @@
 """Unit tests for the ``litellm.anthropic_messages`` translate path.
 
-After the LiteLLM SDK fold-in there is no per-field translation to verify;
 ``proxy_anthropic_messages`` is a thin marshalling layer over
-``litellm.anthropic_messages``. These tests check that contract: payload
-composition (model rewrite, header forwarding, api_key threading) and
-response coercion. The cross-provider behavior itself is covered by the
-e2e suite (``MAGOS_E2E=1``).
+``litellm.anthropic_messages``: there is no per-field translation
+happening in magos, so these tests assert the marshalling contract —
+payload composition (model rewrite, header forwarding, api_key
+threading) and response coercion. The cross-provider behaviour LiteLLM
+itself implements is covered by the e2e suite (``MAGOS_E2E=1``).
 """
 
 from __future__ import annotations

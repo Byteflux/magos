@@ -1,16 +1,15 @@
 """Combined config loader: routing rules + registry blocks from one YAML.
 
-``magos.yaml`` historically held only the routing rules (``RoutingConfig``).
-The registry batch adds three new top-level keys — ``providers``,
-``provider_order``, ``registry`` — that ``RoutingConfig`` doesn't know
-about. Rather than fold them into ``RoutingConfig`` (which would mix
-concerns and confuse round-trips), this module parses the same file
-twice into two pydantic schemas and returns a single ``MagosConfig``
-container.
+``magos.yaml`` carries three concerns under separate top-level keys:
+``rules`` / ``pre_rewrites`` (routing), ``providers`` / ``provider_order``
+/ ``registry`` (the model registry), and ``server`` (process bind +
+ingress). Each maps to its own pydantic schema; this module parses the
+same file once per schema and returns a single ``MagosConfig`` container
+so callers don't see the split.
 
-``load_routing_config`` (in ``routing.loader``) keeps its narrow contract
-for callers that don't care about the registry. Server lifespan and CLI
-use ``load_full_config`` to get both halves.
+The narrow ``load_routing_config`` (in ``routing.loader``) is for
+callers that only need the routing rules. Server lifespan and CLI use
+``load_full_config`` to get all three halves.
 """
 
 from __future__ import annotations

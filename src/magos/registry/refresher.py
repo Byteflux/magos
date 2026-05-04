@@ -394,11 +394,11 @@ def _diff_provider(
 ) -> _RefreshDiff:
     """Compute per-provider deltas across one refresh cycle.
 
-    ``added`` counts namespaced ids that were absent before; ``deprecated``
-    counts entries that gained a ``deprecated_at`` mark this cycle (was
-    None before, set now); ``pruned`` counts entries removed entirely.
-    ``total`` is the post-refresh active count (including still-marked
-    deprecated entries that haven't aged out).
+    ``added`` counts namespaced ids that were absent in ``prev_entries``;
+    ``deprecated`` counts entries whose ``deprecated_at`` flipped from
+    None to a timestamp this cycle; ``pruned`` counts entries removed
+    entirely. ``total`` is the post-refresh active count, including
+    still-marked deprecated entries that haven't aged out.
     """
     prev_for_provider = {k: e for k, e in prev_entries.items() if e.provider == provider}
     next_for_provider = {k: e for k, e in next_entries.items() if e.provider == provider}
