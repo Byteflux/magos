@@ -257,6 +257,37 @@ uv run pre-commit run --all-files
   absolute value — otherwise the test silently picks up emissions from
   any prior test that happens to run first.
 
+### Documentation
+
+- Docs live in `docs/` (one file per top-level concept) and are
+  indexed in the layout block above. **Update docs as part of the
+  change that invalidates them**, not in a follow-up PR — drift is
+  load-bearing for new contributors and the agents reading this file.
+- When you move or rename a source file, grep `docs/` and `CLAUDE.md`
+  for the old path and update every reference. The cost is one
+  `grep` + a handful of edits; the cost of skipping it is days of
+  someone reading the wrong file.
+- When you add a new top-level concept (a CLI subapp, a new ingress
+  mode, a new egress translation path, a new env var, a new yaml
+  block), decide whether it warrants:
+  1. A new doc — only if it's a distinct operator-facing surface
+     with its own configuration / lifecycle / failure modes (e.g.
+     `cli.md`, `ingress.md`).
+  2. A section in an existing doc — the default; cross-link from
+     the layout block in this file.
+  3. Just a docstring on the source — for internal-only concepts.
+- Cross-link freely between docs. Each doc should have a "See also"
+  pointer back to `architecture.md` and to peers it depends on.
+- Worked examples in docs (yaml, CLI invocations) should be valid as
+  written. If you change a config schema or rename a flag, fix the
+  examples in the same change.
+- Don't write aspirational docs. If a feature is planned-but-not-shipped,
+  it doesn't belong in operator-facing docs; tracking goes in the
+  Status section of this file or a roadmap issue.
+- The Status section at the bottom of this file is the single source
+  of truth for "what works today." Update it when a major surface
+  lands or moves out of "to come."
+
 ## Status
 
 Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), **Headroom compression** (`compress` rewrite primitive with token and cache-align modes), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint is the only major surface still to come.
