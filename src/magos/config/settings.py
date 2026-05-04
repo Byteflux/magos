@@ -26,20 +26,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from magos.telemetry import get_logger
-
-log = get_logger("magos.config")
-
 KompressBackend = Literal["auto", "pytorch"]
-
-# Env vars that have no effect today. ``extra="ignore"`` would silently drop
-# them; we warn on startup so an operator with stale ``.env`` files notices
-# their intent isn't being applied (the equivalent now lives in ``magos.yaml``).
-_REMOVED_ENV_VARS: tuple[str, ...] = (
-    "MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED",
-    "MAGOS_ANTHROPIC_UPSTREAM_URL",
-    "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS",
-)
 
 
 def magos_home() -> Path:
@@ -202,17 +189,4 @@ class MagosSettings(BaseSettings):
 
 def get_settings() -> MagosSettings:
     """Construct fresh settings from the current environment."""
-    settings = MagosSettings()
-    _warn_on_removed_env_vars()
-    return settings
-
-
-def _warn_on_removed_env_vars() -> None:
-    """Log a warning when an inert env var is still set in the environment."""
-    for name in _REMOVED_ENV_VARS:
-        if name in os.environ:
-            log.warning(
-                "config.removed_env_var",
-                name=name,
-                hint="this env var is ignored; configure the equivalent in magos.yaml",
-            )
+    return MagosSettings()

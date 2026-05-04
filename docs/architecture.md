@@ -327,12 +327,6 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 | `MAGOS_METRICS_ENABLED`      | `0`           | `1` exposes Prometheus `/metrics`                      |
 | `MAGOS_MODELS_PATH`          | `$MAGOS_HOME/models.json` | Override registry persistence path         |
 
-Removed env vars (warn on startup, now in YAML —
-`config/settings.py`):
-`MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED`,
-`MAGOS_ANTHROPIC_UPSTREAM_URL`,
-`MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS`.
-
 ## Tests
 
 - **Markers**: `unit`, `integration`, `e2e` are declared (and

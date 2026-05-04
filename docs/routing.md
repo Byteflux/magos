@@ -236,19 +236,6 @@ Loader warns (structlog `routing.passthrough_body_touch`):
   (`set_model` or `jq_patch`) — re-serialisation breaks byte-exact
   cache hits.
 
-## Inert env vars
-
-The following env vars are not read. The loader logs
-`config.removed_env_var` at startup for any that are still set in the
-environment so a stale `.env` doesn't quietly fail to take effect:
-
-- `MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED`
-- `MAGOS_ANTHROPIC_UPSTREAM_URL`
-- `MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS`
-
-The equivalents are expressed as routing rules in `magos.yaml`; copy
-`magos.example.yaml` for a working starting point.
-
 ## Examples
 
 ### Alias normalisation before match
@@ -372,4 +359,3 @@ Per-request structlog events:
 Per-startup events:
 
 - `routing.passthrough_body_touch` — body-rewrite + passthrough warning
-- `config.removed_env_var` — stale env var still set

@@ -1,7 +1,6 @@
 """Unit tests for MagosSettings.
 
-Verifies defaults, env-var overrides, validation bounds, frozen-immutability,
-and the deprecation warning for env vars that moved into magos.yaml.
+Verifies defaults, env-var overrides, validation bounds, and frozen-immutability.
 """
 
 from __future__ import annotations
@@ -12,7 +11,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from magos.config.settings import MagosSettings, get_settings
+from magos.config.settings import MagosSettings
 
 
 def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -127,16 +126,3 @@ def test_unknown_env_vars_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MAGOS_NOT_A_REAL_FIELD", "value")
     # Should not raise.
     MagosSettings(_env_file=None)  # type: ignore[call-arg]
-
-
-def test_get_settings_warns_on_removed_env_vars(
-    monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]
-) -> None:
-    monkeypatch.setenv("MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED", "1")
-    monkeypatch.setenv("MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS", "anthropic")
-    capfd.readouterr()  # discard prior output
-    get_settings()
-    out = capfd.readouterr().out
-    assert "config.removed_env_var" in out
-    assert "MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED" in out
-    assert "MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS" in out

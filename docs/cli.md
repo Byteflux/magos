@@ -120,10 +120,6 @@ not part of `MagosSettings` — they're declared per-rule in
 | `OPENROUTER_API_KEY`    | OpenRouter provider rules                       |
 | `VULTR_API_KEY`         | Vultr provider rules                            |
 
-The full set of inert (removed) env vars is logged at startup as
-`config.removed_env_var` warnings; see
-[`docs/routing.md`](routing.md#inert-env-vars).
-
 ## Exit codes
 
 | Code | Meaning                                                              |
