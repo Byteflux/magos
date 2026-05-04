@@ -77,6 +77,8 @@ def models_show(
         "max_output": entry.max_output,
         "input_cost": entry.input_cost,
         "output_cost": entry.output_cost,
+        "cache_read_cost": entry.cache_read_cost,
+        "cache_write_cost": entry.cache_write_cost,
         "modalities": list(entry.modalities),
         "deprecated_at": entry.deprecated_at.isoformat() if entry.deprecated_at else None,
         "sources": list(entry.sources),

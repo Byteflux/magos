@@ -65,6 +65,20 @@ def test_merge_override_can_replace_litellm_id() -> None:
     assert entry.litellm_id == "openrouter/anthropic/claude-sonnet-4-6:1m"
 
 
+def test_merge_threads_cache_costs_with_same_precedence_as_input_output() -> None:
+    """Cache costs follow override > discovery > litellm, like input/output_cost."""
+    entry = merge(
+        provider="openrouter",
+        raw_id="anthropic/claude-sonnet-4-6",
+        default_litellm_id="openrouter/anthropic/claude-sonnet-4-6",
+        # Discovery contributes cache_read_cost, litellm fills cache_write_cost.
+        discovered=PartialEntry(input_cost=3.0, cache_read_cost=0.30),
+        litellm_fallback=PartialEntry(input_cost=2.99, cache_read_cost=0.40, cache_write_cost=3.75),
+    )
+    assert entry.cache_read_cost == 0.30
+    assert entry.cache_write_cost == 3.75
+
+
 def test_merge_modalities_take_first_non_none_tuple() -> None:
     entry = merge(
         provider="openrouter",

@@ -96,6 +96,8 @@ def _partial_from_openrouter_entry(raw: dict[str, Any]) -> PartialEntry:
         # Otherwise, scale per-token USD into per-million USD.
         input_cost=_per_token_to_per_million(_coerce_float(pricing.get("prompt"))),
         output_cost=_per_token_to_per_million(_coerce_float(pricing.get("completion"))),
+        cache_read_cost=_per_token_to_per_million(_coerce_float(pricing.get("input_cache_read"))),
+        cache_write_cost=_per_token_to_per_million(_coerce_float(pricing.get("input_cache_write"))),
         modalities=_coerce_modalities(architecture),
     )
 

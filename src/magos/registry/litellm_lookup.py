@@ -36,6 +36,8 @@ class PartialEntry:
     # USD per million tokens. Adapters scale upstream per-token values.
     input_cost: float | None = None
     output_cost: float | None = None
+    cache_read_cost: float | None = None
+    cache_write_cost: float | None = None
     modalities: tuple[str, ...] | None = None
 
 
@@ -95,6 +97,10 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
         # LiteLLM reports USD per token; magos tracks USD per million tokens.
         input_cost=_per_token_to_per_million(info_dict.get("input_cost_per_token")),
         output_cost=_per_token_to_per_million(info_dict.get("output_cost_per_token")),
+        cache_read_cost=_per_token_to_per_million(info_dict.get("cache_read_input_token_cost")),
+        cache_write_cost=_per_token_to_per_million(
+            info_dict.get("cache_creation_input_token_cost")
+        ),
         modalities=_coerce_modalities(info_dict),
     )
 

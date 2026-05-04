@@ -20,7 +20,12 @@ def _info(**overrides: Any) -> dict[str, Any]:
 
 def test_lookup_populates_all_known_fields() -> None:
     def fake(model: str) -> dict[str, Any]:
-        return _info(supports_vision=True, supports_audio_input=False)
+        return _info(
+            supports_vision=True,
+            supports_audio_input=False,
+            cache_read_input_token_cost=3e-7,
+            cache_creation_input_token_cost=3.75e-6,
+        )
 
     result = lookup("anthropic/claude-sonnet-4-6", get_info=fake)
     assert result == PartialEntry(
@@ -29,8 +34,20 @@ def test_lookup_populates_all_known_fields() -> None:
         max_output=8192,
         input_cost=3.0,
         output_cost=15.0,
+        cache_read_cost=0.3,
+        cache_write_cost=3.75,
         modalities=("text", "image"),
     )
+
+
+def test_lookup_leaves_cache_costs_none_when_litellm_omits_them() -> None:
+    def fake(model: str) -> dict[str, Any]:
+        # No cache_*_token_cost keys — common for non-Anthropic providers.
+        return _info()
+
+    result = lookup("openai/gpt-4o", get_info=fake)
+    assert result.cache_read_cost is None
+    assert result.cache_write_cost is None
 
 
 def test_lookup_falls_back_to_max_tokens_when_max_input_missing() -> None:

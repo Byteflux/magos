@@ -185,7 +185,12 @@ def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPa
                 {
                     "id": "anthropic/claude-sonnet-4-6",
                     "context_length": 200000,
-                    "pricing": {"prompt": "0.000003", "completion": "0.000015"},
+                    "pricing": {
+                        "prompt": "0.000003",
+                        "completion": "0.000015",
+                        "input_cache_read": "0.0000003",
+                        "input_cache_write": "0.00000375",
+                    },
                     "architecture": {"modality": "text+image->text"},
                     "top_provider": {"max_completion_tokens": 8192},
                 }
@@ -202,7 +207,27 @@ def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPa
     # 0.000003 USD per token -> 3.0 USD per million tokens.
     assert m.partial.input_cost == pytest.approx(3.0)
     assert m.partial.output_cost == pytest.approx(15.0)
+    assert m.partial.cache_read_cost == pytest.approx(0.30)
+    assert m.partial.cache_write_cost == pytest.approx(3.75)
     assert m.partial.modalities == ("text", "image")
+
+
+def test_openrouter_adapter_omits_cache_costs_when_pricing_block_lacks_them() -> None:
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {
+            "data": [
+                {
+                    "id": "x/y",
+                    "pricing": {"prompt": "0.000001", "completion": "0.000002"},
+                }
+            ]
+        }
+    )
+    result = asyncio.run(_run_openrouter(cfg, transport))
+    m = result.models[0]
+    assert m.partial.cache_read_cost is None
+    assert m.partial.cache_write_cost is None
 
 
 def test_openrouter_adapter_handles_missing_optional_fields() -> None:

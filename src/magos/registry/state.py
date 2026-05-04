@@ -32,6 +32,13 @@ class ModelEntry:
     # values from upstream (LiteLLM, OpenRouter) scale by 1e6 on ingest.
     input_cost: float | None = None
     output_cost: float | None = None
+    # Anthropic charges a discounted rate for prompt-cache reads and a
+    # premium for cache writes (5min: 1.25x input, 1h: 2x). OpenAI's
+    # cached prompt tokens are billed at 50% of input; OpenAI has no
+    # cache-write notion. Sources that don't expose these fields leave
+    # them ``None``; consumers should fall back to ``input_cost``.
+    cache_read_cost: float | None = None
+    cache_write_cost: float | None = None
     modalities: tuple[str, ...] = ()
     deprecated_at: datetime | None = None
     sources: tuple[str, ...] = ()

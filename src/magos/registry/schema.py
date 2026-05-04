@@ -86,6 +86,8 @@ class ModelOverride(_Frozen):
     # USD per million tokens (e.g. 3.0 = $3/M).
     input_cost: float | None = Field(default=None, ge=0)
     output_cost: float | None = Field(default=None, ge=0)
+    cache_read_cost: float | None = Field(default=None, ge=0)
+    cache_write_cost: float | None = Field(default=None, ge=0)
     modalities: tuple[str, ...] | None = None
     litellm_id: str | None = Field(default=None, min_length=1)
 
