@@ -244,6 +244,26 @@ uv run pre-commit run --all-files
 - **Immutability**: `@dataclass(frozen=True)` or `NamedTuple` for value
   types.
 
+### Investigation
+
+- **Verify, don't ask.** Before asking the user a question whose answer
+  is observable (running state, file contents, log output, command
+  exit), use the available tools to determine the answer. Reserve
+  questions for genuine intent / preference / out-of-band context the
+  tools can't reach. The user expects investigation, not interrogation.
+- **E2E testing is mandatory for bug investigation.** When debugging a
+  reported failure, write or extend an e2e test that exercises the
+  failing path before proposing a diagnosis or fix. The test both
+  proves the failure mode is understood and locks in the regression
+  guard once it's resolved. Unit-level reasoning is not a substitute.
+- **Set `MAGOS_HOME` to the project root for e2e runs.** The project
+  ships a `magos.yaml` and `models.json` at the root; pinning
+  `MAGOS_HOME=<repo root>` makes the spawned `magos serve` use them
+  rather than the operator's `~/.magos/` (which may point at a
+  Docker-mounted config or other unrelated state). The e2e fixtures
+  in `tests/ingress/mitm/test_e2e.py` already do this; mirror that
+  pattern in any new subprocess-spawning e2e.
+
 ### Tests
 
 - pytest; markers `unit`, `integration`, `e2e` are declared but only
