@@ -28,8 +28,9 @@ from magos.egress.translate.payload import (
     CompletionFn,
     build_payload,
     coerce_to_dict,
+    resolve_client_model,
 )
-from magos.egress.translate.sse import sse_named_event
+from magos.egress.translate.sse import rewrite_data_in_stream, sse_named_event
 from magos.egress.usage import log_usage_from_body, tap_stream
 from magos.telemetry import get_logger, traced
 
@@ -177,7 +178,9 @@ def _coerce_empty_ap(value: Any) -> Any:
     return value
 
 
-def _strip_anthropic_extras(body: dict[str, Any], dispatch_model: str) -> dict[str, Any]:
+def _strip_anthropic_extras(
+    body: dict[str, Any], dispatch_model: str, *, client_model: str
+) -> dict[str, Any]:
     """Drop Anthropic-only body fields when dispatching to a non-Anthropic upstream.
 
     ``output_config`` is translated to OpenAI equivalents first so
@@ -196,7 +199,8 @@ def _strip_anthropic_extras(body: dict[str, Any], dispatch_model: str) -> dict[s
         return body
     log.info(
         "anthropic.dropped_unknown_fields",
-        model=dispatch_model,
+        model=client_model,
+        dispatch_model=dispatch_model,
         fields=sorted(extras),
     )
     return {k: v for k, v in body.items() if k in _ANTHROPIC_MESSAGES_CANONICAL_FIELDS}
@@ -281,6 +285,7 @@ async def proxy_anthropic_messages(
     anthropic_request: dict[str, Any],
     *,
     dispatch_model: str,
+    provider: str | None = None,
     completion: CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
@@ -288,15 +293,19 @@ async def proxy_anthropic_messages(
 ) -> dict[str, Any]:
     """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``."""
     dispatch: Callable[..., Awaitable[Any]] = completion or _dispatch_anthropic_messages
+    client_model = resolve_client_model(
+        anthropic_request.get("model", ""), provider, dispatch_model
+    )
     payload = build_payload(
-        _strip_anthropic_extras(anthropic_request, dispatch_model),
+        _strip_anthropic_extras(anthropic_request, dispatch_model, client_model=client_model),
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
         api_base=api_base,
     )
-    log.info("dispatch", shape="anthropic", model=dispatch_model)
+    log.info("dispatch", shape="anthropic", model=client_model, dispatch_model=dispatch_model)
     body = coerce_to_dict(await dispatch(**payload))
+    body["model"] = client_model
     log_usage_from_body("anthropic", body, endpoint="/v1/messages")
     return body
 
@@ -305,6 +314,7 @@ def stream_anthropic_messages(
     anthropic_request: dict[str, Any],
     *,
     dispatch_model: str,
+    provider: str | None = None,
     completion: CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
@@ -321,19 +331,42 @@ def stream_anthropic_messages(
     ``content_block_delta``, etc.); we forward them verbatim.
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or _dispatch_anthropic_messages
+    client_model = resolve_client_model(
+        anthropic_request.get("model", ""), provider, dispatch_model
+    )
     payload = build_payload(
-        {**_strip_anthropic_extras(anthropic_request, dispatch_model), "stream": True},
+        {
+            **_strip_anthropic_extras(anthropic_request, dispatch_model, client_model=client_model),
+            "stream": True,
+        },
         dispatch_model=dispatch_model,
         forward_headers=forward_headers,
         api_key=api_key,
         api_base=api_base,
     )
-    log.info("dispatch", shape="anthropic", model=dispatch_model, stream=True)
+    log.info(
+        "dispatch",
+        shape="anthropic",
+        model=client_model,
+        dispatch_model=dispatch_model,
+        stream=True,
+    )
+
+    def _set_model(data: dict[str, Any]) -> bool:
+        msg = data.get("message")
+        if isinstance(msg, dict) and "model" in msg:
+            msg["model"] = client_model
+            return True
+        if "model" in data:
+            data["model"] = client_model
+            return True
+        return False
+
     return tap_stream(
-        _anthropic_bytes_iter(payload, dispatch),
+        rewrite_data_in_stream(_anthropic_bytes_iter(payload, dispatch), _set_model),
         "anthropic",
         endpoint="/v1/messages",
-        fallback_model=dispatch_model,
+        fallback_model=client_model,
     )
 
 

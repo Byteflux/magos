@@ -46,7 +46,9 @@ def test_messages_endpoint_dispatches_to_anthropic_messages() -> None:
         resp = client.post("/v1/messages", json=body)
 
     assert resp.status_code == 200
-    assert resp.json() == ANTHROPIC_MESSAGE_RESPONSE
+    # Response model gets provider prefix added when request model lacks one
+    expected_response = {**ANTHROPIC_MESSAGE_RESPONSE, "model": f"anthropic/{body['model']}"}
+    assert resp.json() == expected_response
     # dispatch_model gets the anthropic/ prefix; max_tokens + messages survive.
     assert received["model"] == "anthropic/claude-haiku"
     assert received["max_tokens"] == 16

@@ -50,6 +50,21 @@ class CompletionFn(Protocol):
     def __call__(self, **kwargs: Any) -> Awaitable[Any]: ...
 
 
+def resolve_client_model(request_model: str, provider: str | None, dispatch_model: str) -> str:
+    """Compute the client-facing model id to write into a translated response.
+
+    LiteLLM yields the dispatch model (e.g. ``custom_openai/Qwen/...``); the
+    client expects the namespaced id it sent (or one constructed from the
+    routing provider when the request used a bare alias). Falls back to the
+    dispatch model only when the request carried no model at all.
+    """
+    if not request_model:
+        return dispatch_model
+    if provider and not request_model.startswith(f"{provider}/"):
+        return f"{provider}/{request_model}"
+    return request_model
+
+
 def coerce_to_dict(resp: Any) -> dict[str, Any]:
     if hasattr(resp, "model_dump"):
         dumped: dict[str, Any] = resp.model_dump()

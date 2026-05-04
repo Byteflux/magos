@@ -169,9 +169,11 @@ def test_proxy_anthropic_messages_passes_dispatch_model_and_returns_dict() -> No
             completion=fake,
         )
     )
-    # dispatch_model overrides the inbound body's model.
+    # dispatch_model overrides the inbound body's model for LiteLLM dispatch.
     assert received["model"] == "anthropic/claude-haiku-4-5"
     assert received["max_tokens"] == 16
+    # Response model field is rewritten back to the client's original model.
+    assert out["model"] == "claude-haiku"
     assert out["type"] == "message"
     assert out["content"][0]["text"] == "hi"
 
@@ -340,6 +342,40 @@ def test_proxy_anthropic_messages_threads_api_base_to_litellm() -> None:
     )
     assert received["api_base"] == "https://api.vultrinference.com/v1"
     assert received["api_key"] == "vk-test"
+
+
+@pytest.mark.unit
+def test_proxy_anthropic_messages_rewrites_model_for_vultr() -> None:
+    """Response model field is rewritten from custom_openai/... back to vultr/..."""
+    received: dict[str, Any] = {}
+
+    async def fake(**kwargs: Any) -> dict[str, Any]:
+        received.update(kwargs)
+        return {
+            "type": "message",
+            "id": "msg_123",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "hi"}],
+            "model": "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        }
+
+    client_model = "vultr/Qwen/Qwen3.5-397B-A17B-FP8"
+    out = asyncio.run(
+        proxy_anthropic_messages(
+            {
+                "model": client_model,
+                "max_tokens": 1,
+                "messages": [{"role": "user", "content": "x"}],
+            },
+            dispatch_model="custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
+            completion=fake,
+        )
+    )
+    # LiteLLM sees custom_openai/...
+    assert received["model"] == "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"
+    # Client sees vultr/...
+    assert out["model"] == client_model
 
 
 @pytest.mark.unit

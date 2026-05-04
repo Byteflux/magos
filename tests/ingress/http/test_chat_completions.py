@@ -31,7 +31,9 @@ def test_chat_completions_endpoint_passes_through() -> None:
         resp = client.post("/v1/chat/completions", json=openai_request)
 
     assert resp.status_code == 200
-    assert resp.json() == OPENAI_CHAT_RESPONSE
+    # Response model gets provider prefix added when request model lacks one
+    expected_response = {**OPENAI_CHAT_RESPONSE, "model": f"openai/{openai_request['model']}"}
+    assert resp.json() == expected_response
     expected = {**openai_request, "model": f"openai/{openai_request['model']}"}
     received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
     assert received_no_headers == expected

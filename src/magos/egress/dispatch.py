@@ -124,6 +124,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
             stream = stream_anthropic_messages(
                 dict(req.body),
                 dispatch_model=decision.dispatch_model,
+                provider=action.provider,
                 completion=completion,
                 forward_headers=forward_headers,
                 api_key=api_key,
@@ -133,6 +134,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
         return await proxy_anthropic_messages(
             dict(req.body),
             dispatch_model=decision.dispatch_model,
+            provider=action.provider,
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
@@ -144,6 +146,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
             stream = stream_openai_chat_completions(
                 dict(req.body),
                 dispatch_model=decision.dispatch_model,
+                provider=action.provider,
                 completion=completion,
                 forward_headers=forward_headers,
                 api_key=api_key,
@@ -153,6 +156,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
         return await proxy_openai_chat_completions(
             dict(req.body),
             dispatch_model=decision.dispatch_model,
+            provider=action.provider,
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
@@ -164,6 +168,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
         stream = stream_openai_responses(
             dict(req.body),
             dispatch_model=decision.dispatch_model,
+            provider=action.provider,
             completion=completion,
             forward_headers=forward_headers,
             api_key=api_key,
@@ -173,6 +178,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
     return await proxy_openai_responses(
         dict(req.body),
         dispatch_model=decision.dispatch_model,
+        provider=action.provider,
         completion=completion,
         forward_headers=forward_headers,
         api_key=api_key,

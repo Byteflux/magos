@@ -63,7 +63,8 @@ def test_responses_endpoint_translates_via_litellm() -> None:
         resp = client.post("/v1/responses", json=request_body)
 
     assert resp.status_code == 200
-    assert resp.json() == response_body
+    expected_response = {**response_body, "model": f"openai/{request_body['model']}"}
+    assert resp.json() == expected_response
     received_no_headers = {k: v for k, v in received.items() if k != "extra_headers"}
     expected = {**request_body, "model": f"openai/{request_body['model']}"}
     assert received_no_headers == expected

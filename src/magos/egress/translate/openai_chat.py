@@ -17,8 +17,9 @@ from magos.egress.translate.payload import (
     CompletionFn,
     build_payload,
     coerce_to_dict,
+    resolve_client_model,
 )
-from magos.egress.translate.sse import sse_event
+from magos.egress.translate.sse import rewrite_data_in_stream, sse_event
 from magos.egress.usage import log_usage_from_body, tap_stream
 from magos.telemetry import get_logger, traced
 
@@ -30,6 +31,7 @@ async def proxy_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
     dispatch_model: str,
+    provider: str | None = None,
     completion: CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
@@ -44,8 +46,10 @@ async def proxy_openai_chat_completions(
         api_key=api_key,
         api_base=api_base,
     )
-    log.info("dispatch", shape="openai", model=dispatch_model)
+    client_model = resolve_client_model(openai_request.get("model", ""), provider, dispatch_model)
+    log.info("dispatch", shape="openai", model=client_model, dispatch_model=dispatch_model)
     body = coerce_to_dict(await dispatch(**payload))
+    body["model"] = client_model
     log_usage_from_body("openai-chat", body, endpoint="/v1/chat/completions")
     return body
 
@@ -54,6 +58,7 @@ def stream_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
     dispatch_model: str,
+    provider: str | None = None,
     completion: CompletionFn | None = None,
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
@@ -73,12 +78,26 @@ def stream_openai_chat_completions(
         api_key=api_key,
         api_base=api_base,
     )
-    log.info("dispatch", shape="openai", model=dispatch_model, stream=True)
+    client_model = resolve_client_model(openai_request.get("model", ""), provider, dispatch_model)
+    log.info(
+        "dispatch",
+        shape="openai",
+        model=client_model,
+        dispatch_model=dispatch_model,
+        stream=True,
+    )
+
+    def _set_model(data: dict[str, Any]) -> bool:
+        if "model" in data:
+            data["model"] = client_model
+            return True
+        return False
+
     return tap_stream(
-        _openai_chat_bytes_iter(request, dispatch),
+        rewrite_data_in_stream(_openai_chat_bytes_iter(request, dispatch), _set_model),
         "openai-chat",
         endpoint="/v1/chat/completions",
-        fallback_model=dispatch_model,
+        fallback_model=client_model,
     )
 
 
