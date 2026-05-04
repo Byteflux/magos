@@ -89,6 +89,18 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
         with contextlib.suppress(AttributeError):
             transformers.logging.set_verbosity_error()
 
+    # Silence LiteLLM's chatty INFO logs (echoed twice — once via stdlib
+    # logging, once through our structlog bridge) and its hardcoded
+    # "Give Feedback" / "Provider List" print() banners on error paths.
+    # Env var is read at LiteLLM import; the module-level attr covers
+    # the already-imported case.
+    os.environ.setdefault("LITELLM_LOG", "WARNING")
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    litellm = sys.modules.get("litellm")
+    if litellm is not None:
+        with contextlib.suppress(AttributeError):
+            litellm.suppress_debug_info = True  # type: ignore[attr-defined]
+
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """Return a structlog logger; safe before configure_logging runs."""
