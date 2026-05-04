@@ -62,7 +62,7 @@ src/magos/
     tracing.py       # OTel + traced decorator
     metrics.py       # Prometheus exporter + OTel meter provider
   ingress/           # how requests enter
-    http/            # FastAPI entry (was: server.py split)
+    http/            # FastAPI entry
       app.py        # create_app, app.state wiring
       lifespan.py   # async context manager (Headroom warmup, refresher start, kompress)
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
@@ -75,35 +75,35 @@ src/magos/
       log_bridge.py # mitmproxy stdlib-logging records -> structlog
 
   routing/           # the rule engine (the product)
-    schema.py        # pydantic schemas for magos.yaml rules (renamed from models.py)
+    schema.py        # pydantic schemas for magos.yaml rules
     request.py       # RoutedRequest dataclass
     matchers.py      # match-expression evaluator (registry-aware)
     engine.py        # route(req, cfg, registry=...) -> RouteDecision | RouteError
-    auto_route.py    # registry-driven fallback (extracted from engine.py)
+    auto_route.py    # registry-driven fallback
     errors.py        # per-endpoint error envelopes
     loader.py        # YAML -> RoutingConfig with post-load validation
     jq_compat.py     # jq compile + truthy predicate helpers
-    rewrites/        # pre/post rewrite primitives (was: rewrites.py)
+    rewrites/        # pre/post rewrite primitives
       headers.py     # SetHeader / AddHeader / RemoveHeader
       model.py       # SetModel
       jq_patch.py    # JqPatch
       compress.py    # Compress + model_limit resolution + sentence_transformers preload
 
   egress/            # how requests leave
-    dispatch.py      # RouteDecision -> execution branch (was: routing/dispatch.py)
-    auth.py          # provider-aware API-key + header injection (extracted from dispatch.py)
-    passthrough.py   # byte-exact same-shape forwarding (was: top-level)
-    tokens.py        # async count_tokens via litellm.acount_tokens (was: top-level)
-    observer.py      # mitmproxy egress observer addon (was: addon.py)
-    translate/       # LiteLLM SDK marshalling (was: proxy.py)
-      payload.py     # _build_payload, header allowlists, canonical fields
+    dispatch.py      # RouteDecision -> execution branch
+    auth.py          # provider-aware API-key + header injection
+    passthrough.py   # byte-exact same-shape forwarding
+    tokens.py        # async count_tokens via litellm.acount_tokens
+    observer.py      # mitmproxy egress observer addon
+    translate/       # LiteLLM SDK marshalling
+      payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
       anthropic.py   # anthropic_messages flows + output_config translation
       openai_chat.py # acompletion flows
       openai_responses.py # aresponses flows
 
   registry/          # model registry: discovery, lifecycle, lookup
-    state.py         # ModelEntry / RegistryState frozen dataclasses (renamed from models.py)
+    state.py         # ModelEntry / RegistryState frozen dataclasses
     schema.py        # pydantic for providers/provider_order/registry blocks
     store.py         # atomic JSON persistence (models.json)
     merge.py         # field precedence: override > discovery > litellm > null
@@ -125,8 +125,7 @@ src/magos/
     models_cmd.py    # magos models {list,show,refresh,prune,discover}
     admin_client.py  # tiny httpx wrapper for /admin/registry endpoints
 magos.example.yaml   # routing config to copy and customise
-tests/               # pytest suites (unit, integration, e2e)
-  fixtures/          # test routing yaml
+tests/               # mirrors src/magos/ — see "Test layout" below
 scripts/             # operator-facing one-shot probes
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/architecture.md # request lifecycle, lifespan, dispatch matrix, env vars, gotchas
@@ -135,6 +134,30 @@ docs/routing.md      # rule grammar, examples, env vars
 docs/registry.md     # registry lifecycle, config, CLI, observability
 docs/headroom.md     # Headroom integration notes + non-obvious findings
 ```
+
+### Test layout
+
+`tests/` mirrors `src/magos/` directory-for-directory; each test file
+exercises the like-named source module and lives in the same relative
+position. Drop redundant prefixes (`test_routing_engine.py` → `tests/routing/test_engine.py`).
+`__init__.py` files at every level keep test names unique across subtrees.
+
+```
+tests/
+  conftest.py            # pytest fixtures (loaded automatically)
+  fixtures/              # test routing yaml
+  cli/, config/, egress/{translate/}, ingress/{http,mitm}/,
+  registry/, routing/{rewrites/}/
+  test_serve.py, test_smoke.py, test_telemetry.py,
+  test_e2e.py, test_e2e_agent_sdk.py
+```
+
+Plain helper functions (request builders, sample payloads, TestClient
+factories) live in `_helpers.py` modules at the appropriate scope —
+`tests/routing/_helpers.py`, `tests/ingress/http/_helpers.py`, etc. Tests
+import them via relative imports (`from ._helpers import make_req`).
+`conftest.py` is reserved for pytest fixtures; do not put plain helpers
+there.
 
 **Start with `docs/architecture.md`** for cross-cutting facts (request
 flow, body_dirty contract, passthrough byte-exactness, auth-header
@@ -175,13 +198,60 @@ uv run pre-commit run --all-files
 
 ## Conventions
 
+### Layout & module shape
+
+- **Direction-of-flow top-level packages**. `ingress/` (how requests
+  enter), `routing/` (the rule engine — the product), `egress/` (how
+  they leave). New code goes into one of these, picked by which side of
+  the request lifecycle it touches. Cross-cutting infrastructure
+  (`telemetry/`, `config/`, `registry/`, `cli/`) gets its own peer
+  package; do not bury it under a flow package.
+- **Name modules for what they do, not what they are.** `translate`
+  (LiteLLM SDK marshalling), `passthrough` (byte-exact forwarding),
+  `observer` (mitmproxy log addon) — not `proxy.py`, `addon.py`,
+  `utils.py`. Re-name when the role changes; a wrong name compounds.
+- **Small focused files.** Aim for one cohesive concept per module.
+  When a single file grows past ~400 LOC and contains multiple variants
+  / primitives / endpoint families, split it into a package: per-variant
+  files plus a thin `__init__.py` that re-exports the public surface and
+  holds the dispatcher. Recent examples: `routing/rewrites/`
+  (per-primitive), `egress/translate/` (per-endpoint family),
+  `ingress/http/` (per-handler).
+- **No backwards-compat re-exports during reorgs.** Move the symbol and
+  update every importer. A two-line `from .new import old` shim is
+  technical debt that ages badly.
+- **Public dispatcher in `__init__.py`, private implementation in
+  siblings.** `routing/rewrites/__init__.py` exposes `apply_rewrites` +
+  `RewriteError` and dispatches to per-primitive applicators in
+  `headers.py`, `model.py`, `jq_patch.py`, `compress.py`. Callers
+  import from the package, not the implementation files.
+- **Tests mirror src.** When you split a source module, split its test
+  file the same way; when you move source, `git mv` the test alongside.
+
+### Style & types
+
 - **Style**: `ruff` (lint + format), 100-col lines, double quotes, PEP 8.
-- **Types**: `mypy --strict` in src/. Tests are exempt from `disallow_untyped_defs`.
-- **Tests**: pytest; markers `unit`, `integration`, `e2e` are declared but only applied in a handful of files. End-to-end tests gate on `MAGOS_E2E=1`. No coverage threshold is enforced today.
+- **Types**: `mypy --strict` in src/. Tests are exempt from
+  `disallow_untyped_defs`.
 - **Logging**: `structlog`, never `print()` in src/.
 - **Config**: declarative, parsed via `pydantic` models.
 - **Errors**: handle explicitly at boundaries, never silently swallow.
-- **Immutability**: `@dataclass(frozen=True)` or `NamedTuple` for value types.
+- **Immutability**: `@dataclass(frozen=True)` or `NamedTuple` for value
+  types.
+
+### Tests
+
+- pytest; markers `unit`, `integration`, `e2e` are declared but only
+  applied in a handful of files. End-to-end tests gate on
+  `MAGOS_E2E=1`. No coverage threshold is enforced today.
+- One test file per source module, in the mirrored directory. Drop
+  redundant directory-implied prefixes from filenames.
+- Plain helpers in `_helpers.py` at the appropriate scope; pytest
+  fixtures in `conftest.py`. Don't mix them.
+- Counters / OTel meters are cumulative across the test session.
+  Snapshot a baseline at test start and assert on the delta, not the
+  absolute value — otherwise the test silently picks up emissions from
+  any prior test that happens to run first.
 
 ## Status
 
