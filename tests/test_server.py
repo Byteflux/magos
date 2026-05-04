@@ -16,14 +16,14 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.routing import RoutingConfig
-from magos.server import (
-    create_app,
+from magos.ingress.http import create_app
+from magos.ingress.http.handlers import (
     get_anthropic_messages_completion,
     get_completion,
     get_count_tokens_completion,
     get_responses_completion,
 )
+from magos.routing import RoutingConfig
 
 
 def _translate_only_cfg(provider: str = "openai") -> RoutingConfig:

@@ -10,6 +10,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from magos.ingress.http import create_app
 from magos.registry.discovery.base import (
     DiscoveredModel,
     DiscoveryResult,
@@ -19,7 +20,6 @@ from magos.registry.schema import ProviderConfig, RegistryYaml
 from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import save as save_state
 from magos.routing import RoutingConfig
-from magos.server import create_app
 
 
 def _routing_only() -> RoutingConfig:

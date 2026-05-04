@@ -6,7 +6,7 @@ LiteLLM and other libraries read keys directly from the process
 environment, not from pydantic-settings, hence the explicit population.
 
 Also points ``MAGOS_CONFIG_PATH`` at the test fixture YAML before any test
-imports ``magos.server``, so ``create_app()`` calls without an explicit
+imports ``magos.ingress.http``, so ``create_app()`` calls without an explicit
 ``routing`` argument find a real config file.
 """
 

@@ -1,8 +1,8 @@
 """Bridge from a ``RouteDecision`` to the existing proxy/passthrough seams.
 
 The dispatcher is the only routing-layer module that knows about FastAPI
-response types. ``server.py`` calls ``dispatch_decision`` with a decision
-already produced by ``route()``; the dispatcher then picks the right
+response types. ``magos.ingress.http.run`` calls ``dispatch_decision`` with
+a decision already produced by ``route()``; the dispatcher then picks the right
 underlying call based on endpoint, ``action.mode``, and the request's
 ``stream`` flag.
 
@@ -26,8 +26,8 @@ API-key handling:
   part of the prompt-cache hash, so this injection does not break
   byte-exact billing.
 
-Env-var lookup failures surface as ``DispatchError``; ``server.py`` turns
-them into the 503 ``dispatch_error`` envelope.
+Env-var lookup failures surface as ``DispatchError``;
+``magos.ingress.http.run`` turns them into the 503 ``dispatch_error`` envelope.
 """
 
 from __future__ import annotations

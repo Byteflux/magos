@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.server import create_app
+from magos.ingress.http import create_app
 
 pytestmark = [
     pytest.mark.e2e,

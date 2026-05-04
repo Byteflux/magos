@@ -9,7 +9,7 @@ The router can fail in three ways:
   provider).
 - **Upstream failure** (502): the dispatcher reached the upstream and the
   upstream returned an error or the connection failed. This is handled by
-  the existing 502 wrapper in ``server.py`` and is not produced here.
+  the existing 502 wrapper in ``magos.ingress.http.run`` and is not produced here.
 
 The HTTP body shape mirrors the inbound endpoint: Anthropic error envelope
 for ``/v1/messages*``, OpenAI error envelope for ``/v1/chat/completions``.

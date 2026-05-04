@@ -121,7 +121,7 @@ def main() -> None:
     os.environ["MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED"] = "true"
 
     echo_server, echo_thread = _start_server(_build_echo_app(), echo_port)
-    magos_server, magos_thread = _start_server("magos.server:app", magos_port)
+    magos_server, magos_thread = _start_server("magos.ingress.http.app:app", magos_port)
     try:
         asyncio.run(_drive_agent_sdk(f"http://127.0.0.1:{magos_port}"))
     finally:

@@ -210,7 +210,7 @@ time, not config-load time (env state can change between deploys).
 - `503` — a rule matched but dispatch failed (jq_patch result not an
   object, missing api_key_env). Body: `route configuration error: ...`.
 - `502` — upstream returned an error or the connection failed.
-  Untouched by routing; the existing handler in `server.py` wraps it.
+  Untouched by routing; the existing handler in `ingress/http/` wraps it.
 
 Endpoint-shaped envelopes:
 

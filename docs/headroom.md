@@ -94,9 +94,9 @@ CacheAligner -> ContentRouter -> IntelligentContext
   - `_preload_sentence_transformers()` in `rewrites.py` runs
     immediately before any headroom import inside `_apply_compress`
     and `_apply_cache_aligner`. In a pure FastAPI deployment this is
-    sufficient because `magos.server` does not transitively load
+    sufficient because `magos.ingress.http` does not transitively load
     cryptography at import time (verified against `litellm` and
-    `magos.server`'s `sys.modules` graph).
+    `magos.ingress.http`'s `sys.modules` graph).
   - `tests/conftest.py` does the preload at session start. Required
     because `tests/test_addon.py` imports `mitmproxy.http` which loads
     cryptography Rust before the cache-align test gets a chance to
@@ -319,7 +319,7 @@ Two distinct init costs:
    thread-locked lazy singleton (`compress.py:327-347`). First call
    constructs the pipeline, the underlying tokenizer, transform
    instances. Subsequent calls reuse. Magos warms this once at FastAPI
-   startup via the lifespan hook in `server.py` if any routing rule
+   startup via the lifespan hook in `ingress/http/lifespan.py` if any routing rule
    uses `compress`.
 
 2. **Kompress weight load.** Separate from pipeline construction.
@@ -352,7 +352,7 @@ replaces `headroom.transforms.kompress_compressor._is_onnx_available`
 with a False-returning stub. Headroom's `_load_kompress` resolves that
 name from the module namespace at call time, so the override flips
 backend selection without patching Headroom itself. See
-`_force_kompress_pytorch` in `server.py`.
+`_force_kompress_pytorch` in `ingress/http/lifespan.py`.
 
 Caveats:
 
@@ -453,7 +453,7 @@ Magos mirrors these as the `mode: token | cache` switch on the
 | `src/magos/routing/schema.py`         | `Compress`, `CompressOptions`, `CompressMode` schema |
 | `src/magos/routing/rewrites.py`       | `_apply_compress`, `_apply_cache_aligner`            |
 | `src/magos/routing/loader.py`         | `Compress` listed in `_rewrites_touch_body`          |
-| `src/magos/server.py`                 | Lifespan warmup hook                                 |
+| `src/magos/ingress/http/lifespan.py`                 | Lifespan warmup hook                                 |
 | `tests/test_routing_rewrites.py`      | Unit tests for both modes + endpoint scoping         |
 | `tests/test_routing_loader.py`        | YAML round-trip + body-touch warning                 |
 | `tests/test_server.py`                | Lifespan warmup behaviour                            |

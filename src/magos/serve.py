@@ -27,9 +27,9 @@ from magos import __version__
 from magos.config.loader import MagosConfig, load_full_config
 from magos.config.schema import MagosServerConfig
 from magos.config.settings import MagosSettings
+from magos.ingress.http import create_app
 from magos.ingress.mitm.log_bridge import install_log_bridge
 from magos.ingress.mitm.master import build_ingress_master
-from magos.server import create_app
 from magos.telemetry import get_logger
 
 log = get_logger("magos.serve")

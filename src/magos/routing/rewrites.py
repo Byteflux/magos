@@ -142,7 +142,7 @@ def _preload_sentence_transformers() -> None:
 
     Cost: ~6s on first call (one-shot, then cached in ``sys.modules``).
     Magos's main process does not transitively load cryptography at
-    import time (verified for ``magos.server`` and ``litellm``), so as
+    import time (verified for ``magos.ingress.http`` and ``litellm``), so as
     long as this fires before the first compress request, the order is
     safe. See ``docs/headroom.md`` for the full bisection.
 
