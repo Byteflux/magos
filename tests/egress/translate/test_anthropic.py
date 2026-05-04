@@ -86,6 +86,65 @@ def test_proxy_anthropic_messages_strips_unknown_fields_for_non_anthropic() -> N
     assert "response_format" not in seen
 
 
+def test_proxy_anthropic_messages_coerces_empty_additional_properties() -> None:
+    """``additionalProperties: {}`` becomes ``true`` for non-Anthropic dispatch.
+
+    Reproduces the Vultr / custom_openai failure: Anthropic accepts
+    ``additionalProperties: {}`` (empty schema = "any extras allowed");
+    Vultr's metaschema validator misreports it as ``[]`` and rejects with
+    ``[] is not of type 'object', 'boolean'``. ``true`` is the same
+    semantics and routes cleanly through the validator.
+
+    Anthropic-bound traffic is left alone -- the original ``{}`` flows
+    verbatim so prompt-cache byte-equivalence is preserved.
+    """
+    seen: dict[str, Any] = {}
+
+    async def fake(**kwargs: Any) -> dict[str, Any]:
+        seen.update(kwargs)
+        return {"id": "ok", "content": []}
+
+    body = {
+        "model": "claude-x",
+        "messages": [{"role": "user", "content": "hi"}],
+        "max_tokens": 8,
+        "tools": [
+            {
+                "name": "tool_with_empty_extras",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "nested": {"type": "object", "additionalProperties": {}},
+                    },
+                    "additionalProperties": {},
+                },
+            },
+            {
+                "name": "tool_with_meaningful_extras",
+                "input_schema": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+        ],
+    }
+    asyncio.run(
+        proxy_anthropic_messages(body, dispatch_model="custom_openai/Qwen/X", completion=fake)
+    )
+    sent = seen["tools"]
+    assert sent[0]["input_schema"]["additionalProperties"] is True
+    assert sent[0]["input_schema"]["properties"]["nested"]["additionalProperties"] is True
+    # Non-empty schema is preserved untouched.
+    assert sent[1]["input_schema"]["additionalProperties"] == {"type": "string"}
+
+    # Anthropic-bound: empty {} flows verbatim, not coerced.
+    seen.clear()
+    asyncio.run(
+        proxy_anthropic_messages(body, dispatch_model="anthropic/claude-x", completion=fake)
+    )
+    assert seen["tools"][0]["input_schema"]["additionalProperties"] == {}
+
+
 @pytest.mark.unit
 def test_proxy_anthropic_messages_passes_dispatch_model_and_returns_dict() -> None:
     received: dict[str, Any] = {}

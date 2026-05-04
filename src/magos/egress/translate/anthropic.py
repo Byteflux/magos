@@ -112,17 +112,69 @@ def _translate_output_config(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _coerce_empty_additional_properties(body: dict[str, Any]) -> dict[str, Any]:
+    """Replace ``additionalProperties: {}`` with ``additionalProperties: true``.
+
+    JSON Schema treats both as semantically identical ("any extra property
+    allowed, with no constraints"), but some openai-compatible upstreams
+    (notably Vultr) misvalidate the empty-object form -- their metaschema
+    validator reports it as ``[]`` and rejects the request with
+    ``[] is not of type 'object', 'boolean'``. ``true`` flows through every
+    validator we've tested and carries the same semantics.
+
+    Walks the entire body so the coercion catches schemas wherever they
+    appear -- ``tools[*].input_schema`` is the common case but
+    ``response_format`` (post translation), ``json_schema`` blocks, and
+    nested ``properties`` / ``items`` schemas can each carry the empty-dict
+    form.
+    """
+    out, changed = _walk_coerce_empty_ap(body)
+    if not changed or not isinstance(out, dict):
+        return body
+    log.info("anthropic.coerced_empty_additional_properties")
+    return out
+
+
+def _walk_coerce_empty_ap(value: Any) -> tuple[Any, bool]:
+    if isinstance(value, dict):
+        changed = False
+        out: dict[str, Any] = {}
+        for key, child in value.items():
+            if key == "additionalProperties" and child == {}:
+                out[key] = True
+                changed = True
+            else:
+                new_child, child_changed = _walk_coerce_empty_ap(child)
+                if child_changed:
+                    changed = True
+                out[key] = new_child
+        return out, changed
+    if isinstance(value, list):
+        changed = False
+        out_list: list[Any] = []
+        for item in value:
+            new_item, item_changed = _walk_coerce_empty_ap(item)
+            if item_changed:
+                changed = True
+            out_list.append(new_item)
+        return out_list, changed
+    return value, False
+
+
 def _strip_anthropic_extras(body: dict[str, Any], dispatch_model: str) -> dict[str, Any]:
     """Drop Anthropic-only body fields when dispatching to a non-Anthropic upstream.
 
     ``output_config`` is translated to OpenAI equivalents first so
-    structured-output / reasoning-effort behavior carries over;
-    remaining Anthropic-only fields (``context_management``, future
+    structured-output / reasoning-effort behavior carries over; tool
+    ``input_schema`` blocks have ``additionalProperties: {}`` coerced to
+    ``true`` (semantically identical, sidesteps a Vultr metaschema-validator
+    bug); remaining Anthropic-only fields (``context_management``, future
     additions) are dropped. Anthropic-bound traffic is left untouched.
     """
     if dispatch_model.startswith("anthropic/"):
         return body
     body = _translate_output_config(body)
+    body = _coerce_empty_additional_properties(body)
     extras = set(body) - _ANTHROPIC_MESSAGES_CANONICAL_FIELDS
     if not extras:
         return body
