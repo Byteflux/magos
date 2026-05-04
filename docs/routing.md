@@ -233,6 +233,15 @@ itself.
 A missing or empty env var produces `503 dispatch_error` at request
 time, not config-load time (env state can change between deploys).
 
+When a rule's `action` declares `provider:` but omits `api_key_env` /
+`base_url`, those fields are inherited from the matching entry in the
+top-level `providers:` block. This keeps third-party openai-compatible
+upstreams (Vultr, hosted vLLM, etc.) working with concise rules — without
+the inheritance, dispatch silently falls through to LiteLLM's per-provider
+defaults (e.g. `OPENAI_API_KEY` against `api.openai.com`), producing a
+401 from a totally unrelated upstream. Explicit values on the action
+always win over the provider config.
+
 ## Errors
 
 - `404` — no rule matched. Body: per-endpoint error envelope echoing

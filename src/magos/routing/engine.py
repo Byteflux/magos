@@ -135,10 +135,11 @@ def route(
                 model=model,
                 endpoint=pre_applied.endpoint,
             )
+        effective_rule = _fill_action_from_provider_config(rule, providers)
         return RouteDecision(
-            rule=rule,
+            rule=effective_rule,
             request=post_applied,
-            dispatch_model=_compute_dispatch_model(post_applied, rule.action, registry),
+            dispatch_model=_compute_dispatch_model(post_applied, effective_rule.action, registry),
         )
 
     if registry is not None:
@@ -154,6 +155,37 @@ def route(
         model=model,
         endpoint=pre_applied.endpoint,
     )
+
+
+def _fill_action_from_provider_config(
+    rule: Rule, providers: Mapping[str, ProviderConfig] | None
+) -> Rule:
+    """Backfill missing ``api_key_env`` / ``base_url`` from ``providers``.
+
+    Symmetric to ``auto_route``: a rule whose action declares only
+    ``provider:`` (and omits ``api_key_env`` / ``base_url``) inherits those
+    from ``providers[action.provider]`` if present. Without this, LiteLLM
+    is invoked with no api_key/api_base and silently falls back to its
+    per-provider defaults — e.g. ``OPENAI_API_KEY`` against ``api.openai.com``
+    for the generic ``custom_openai`` provider used by Vultr / hosted vLLM,
+    producing a misleading 401 against a totally unrelated upstream.
+
+    Explicit values on the action win; only ``None`` fields are filled.
+    """
+    if providers is None or not rule.action.provider:
+        return rule
+    provider_cfg = providers.get(rule.action.provider)
+    if provider_cfg is None:
+        return rule
+    updates: dict[str, str] = {}
+    if rule.action.api_key_env is None and provider_cfg.api_key_env is not None:
+        updates["api_key_env"] = provider_cfg.api_key_env
+    if rule.action.base_url is None and provider_cfg.base_url is not None:
+        updates["base_url"] = provider_cfg.base_url
+    if not updates:
+        return rule
+    new_action = rule.action.model_copy(update=updates)
+    return rule.model_copy(update={"action": new_action})
 
 
 def _compute_dispatch_model(

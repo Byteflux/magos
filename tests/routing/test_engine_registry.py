@@ -130,6 +130,69 @@ def test_auto_route_propagates_provider_api_key_env_and_base_url() -> None:
     assert result.dispatch_model == "custom_openai/zai-org/GLM-5.1-FP8"
 
 
+def test_explicit_rule_inherits_creds_from_provider_config() -> None:
+    """Action declaring only ``provider:`` picks up creds from ``providers:``.
+
+    Without this, an explicit ``rewrites: [set_model: vultr/...]`` rule
+    with ``action: { provider: vultr, mode: translate }`` would dispatch
+    with no api_key/api_base, and LiteLLM would fall back to ``OPENAI_API_KEY``
+    against ``api.openai.com`` -- the failure we just fixed for auto-route.
+    """
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {"provider": "vultr", "mode": "translate"},
+                }
+            ]
+        }
+    )
+    providers = {
+        "vultr": ProviderConfig.model_validate(
+            {
+                "api_key_env": "VULTR_API_KEY",
+                "base_url": "https://api.vultrinference.com/v1",
+            }
+        )
+    }
+    result = route(_request("vultr/some-model"), cfg, providers=providers)
+    assert isinstance(result, RouteDecision)
+    assert result.action.api_key_env == "VULTR_API_KEY"
+    assert result.action.base_url == "https://api.vultrinference.com/v1"
+
+
+def test_explicit_rule_action_wins_over_provider_config() -> None:
+    """Explicit api_key_env / base_url on the action take precedence."""
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "action": {
+                        "provider": "vultr",
+                        "mode": "translate",
+                        "api_key_env": "OVERRIDE_KEY",
+                        "base_url": "https://override.example/v1",
+                    },
+                }
+            ]
+        }
+    )
+    providers = {
+        "vultr": ProviderConfig.model_validate(
+            {
+                "api_key_env": "VULTR_API_KEY",
+                "base_url": "https://api.vultrinference.com/v1",
+            }
+        )
+    }
+    result = route(_request("anything"), cfg, providers=providers)
+    assert isinstance(result, RouteDecision)
+    assert result.action.api_key_env == "OVERRIDE_KEY"
+    assert result.action.base_url == "https://override.example/v1"
+
+
 def test_auto_route_omits_creds_when_provider_config_missing() -> None:
     """No ProviderConfig for the entry's provider: action stays bare.
 
