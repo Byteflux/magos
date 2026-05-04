@@ -39,6 +39,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
             colors=colors,
             force_colors=colors,
             pad_event_to=0,
+            sort_keys=False,
         )
         timestamp_fmt = "%H:%M:%S"
     shared_processors: list[Any] = [
