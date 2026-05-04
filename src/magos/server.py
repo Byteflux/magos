@@ -37,9 +37,9 @@ from pydantic import ValidationError
 from starlette.datastructures import Headers
 
 from magos import __version__
-from magos.config import MagosSettings, get_settings
-from magos.config_loader import load_full_config
-from magos.obs import get_logger
+from magos.config.loader import load_full_config
+from magos.config.settings import MagosSettings, get_settings
+from magos.egress.dispatch import DispatchError, dispatch_decision
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import (
@@ -52,7 +52,7 @@ from magos.routing import (
     format_dispatch_error_message,
     route,
 )
-from magos.routing.dispatch import DispatchError, dispatch_decision
+from magos.telemetry import get_logger
 
 log = get_logger("magos.server")
 
@@ -207,14 +207,14 @@ def _mount_metrics_endpoint(app: FastAPI) -> None:
 def _resolve_models_path(registry_cfg: RegistryYaml, override: str | None) -> Path:
     """Resolve the registry block's ``models_path`` against precedence rules.
 
-    Delegates to ``magos.config_loader.resolve_models_path`` so server
+    Delegates to ``magos.config.loader.resolve_models_path`` so server
     boot, CLI ``list --from-disk``, and CLI ``show`` all agree on the
     same file regardless of CWD. ``override`` carries
     ``MAGOS_MODELS_PATH`` (via ``MagosSettings.models_path``) and wins
     over the yaml value. ``models.json`` is server-owned: out-of-
     process readers are fine; the only writer is the Refresher.
     """
-    from magos.config_loader import resolve_models_path  # noqa: PLC0415
+    from magos.config.loader import resolve_models_path  # noqa: PLC0415
 
     return resolve_models_path(registry_cfg, override=override)
 

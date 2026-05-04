@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from magos.config_loader import resolve_models_path
+from magos.config.loader import resolve_models_path
 from magos.registry.discovery.anthropic import AnthropicAdapter
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.discovery.noop import NoopAdapter

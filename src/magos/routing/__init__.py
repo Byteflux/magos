@@ -2,8 +2,8 @@
 
 Public surface: load a ``RoutingConfig`` from YAML, then call ``route()`` on
 a ``RoutedRequest`` to obtain a ``RouteDecision`` or ``RouteError``.
-``magos.routing.dispatch`` consumes the decision and bridges to the
-existing ``server.py`` / ``proxy.py`` / ``passthrough.py`` modules.
+``magos.egress.dispatch`` consumes the decision and bridges to the
+``magos.egress.translate`` and ``magos.egress.passthrough`` modules.
 """
 
 from __future__ import annotations
@@ -22,7 +22,9 @@ from magos.routing.errors import (
 )
 from magos.routing.loader import RoutingConfigError, load_config
 from magos.routing.matchers import matches
-from magos.routing.models import (
+from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
+from magos.routing.rewrites import RewriteError, apply_rewrites
+from magos.routing.schema import (
     Action,
     AddHeader,
     AllOf,
@@ -53,8 +55,6 @@ from magos.routing.models import (
     SetHeader,
     SetModel,
 )
-from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
-from magos.routing.rewrites import RewriteError, apply_rewrites
 
 __all__ = [
     "ENDPOINTS",

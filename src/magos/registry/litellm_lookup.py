@@ -16,7 +16,7 @@ from typing import Any, Protocol
 
 import litellm
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
 log = get_logger("magos.registry.litellm_lookup")
 

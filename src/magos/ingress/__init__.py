@@ -1,22 +1,14 @@
-"""In-process mitmproxy ingress proxy.
+"""Ingress: how requests enter magos.
 
-Run alongside FastAPI in a single process so a client pointed at
-``HTTPS_PROXY`` (e.g. Claude Code, which changes behavior when
-``ANTHROPIC_BASE_URL`` is set) can reach magos transparently. The
-ingress addon terminates TLS for configured hosts and rewrites the
-decrypted request to the FastAPI loopback target; everything else
-flows through un-MITM'd. See ``docs/ingress.md`` for setup.
+Two entry points share the same routing engine:
+
+- ``magos.ingress.http`` (currently lives in ``magos.server``) — FastAPI
+  endpoints clients hit directly.
+- ``magos.ingress.mitm`` — optional in-process mitmproxy listener that
+  terminates TLS for ``HTTPS_PROXY`` clients (e.g. Claude Code, where
+  ``ANTHROPIC_BASE_URL`` would change behavior) and rewrites requests
+  to FastAPI loopback.
+
+Routing decisions and dispatch live in :mod:`magos.routing` and
+:mod:`magos.egress` respectively, regardless of how the request entered.
 """
-
-from __future__ import annotations
-
-from magos.ingress.addon import MagosIngressAddon
-from magos.ingress.log_bridge import StructlogHandler, install_log_bridge
-from magos.ingress.master import build_ingress_master
-
-__all__ = [
-    "MagosIngressAddon",
-    "StructlogHandler",
-    "build_ingress_master",
-    "install_log_bridge",
-]

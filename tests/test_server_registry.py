@@ -14,9 +14,9 @@ from magos.registry.discovery.base import (
     DiscoveredModel,
     DiscoveryResult,
 )
-from magos.registry.models import ModelEntry, RegistryState
 from magos.registry.refresher import Refresher
 from magos.registry.schema import ProviderConfig, RegistryYaml
+from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import save as save_state
 from magos.routing import RoutingConfig
 from magos.server import create_app

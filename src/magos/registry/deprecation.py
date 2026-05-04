@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timedelta
 
-from magos.registry.models import ModelEntry
+from magos.registry.state import ModelEntry
 
 
 def apply_deprecation(

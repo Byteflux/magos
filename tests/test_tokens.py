@@ -1,4 +1,4 @@
-"""Unit tests for ``magos.tokens.count_tokens``.
+"""Unit tests for ``magos.egress.tokens.count_tokens``.
 
 Verifies the seam contract: payload composition (model rewrite, optional
 ``system``/``tools``/``tool_choice`` forwarding) and result coercion
@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from magos import tokens
+from magos.egress import tokens
 
 SIMPLE_REQUEST: dict[str, Any] = {
     "model": "claude-3-5-sonnet-20241022",

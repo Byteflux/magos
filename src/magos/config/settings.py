@@ -26,7 +26,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
 log = get_logger("magos.config")
 

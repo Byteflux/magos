@@ -10,7 +10,7 @@ header sets unchanged.
 
 The functions here are shape-agnostic: the caller passes ``path``
 (``/v1/messages``, ``/v1/responses``, ...) and the dispatcher in
-``magos.routing.dispatch`` chooses based on the matched rule's endpoint.
+``magos.egress.dispatch`` chooses based on the matched rule's endpoint.
 LiteLLM is intentionally NOT involved on this path: any SDK round-trip
 would re-build the request from a parsed body, defeating byte-exactness
 even when the upstream wire shape happens to match.
@@ -23,9 +23,9 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
-log = get_logger("magos.passthrough")
+log = get_logger("magos.egress.passthrough")
 
 _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=10.0, pool=10.0)
 _HTTP_ERROR_THRESHOLD = 400

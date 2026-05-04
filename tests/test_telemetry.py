@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from magos.obs import configure_logging, configure_tracing, get_logger, traced
+from magos.telemetry import configure_logging, configure_tracing, get_logger, traced
 
 
 @pytest.mark.unit

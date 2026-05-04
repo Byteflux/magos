@@ -1,4 +1,4 @@
-"""Schema tests for ``magos.routing.models``.
+"""Schema tests for ``magos.routing.schema``.
 
 Covers: every variant of every discriminated union, recursion through
 combinators, ``extra="forbid"`` rejection, frozen-immutability, and the
@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from magos.routing.models import (
+from magos.routing.schema import (
     Action,
     AddHeader,
     AllOf,

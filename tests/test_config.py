@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from magos.config import MagosSettings, get_settings
+from magos.config.settings import MagosSettings, get_settings
 
 
 def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

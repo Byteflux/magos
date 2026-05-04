@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from magos.config_loader import MagosConfig, load_full_config
+from magos.config.loader import MagosConfig, load_full_config
 from magos.routing.loader import RoutingConfigError
 
 

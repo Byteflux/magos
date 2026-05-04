@@ -20,7 +20,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from magos.registry.litellm_lookup import PartialEntry
-from magos.registry.models import ModelEntry
+from magos.registry.state import ModelEntry
 
 _SOURCE_ORDER: tuple[str, ...] = ("override", "discovery", "litellm")
 

@@ -28,7 +28,6 @@ from typing import Protocol
 import backoff
 import httpx
 
-from magos.obs import get_logger
 from magos.registry import obs as registry_obs
 from magos.registry.deprecation import apply_deprecation
 from magos.registry.discovery import (
@@ -39,15 +38,16 @@ from magos.registry.discovery import (
 )
 from magos.registry.litellm_lookup import GetModelInfoFn, PartialEntry, lookup
 from magos.registry.merge import merge
-from magos.registry.models import ModelEntry, RegistryState
 from magos.registry.schema import (
     ModelOverride,
     ProviderConfig,
     RegistrySettings,
     RegistryYaml,
 )
+from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import load as load_state
 from magos.registry.store import save as save_state
+from magos.telemetry import get_logger
 
 log = get_logger("magos.registry.refresher")
 

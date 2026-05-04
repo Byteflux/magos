@@ -5,7 +5,7 @@ mitmproxy 12 emits its operational events through the standard
 descendants). Without a bridge, magos's structlog setup and
 mitmproxy's plain log records produce two interleaved formats. The
 handler installed here re-emits each record via
-``magos.obs.get_logger`` so the unified line shape (timestamp, level,
+``magos.telemetry.get_logger`` so the unified line shape (timestamp, level,
 event, key/value pairs) holds across both servers.
 
 Idempotent: re-installing replaces handlers rather than appending,
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
 
 class StructlogHandler(logging.Handler):

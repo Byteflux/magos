@@ -24,13 +24,13 @@ import asyncio
 import uvicorn
 
 from magos import __version__
-from magos.config import MagosSettings
-from magos.config_loader import MagosConfig, load_full_config
-from magos.ingress.log_bridge import install_log_bridge
-from magos.ingress.master import build_ingress_master
-from magos.obs import get_logger
+from magos.config.loader import MagosConfig, load_full_config
+from magos.config.schema import MagosServerConfig
+from magos.config.settings import MagosSettings
+from magos.ingress.mitm.log_bridge import install_log_bridge
+from magos.ingress.mitm.master import build_ingress_master
 from magos.server import create_app
-from magos.server_config import MagosServerConfig
+from magos.telemetry import get_logger
 
 log = get_logger("magos.serve")
 

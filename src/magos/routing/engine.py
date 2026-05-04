@@ -23,17 +23,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from magos.registry.models import ModelEntry, RegistryState
 from magos.registry.schema import ProviderConfig, RegistrySettings
+from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.errors import (
     RouteError,
     format_dispatch_error_message,
     format_unmatched_message,
 )
 from magos.routing.matchers import matches
-from magos.routing.models import Action, GuardedRewrites, RoutingConfig, Rule
 from magos.routing.request import RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
+from magos.routing.schema import Action, GuardedRewrites, RoutingConfig, Rule
 
 _AUTO_ROUTE_RULE_NAME = "auto-route"
 

@@ -7,7 +7,7 @@ import logging
 import pytest
 import structlog
 
-from magos.ingress.log_bridge import StructlogHandler, install_log_bridge
+from magos.ingress.mitm.log_bridge import StructlogHandler, install_log_bridge
 
 
 @pytest.mark.unit

@@ -22,9 +22,8 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from magos.obs import get_logger
 from magos.routing.jq_compat import JqCompileError, check_program
-from magos.routing.models import (
+from magos.routing.schema import (
     AllOf,
     AnyOf,
     Compress,
@@ -45,6 +44,7 @@ from magos.routing.models import (
     Rule,
     SetModel,
 )
+from magos.telemetry import get_logger
 
 log = get_logger("magos.routing.loader")
 

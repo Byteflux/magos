@@ -450,7 +450,7 @@ Magos mirrors these as the `mode: token | cache` switch on the
 
 | File                                  | Purpose                                              |
 |---------------------------------------|------------------------------------------------------|
-| `src/magos/routing/models.py`         | `Compress`, `CompressOptions`, `CompressMode` schema |
+| `src/magos/routing/schema.py`         | `Compress`, `CompressOptions`, `CompressMode` schema |
 | `src/magos/routing/rewrites.py`       | `_apply_compress`, `_apply_cache_aligner`            |
 | `src/magos/routing/loader.py`         | `Compress` listed in `_rewrites_touch_body`          |
 | `src/magos/server.py`                 | Lifespan warmup hook                                 |

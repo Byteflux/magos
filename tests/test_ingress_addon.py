@@ -17,7 +17,7 @@ import pytest
 from mitmproxy.http import HTTPFlow
 from mitmproxy.test import tflow, tutils
 
-from magos.ingress.addon import MagosIngressAddon
+from magos.ingress.mitm.addon import MagosIngressAddon
 
 
 def _addon(intercept: tuple[str, ...] = ("api.anthropic.com",)) -> MagosIngressAddon:

@@ -13,7 +13,7 @@ Two hooks:
   untouched, which is what the existing routing rules and byte-exact
   passthrough invariant rely on.
 
-Subdomain matching mirrors :func:`magos.addon._is_llm_host`: any host
+Subdomain matching mirrors :func:`magos.egress.observer._is_llm_host`: any host
 whose suffix is ``.<allowed_host>`` matches.
 """
 
@@ -21,9 +21,9 @@ from __future__ import annotations
 
 from mitmproxy import http, tls
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
-log = get_logger("magos.ingress.addon")
+log = get_logger("magos.ingress.mitm.addon")
 
 
 class MagosIngressAddon:

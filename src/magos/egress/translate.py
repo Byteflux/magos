@@ -13,7 +13,7 @@ wires the matching SDK function. Anthropic streaming returns raw SSE bytes
 from LiteLLM, forwarded verbatim. OpenAI streaming wraps chunks into SSE
 frames here because the SDK yields parsed objects.
 
-Caller (``magos.routing.dispatch``) supplies ``dispatch_model`` already in
+Caller (``magos.egress.dispatch``) supplies ``dispatch_model`` already in
 the form LiteLLM expects (``<provider>/<name>`` for unprefixed inputs); this
 module no longer infers a provider from the model name.
 """
@@ -26,9 +26,9 @@ from typing import Any, Protocol
 
 import litellm
 
-from magos.obs import get_logger, traced
+from magos.telemetry import get_logger, traced
 
-log = get_logger("magos.proxy")
+log = get_logger("magos.egress.translate")
 
 # Cross-shape translation routinely surfaces params one provider supports and
 # another does not (e.g. Anthropic's ``context_management`` arriving on a

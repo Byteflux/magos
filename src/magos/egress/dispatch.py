@@ -40,9 +40,9 @@ from typing import Any
 from fastapi import Response
 from fastapi.responses import StreamingResponse
 
-from magos.obs import get_logger
-from magos.passthrough import call_passthrough, stream_passthrough
-from magos.proxy import (
+from magos.egress.passthrough import call_passthrough, stream_passthrough
+from magos.egress.tokens import count_tokens
+from magos.egress.translate import (
     proxy_anthropic_messages,
     proxy_openai_chat_completions,
     proxy_openai_responses,
@@ -51,10 +51,10 @@ from magos.proxy import (
     stream_openai_responses,
 )
 from magos.routing.engine import RouteDecision
-from magos.routing.models import Action
-from magos.tokens import count_tokens
+from magos.routing.schema import Action
+from magos.telemetry import get_logger
 
-log = get_logger("magos.routing.dispatch")
+log = get_logger("magos.egress.dispatch")
 
 CompletionFn = Callable[..., Awaitable[Any]]
 

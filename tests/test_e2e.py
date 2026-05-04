@@ -8,7 +8,7 @@ credentials LiteLLM needs (e.g. ``OPENAI_API_KEY``)::
 The model is configurable via ``MAGOS_E2E_MODEL`` (default ``gpt-4o-mini``);
 any LiteLLM-supported model id works.
 
-These tests exercise the full path: FastAPI -> magos.proxy -> litellm ->
+These tests exercise the full path: FastAPI -> magos.egress.translate -> litellm ->
 real provider. They are intentionally minimal because each call costs money.
 """
 

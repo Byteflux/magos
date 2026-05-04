@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 import pytest
 
-from magos.passthrough import (
+from magos.egress.passthrough import (
     call_passthrough,
     stream_passthrough,
 )

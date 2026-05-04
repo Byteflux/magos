@@ -18,9 +18,9 @@ from magos.registry.discovery.base import (
     DiscoveryResult,
 )
 from magos.registry.litellm_lookup import PartialEntry
-from magos.registry.models import ModelEntry, RegistryState
 from magos.registry.refresher import Refresher
 from magos.registry.schema import ProviderConfig, RegistrySettings, RegistryYaml
+from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import save as save_state
 
 

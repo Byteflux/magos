@@ -15,9 +15,9 @@ from typing import Any
 
 import pytest
 
-from magos.config import MagosSettings
+from magos.config.schema import IngressConfig, MagosServerConfig
+from magos.config.settings import MagosSettings
 from magos.serve import resolve_bind, serve_async
-from magos.server_config import IngressConfig, MagosServerConfig
 
 
 @pytest.mark.unit
@@ -97,7 +97,7 @@ _FIXTURE_YAML = Path(__file__).parent / "fixtures" / "magos.test.yaml"
 def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     """Patch the orchestrator's collaborators with stand-ins."""
     # Capture the real loader BEFORE monkeypatch so our stub can reuse it.
-    from magos.config_loader import load_full_config as real_load_full_config  # noqa: PLC0415
+    from magos.config.loader import load_full_config as real_load_full_config  # noqa: PLC0415
 
     state: dict[str, Any] = {"server_cfg": MagosServerConfig()}
 

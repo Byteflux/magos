@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from magos.registry.models import ModelEntry, RegistryState
 from magos.registry.schema import ProviderConfig, RegistrySettings
+from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.engine import RouteDecision, route
 from magos.routing.errors import RouteError
-from magos.routing.models import RoutingConfig
 from magos.routing.request import RoutedRequest
+from magos.routing.schema import RoutingConfig
 
 
 def _routing_cfg() -> RoutingConfig:

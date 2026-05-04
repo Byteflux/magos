@@ -12,9 +12,9 @@ from __future__ import annotations
 from mitmproxy.options import Options
 from mitmproxy.tools.dump import DumpMaster
 
-from magos.addon import MagosObserverAddon
-from magos.ingress.addon import MagosIngressAddon
-from magos.server_config import IngressConfig
+from magos.config.schema import IngressConfig
+from magos.egress.observer import MagosObserverAddon
+from magos.ingress.mitm.addon import MagosIngressAddon
 
 
 def build_ingress_master(

@@ -21,13 +21,13 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from magos.config import magos_home
+from magos.config.schema import MagosServerConfig
+from magos.config.settings import magos_home
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.schema import ProviderConfig, RegistryYaml
 from magos.routing.loader import RoutingConfigError
 from magos.routing.loader import load_config as load_routing_config
-from magos.routing.models import RoutingConfig
-from magos.server_config import MagosServerConfig
+from magos.routing.schema import RoutingConfig
 
 
 @dataclass(frozen=True, slots=True)

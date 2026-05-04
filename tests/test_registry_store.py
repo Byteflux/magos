@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import deserialize, load, save, serialize
 
 

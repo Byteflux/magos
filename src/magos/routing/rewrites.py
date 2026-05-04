@@ -17,10 +17,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
-from magos.obs import get_logger
-from magos.registry.models import RegistryState
+from magos.registry.state import RegistryState
 from magos.routing.jq_compat import evaluate_patch
-from magos.routing.models import (
+from magos.routing.request import RoutedRequest
+from magos.routing.schema import (
     AddHeader,
     Compress,
     CompressOptions,
@@ -30,7 +30,7 @@ from magos.routing.models import (
     SetHeader,
     SetModel,
 )
-from magos.routing.request import RoutedRequest
+from magos.telemetry import get_logger
 
 log = get_logger("magos.routing.rewrites")
 

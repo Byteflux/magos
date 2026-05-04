@@ -12,8 +12,8 @@ from typer.testing import CliRunner
 
 from magos.cli import models_cmd
 from magos.cli.admin_client import AdminClientError
-from magos.config import MagosSettings
-from magos.registry.models import ModelEntry, RegistryState
+from magos.config.settings import MagosSettings
+from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import save as save_state
 from magos.registry.store import serialize
 

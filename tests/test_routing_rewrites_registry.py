@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.rewrites import _resolve_model_limit
 
 

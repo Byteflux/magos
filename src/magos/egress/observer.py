@@ -1,8 +1,11 @@
 """mitmproxy addon: structured observability for outbound LLM provider traffic.
 
-Run alongside the magos FastAPI server::
+Loaded by the in-process ``DumpMaster`` alongside ``MagosIngressAddon``
+(see ``magos.ingress.mitm.master``) so the same mitmproxy listener can
+log egress when magos's own outbound transits it. Can also be run
+out-of-process::
 
-    mitmdump -s src/magos/addon.py --listen-port 8080
+    mitmdump -s src/magos/egress/observer.py --listen-port 8080
 
 Then point magos's outbound calls at it::
 
@@ -16,8 +19,9 @@ run).
 The addon does not modify traffic. It only logs structured request/response
 events for any flow whose host matches a known LLM provider, which feeds the
 "strong observability" goal without adding latency or coupling. Translation
-and routing live in the FastAPI server (``magos.server``); mitmproxy's job
-here is purely passive observation of outbound LLM calls.
+and routing live in the FastAPI server (``magos.ingress.http`` →
+``magos.routing`` → ``magos.egress``); mitmproxy's job here is purely
+passive observation of outbound LLM calls.
 """
 
 from __future__ import annotations
@@ -26,9 +30,9 @@ import time
 
 from mitmproxy import http
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
-log = get_logger("magos.addon")
+log = get_logger("magos.egress.observer")
 
 LLM_PROVIDER_HOSTS: frozenset[str] = frozenset(
     {

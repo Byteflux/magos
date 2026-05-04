@@ -16,7 +16,7 @@ from collections.abc import Iterable
 
 from opentelemetry import metrics
 
-from magos.obs import get_logger
+from magos.telemetry import get_logger
 
 log = get_logger("magos.registry")
 

@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.models`` core data shapes."""
+"""Tests for ``magos.registry.state`` core data shapes."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry, RegistryState
 
 
 def _entry(provider: str = "openrouter", raw_id: str = "anthropic/claude-sonnet-4-6") -> ModelEntry:

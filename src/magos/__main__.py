@@ -37,9 +37,9 @@ import typer
 
 from magos import __version__
 from magos.cli.models_cmd import models_app
-from magos.config import MagosSettings
-from magos.obs import configure_logging, configure_tracing, get_logger
+from magos.config.settings import MagosSettings
 from magos.serve import serve as serve_orchestrator
+from magos.telemetry import configure_logging, configure_tracing, get_logger
 
 app = typer.Typer(
     name="magos",

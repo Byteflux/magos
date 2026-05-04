@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import structlog
 
-from magos.addon import LLM_PROVIDER_HOSTS, MagosObserverAddon, _is_llm_host
+from magos.egress.observer import LLM_PROVIDER_HOSTS, MagosObserverAddon, _is_llm_host
 
 
 def test_is_llm_host_matches_exact() -> None:

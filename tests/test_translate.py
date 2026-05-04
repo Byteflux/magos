@@ -15,12 +15,12 @@ from typing import Any
 
 import pytest
 
-from magos.proxy import proxy_anthropic_messages, stream_anthropic_messages
+from magos.egress.translate import proxy_anthropic_messages, stream_anthropic_messages
 
 
 @pytest.mark.unit
 def test_proxy_module_enables_litellm_drop_params() -> None:
-    """Importing ``magos.proxy`` must flip ``litellm.drop_params`` to True.
+    """Importing ``magos.egress.translate`` must flip ``litellm.drop_params`` to True.
 
     Cross-shape translation (Anthropic <-> OpenAI) routinely sends params one
     side supports and the other does not. ``context_management`` from Claude
@@ -30,7 +30,7 @@ def test_proxy_module_enables_litellm_drop_params() -> None:
     """
     import litellm  # noqa: PLC0415
 
-    import magos.proxy  # noqa: F401, PLC0415
+    import magos.egress.translate  # noqa: F401, PLC0415
 
     assert litellm.drop_params is True
 

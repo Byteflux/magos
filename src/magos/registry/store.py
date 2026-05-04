@@ -18,8 +18,8 @@ from typing import Any
 
 import orjson
 
-from magos.obs import get_logger
-from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry, RegistryState
+from magos.telemetry import get_logger
 
 log = get_logger("magos.registry.store")
 

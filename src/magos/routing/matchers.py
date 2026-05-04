@@ -11,9 +11,10 @@ from __future__ import annotations
 import fnmatch
 import re
 
-from magos.registry.models import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.jq_compat import evaluate_predicate
-from magos.routing.models import (
+from magos.routing.request import RoutedRequest
+from magos.routing.schema import (
     AllOf,
     AnyOf,
     EndpointAtom,
@@ -29,7 +30,6 @@ from magos.routing.models import (
     Not,
     RegexMatcher,
 )
-from magos.routing.request import RoutedRequest
 
 
 def matches(  # noqa: PLR0911

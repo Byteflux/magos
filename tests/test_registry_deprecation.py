@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from magos.registry.deprecation import apply_deprecation
-from magos.registry.models import ModelEntry
+from magos.registry.state import ModelEntry
 
 
 def _entry(provider: str, raw_id: str, deprecated_at: datetime | None = None) -> ModelEntry:

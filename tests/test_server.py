@@ -556,7 +556,7 @@ def test_responses_retrieve_passthrough_forwards_get(monkeypatch: pytest.MonkeyP
         captured["method"] = method
         return 200, b'{"id":"resp_abc","object":"response"}', "application/json"
 
-    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(
@@ -606,7 +606,7 @@ def test_responses_cancel_passthrough_forwards_delete(monkeypatch: pytest.Monkey
         captured["method"] = method
         return 200, b'{"id":"resp_xyz","status":"cancelled"}', "application/json"
 
-    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(
@@ -654,7 +654,7 @@ def test_responses_input_items_passthrough_forwards_get(
         captured["method"] = method
         return 200, b'{"object":"list","data":[]}', "application/json"
 
-    monkeypatch.setattr("magos.routing.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(
@@ -904,8 +904,8 @@ def test_inject_api_key_defaults_to_bearer_for_non_anthropic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """openai/openrouter/vultr providers get ``Authorization: Bearer`` by default."""
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
     action = Action.model_validate(
@@ -926,8 +926,8 @@ def test_inject_api_key_anthropic_default_uses_x_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Anthropic provider keeps the official ``x-api-key`` header shape."""
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     action = Action.model_validate(
@@ -955,8 +955,8 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
     and any explicit ``auth_header`` setting on the rule, since neither
     alternative will authenticate.
     """
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-oat01-deadbeef")
 
@@ -992,8 +992,8 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
 @pytest.mark.unit
 def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     """``action.auth_header`` overrides the per-provider default both ways."""
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
@@ -1026,8 +1026,8 @@ def test_inject_api_key_skips_when_inbound_auth_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Client-supplied auth always wins; injection never overwrites it."""
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
     action = Action.model_validate(
@@ -1048,8 +1048,8 @@ def test_inject_api_key_skips_when_inbound_auth_present(
 @pytest.mark.unit
 def test_inject_api_key_noop_in_translate_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Translate mode never injects; api_key plumbing happens via litellm kwargs."""
-    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
-    from magos.routing.models import Action  # noqa: PLC0415
+    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     action = Action.model_validate(

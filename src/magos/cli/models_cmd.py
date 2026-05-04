@@ -11,11 +11,11 @@ import httpx
 import typer
 
 from magos.cli.admin_client import AdminClient, AdminClientError
-from magos.config import MagosSettings
-from magos.config_loader import load_full_config, resolve_models_path
+from magos.config.loader import load_full_config, resolve_models_path
+from magos.config.settings import MagosSettings
 from magos.registry.discovery import adapter_for
 from magos.registry.discovery.base import DiscoveryError
-from magos.registry.models import RegistryState
+from magos.registry.state import RegistryState
 from magos.registry.store import deserialize, load
 
 
