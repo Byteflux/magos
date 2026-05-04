@@ -135,6 +135,47 @@ def test_anthropic_adapter_requires_api_key_env() -> None:
         asyncio.run(_run_anthropic(cfg, _ok({"data": []})))
 
 
+def test_anthropic_adapter_uses_x_api_key_for_regular_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Standard ``sk-ant-api...`` keys go on the official ``x-api-key`` header."""
+    monkeypatch.setenv("ANTHROPIC_KEY", "sk-ant-api03-test")
+    seen: dict[str, str] = {}
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.headers))
+        return httpx.Response(200, json={"data": []})
+
+    cfg = ProviderConfig.model_validate({"api_key_env": "ANTHROPIC_KEY"})
+    asyncio.run(_run_anthropic(cfg, httpx.MockTransport(_capture)))
+    assert seen.get("x-api-key") == "sk-ant-api03-test"
+    assert "authorization" not in seen
+    assert "anthropic-beta" not in seen
+
+
+def test_anthropic_adapter_uses_bearer_for_oauth_tokens(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Claude-Code OAuth tokens (``sk-ant-oat...``) require Bearer + beta header.
+
+    api.anthropic.com 401s with ``invalid x-api-key`` for OAuth credentials
+    sent on the ``x-api-key`` header; the only accepted shape is
+    ``Authorization: Bearer ...`` plus ``anthropic-beta: oauth-2025-04-20``.
+    """
+    monkeypatch.setenv("ANTHROPIC_KEY", "sk-ant-oat01-deadbeef")
+    seen: dict[str, str] = {}
+
+    def _capture(request: httpx.Request) -> httpx.Response:
+        seen.update(dict(request.headers))
+        return httpx.Response(200, json={"data": []})
+
+    cfg = ProviderConfig.model_validate({"api_key_env": "ANTHROPIC_KEY"})
+    asyncio.run(_run_anthropic(cfg, httpx.MockTransport(_capture)))
+    assert seen.get("authorization") == "Bearer sk-ant-oat01-deadbeef"
+    assert seen.get("anthropic-beta") == "oauth-2025-04-20"
+    assert "x-api-key" not in seen
+
+
 def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OR_KEY", "sk-or-test")
     cfg = ProviderConfig.model_validate({"api_key_env": "OR_KEY"})

@@ -18,7 +18,11 @@ API-key handling:
   aware: ``provider: anthropic`` -> ``x-api-key: <env>`` (the Anthropic
   API convention), every other provider -> ``Authorization: Bearer <env>``
   (the openai-compatible convention used by openai, openrouter, vultr,
-  etc.). ``action.auth_header`` overrides the default. Headers are not
+  etc.). ``action.auth_header`` overrides the default. Claude-Code-style
+  Anthropic OAuth tokens (``sk-ant-oat...``) are detected and sent as
+  ``Authorization: Bearer ...`` plus ``anthropic-beta: oauth-2025-04-20``
+  regardless of the default/override, since that's the only shape
+  api.anthropic.com accepts for that credential class. Headers are not
   part of the prompt-cache hash, so this injection does not break
   byte-exact billing.
 
@@ -200,14 +204,22 @@ async def _dispatch_count_tokens(
     return {"input_tokens": n}
 
 
+_ANTHROPIC_OAUTH_TOKEN_PREFIX = "sk-ant-oat"  # noqa: S105
+_ANTHROPIC_OAUTH_BETA = "oauth-2025-04-20"
+
+
 def _maybe_inject_api_key(headers: dict[str, str], action: Action) -> dict[str, str]:
     """In passthrough mode, inject the env-resolved API key when absent.
 
     Shape is provider-aware: anthropic -> ``x-api-key`` (Anthropic's
     official header), everything else -> ``Authorization: Bearer``
     (openai-compatible convention). ``action.auth_header`` overrides
-    the default. Skipped entirely when the inbound request already
-    carries ``Authorization`` or ``x-api-key``.
+    the default. Claude-Code-style Anthropic OAuth tokens
+    (``sk-ant-oat...``) override both: they always go out as a Bearer
+    plus the ``anthropic-beta: oauth-2025-04-20`` opt-in header, since
+    api.anthropic.com 401s on ``x-api-key`` for that credential class.
+    Skipped entirely when the inbound request already carries
+    ``Authorization`` or ``x-api-key``.
     """
     if action.mode != "passthrough" or not action.api_key_env:
         return headers
@@ -216,6 +228,12 @@ def _maybe_inject_api_key(headers: dict[str, str], action: Action) -> dict[str, 
     value = os.environ.get(action.api_key_env)
     if not value:
         raise DispatchError(f"env var {action.api_key_env!r} is not set")
+    if action.provider == "anthropic" and value.startswith(_ANTHROPIC_OAUTH_TOKEN_PREFIX):
+        return {
+            **headers,
+            "authorization": f"Bearer {value}",
+            "anthropic-beta": _ANTHROPIC_OAUTH_BETA,
+        }
     shape = action.auth_header or _default_auth_header(action.provider)
     if shape == "x-api-key":
         return {**headers, "x-api-key": value}

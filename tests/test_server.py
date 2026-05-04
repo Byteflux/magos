@@ -944,6 +944,52 @@ def test_inject_api_key_anthropic_default_uses_x_api_key(
 
 
 @pytest.mark.unit
+def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Claude-Code OAuth tokens force Bearer + ``anthropic-beta: oauth-...``.
+
+    api.anthropic.com rejects ``sk-ant-oat...`` tokens on the ``x-api-key``
+    header with 401 ``invalid x-api-key``; the only accepted shape is the
+    OAuth one. The detection must override both the per-provider default
+    and any explicit ``auth_header`` setting on the rule, since neither
+    alternative will authenticate.
+    """
+    from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.routing.models import Action  # noqa: PLC0415
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-oat01-deadbeef")
+
+    default_shape = Action.model_validate(
+        {
+            "provider": "anthropic",
+            "mode": "passthrough",
+            "base_url": "https://api.anthropic.com",
+            "api_key_env": "ANTHROPIC_API_KEY",
+        }
+    )
+    assert _maybe_inject_api_key({}, default_shape) == {
+        "authorization": "Bearer sk-ant-oat01-deadbeef",
+        "anthropic-beta": "oauth-2025-04-20",
+    }
+
+    # Explicit x-api-key override is intentionally ignored for OAuth tokens.
+    explicit_xapikey = Action.model_validate(
+        {
+            "provider": "anthropic",
+            "mode": "passthrough",
+            "base_url": "https://api.anthropic.com",
+            "api_key_env": "ANTHROPIC_API_KEY",
+            "auth_header": "x-api-key",
+        }
+    )
+    assert _maybe_inject_api_key({}, explicit_xapikey) == {
+        "authorization": "Bearer sk-ant-oat01-deadbeef",
+        "anthropic-beta": "oauth-2025-04-20",
+    }
+
+
+@pytest.mark.unit
 def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     """``action.auth_header`` overrides the per-provider default both ways."""
     from magos.routing.dispatch import _maybe_inject_api_key  # noqa: PLC0415

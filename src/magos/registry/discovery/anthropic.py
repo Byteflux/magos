@@ -6,7 +6,11 @@ We pass through ``id`` and rely on the merge layer to fill the rest from
 LiteLLM's bundled registry or operator overrides.
 
 Auth uses the ``x-api-key`` header (Anthropic's convention) plus the
-``anthropic-version`` header — both required by the API.
+``anthropic-version`` header — both required by the API. Claude-Code-
+style OAuth tokens (``sk-ant-oat...``) are detected and sent as
+``Authorization: Bearer ...`` with the ``anthropic-beta: oauth-2025-04-20``
+opt-in header instead, which is what api.anthropic.com expects for that
+credential class.
 """
 
 from __future__ import annotations
@@ -26,6 +30,8 @@ from magos.registry.schema import ProviderConfig
 _DEFAULT_BASE_URL = "https://api.anthropic.com"
 _DEFAULT_LITELLM_PROVIDER = "anthropic"
 _ANTHROPIC_VERSION = "2023-06-01"
+_OAUTH_TOKEN_PREFIX = "sk-ant-oat"  # noqa: S105
+_OAUTH_BETA = "oauth-2025-04-20"
 
 
 class AnthropicAdapter:
@@ -89,4 +95,10 @@ def _auth_headers(provider_name: str, config: ProviderConfig) -> dict[str, str]:
     key = os.environ.get(config.api_key_env)
     if not key:
         raise DiscoveryError(f"provider {provider_name!r}: env var {config.api_key_env} unset")
+    if key.startswith(_OAUTH_TOKEN_PREFIX):
+        return {
+            "authorization": f"Bearer {key}",
+            "anthropic-beta": _OAUTH_BETA,
+            "anthropic-version": _ANTHROPIC_VERSION,
+        }
     return {"x-api-key": key, "anthropic-version": _ANTHROPIC_VERSION}
