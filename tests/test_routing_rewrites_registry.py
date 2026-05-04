@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from magos.registry.state import ModelEntry, RegistryState
-from magos.routing.rewrites import _resolve_model_limit
+from magos.routing.rewrites.compress import _resolve_model_limit
 
 
 def _registry_with_context(model: str, size: int) -> RegistryState:

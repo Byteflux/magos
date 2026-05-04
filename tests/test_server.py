@@ -896,7 +896,7 @@ def test_lifespan_default_leaves_onnx_check_untouched(
     assert _kc_module._is_onnx_available is _KC_ORIGINAL_IS_ONNX_AVAILABLE
 
 
-# ---- _maybe_inject_api_key (passthrough auth injection) ---------------------
+# ---- maybe_inject_api_key (passthrough auth injection) ---------------------
 
 
 @pytest.mark.unit
@@ -904,7 +904,7 @@ def test_inject_api_key_defaults_to_bearer_for_non_anthropic(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """openai/openrouter/vultr providers get ``Authorization: Bearer`` by default."""
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
@@ -916,7 +916,7 @@ def test_inject_api_key_defaults_to_bearer_for_non_anthropic(
             "api_key_env": "VULTR_API_KEY",
         }
     )
-    out = _maybe_inject_api_key({}, action)
+    out = maybe_inject_api_key({}, action)
     assert out == {"authorization": "Bearer vk-test"}
     assert "x-api-key" not in out
 
@@ -926,7 +926,7 @@ def test_inject_api_key_anthropic_default_uses_x_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Anthropic provider keeps the official ``x-api-key`` header shape."""
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
@@ -938,7 +938,7 @@ def test_inject_api_key_anthropic_default_uses_x_api_key(
             "api_key_env": "ANTHROPIC_API_KEY",
         }
     )
-    out = _maybe_inject_api_key({}, action)
+    out = maybe_inject_api_key({}, action)
     assert out == {"x-api-key": "sk-ant-test"}
     assert "authorization" not in out
 
@@ -955,7 +955,7 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
     and any explicit ``auth_header`` setting on the rule, since neither
     alternative will authenticate.
     """
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-oat01-deadbeef")
@@ -968,7 +968,7 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
             "api_key_env": "ANTHROPIC_API_KEY",
         }
     )
-    assert _maybe_inject_api_key({}, default_shape) == {
+    assert maybe_inject_api_key({}, default_shape) == {
         "authorization": "Bearer sk-ant-oat01-deadbeef",
         "anthropic-beta": "oauth-2025-04-20",
     }
@@ -983,7 +983,7 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
             "auth_header": "x-api-key",
         }
     )
-    assert _maybe_inject_api_key({}, explicit_xapikey) == {
+    assert maybe_inject_api_key({}, explicit_xapikey) == {
         "authorization": "Bearer sk-ant-oat01-deadbeef",
         "anthropic-beta": "oauth-2025-04-20",
     }
@@ -992,7 +992,7 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
 @pytest.mark.unit
 def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     """``action.auth_header`` overrides the per-provider default both ways."""
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
@@ -1007,7 +1007,7 @@ def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) 
             "auth_header": "bearer",
         }
     )
-    assert _maybe_inject_api_key({}, anthropic_bearer) == {"authorization": "Bearer sk-ant-test"}
+    assert maybe_inject_api_key({}, anthropic_bearer) == {"authorization": "Bearer sk-ant-test"}
 
     openai_xapikey = Action.model_validate(
         {
@@ -1018,7 +1018,7 @@ def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) 
             "auth_header": "x-api-key",
         }
     )
-    assert _maybe_inject_api_key({}, openai_xapikey) == {"x-api-key": "sk-test"}
+    assert maybe_inject_api_key({}, openai_xapikey) == {"x-api-key": "sk-test"}
 
 
 @pytest.mark.unit
@@ -1026,7 +1026,7 @@ def test_inject_api_key_skips_when_inbound_auth_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Client-supplied auth always wins; injection never overwrites it."""
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
@@ -1039,16 +1039,16 @@ def test_inject_api_key_skips_when_inbound_auth_present(
         }
     )
     inbound_auth = {"authorization": "Bearer client-supplied"}
-    assert _maybe_inject_api_key(inbound_auth, action) == inbound_auth
+    assert maybe_inject_api_key(inbound_auth, action) == inbound_auth
 
     inbound_xapikey = {"x-api-key": "client-supplied"}
-    assert _maybe_inject_api_key(inbound_xapikey, action) == inbound_xapikey
+    assert maybe_inject_api_key(inbound_xapikey, action) == inbound_xapikey
 
 
 @pytest.mark.unit
 def test_inject_api_key_noop_in_translate_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Translate mode never injects; api_key plumbing happens via litellm kwargs."""
-    from magos.egress.dispatch import _maybe_inject_api_key  # noqa: PLC0415
+    from magos.egress.auth import maybe_inject_api_key  # noqa: PLC0415
     from magos.routing.schema import Action  # noqa: PLC0415
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
@@ -1059,4 +1059,4 @@ def test_inject_api_key_noop_in_translate_mode(monkeypatch: pytest.MonkeyPatch) 
             "api_key_env": "OPENAI_API_KEY",
         }
     )
-    assert _maybe_inject_api_key({}, action) == {}
+    assert maybe_inject_api_key({}, action) == {}

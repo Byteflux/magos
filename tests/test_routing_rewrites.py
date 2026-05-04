@@ -19,9 +19,9 @@ from magos.routing import (
     SetHeader,
     SetModel,
 )
-from magos.routing import rewrites as rw
 from magos.routing.request import Endpoint
 from magos.routing.rewrites import RewriteError, apply_rewrites
+from magos.routing.rewrites import compress as rw
 
 
 def _req(
