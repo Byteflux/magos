@@ -111,7 +111,7 @@ src/magos/
     deprecation.py   # soft-delete state machine
     provider_order.py # tie-break: pin > order > lex-smallest
     refresher.py     # async lifecycle owner: load, boot-discover, refresh
-    obs.py           # OTel meters + structlog event helpers
+    telemetry.py     # OTel meters + structlog event helpers
     litellm_lookup.py # bundled-registry fallback wrapper
     discovery/       # adapters
       base.py        # DiscoveryAdapter Protocol + types

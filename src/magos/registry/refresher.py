@@ -28,7 +28,7 @@ from typing import Protocol
 import backoff
 import httpx
 
-from magos.registry import obs as registry_obs
+from magos.registry import telemetry as registry_telemetry
 from magos.registry.deprecation import apply_deprecation
 from magos.registry.discovery import (
     DiscoveryAdapter,
@@ -205,7 +205,7 @@ class Refresher:
     ) -> None:
         cfg = self._config.providers[provider_name]
         adapter = self._adapter_factory(cfg)
-        registry_obs.record_refresh_attempt(provider_name)
+        registry_telemetry.record_refresh_attempt(provider_name)
         started = time.perf_counter()
         try:
             result = await self._discover_with_retry(
@@ -218,13 +218,13 @@ class Refresher:
             fresh_entries = self._merge_provider(provider_name, cfg, result)
             diff = await self._apply(provider_name, fresh_entries)
         except DiscoveryError as exc:
-            registry_obs.record_refresh_failure(
+            registry_telemetry.record_refresh_failure(
                 provider_name,
                 duration_seconds=time.perf_counter() - started,
                 error=exc,
             )
             raise
-        registry_obs.record_refresh_success(
+        registry_telemetry.record_refresh_success(
             provider_name,
             duration_seconds=time.perf_counter() - started,
             total=diff.total,

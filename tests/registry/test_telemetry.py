@@ -18,7 +18,7 @@ from opentelemetry.sdk.metrics.export import (
     MetricsData,
 )
 
-from magos.registry import obs as registry_obs
+from magos.registry import telemetry as registry_telemetry
 from magos.registry.discovery.base import (
     DiscoveredModel,
     DiscoveryError,
@@ -38,7 +38,7 @@ metrics.set_meter_provider(MeterProvider(metric_readers=[_test_reader]))
 
 @pytest.fixture
 def metric_reader() -> Iterator[InMemoryMetricReader]:
-    registry_obs.reset_for_tests()
+    registry_telemetry.reset_for_tests()
     _test_reader.get_metrics_data()  # drain prior snapshot
     yield _test_reader
 
@@ -193,6 +193,13 @@ def test_failed_refresh_emits_failure_metric_and_warning(
 def test_deprecated_and_pruned_counts_propagate(
     tmp_path: Path, metric_reader: InMemoryMetricReader
 ) -> None:
+    # Counter is cumulative across the meter's lifetime; baseline it so
+    # prior tests' deprecations don't leak into the delta assertion.
+    baseline = metric_reader.get_metrics_data()
+    baseline_deprecated = sum(
+        p.value for p in _metric_points(baseline, "magos.registry.models.deprecated")
+    )
+
     boot_time = datetime(2026, 5, 2, tzinfo=UTC)
     refresh_time = boot_time + timedelta(hours=1)
     times = [boot_time, refresh_time]
@@ -238,4 +245,4 @@ def test_deprecated_and_pruned_counts_propagate(
 
     data = metric_reader.get_metrics_data()
     deprecated_points = _metric_points(data, "magos.registry.models.deprecated")
-    assert sum(p.value for p in deprecated_points) == 1
+    assert sum(p.value for p in deprecated_points) - baseline_deprecated == 1

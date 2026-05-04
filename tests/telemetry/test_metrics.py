@@ -5,7 +5,7 @@ because OTel only honors the first real provider per process, we cannot
 re-install one cleanly across tests. The test below verifies the call
 returns without raising and that the provider class flips off the
 no-op default — but skips when the provider has already been set
-(e.g. by a prior test or by ``tests/registry/test_obs.py``'s import).
+(e.g. by a prior test or by ``tests/registry/test_telemetry.py``'s import).
 
 ``mount_metrics_endpoint`` is fully testable: it just registers a
 FastAPI route, and the route reads from ``prometheus_client.REGISTRY``
