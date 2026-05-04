@@ -79,6 +79,7 @@ End-to-end tests against real upstream providers gate on `MAGOS_E2E=1`.
 - [`docs/ingress.md`](docs/ingress.md) — embedded mitmproxy ingress: setup, CA trust, loop hazard.
 - [`docs/headroom.md`](docs/headroom.md) — Headroom integration notes and non-obvious findings.
 - [`docs/deployment.md`](docs/deployment.md) — Docker / compose deployment.
+- [`integrations/opencode/README.md`](integrations/opencode/README.md) — OpenCode plugin that registers magos models.
 - [`CLAUDE.md`](CLAUDE.md) — full project layout and conventions.
 
 ## License

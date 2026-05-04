@@ -131,6 +131,8 @@ src/magos/
 magos.example.yaml   # routing config to copy and customise
 tests/               # mirrors src/magos/ — see "Test layout" below
 scripts/             # operator-facing one-shot probes
+integrations/        # third-party tool integrations
+  opencode/         # OpenCode plugin: registers magos models via /admin/registry
 pyproject.toml       # deps + tool config (ruff, mypy, pytest, coverage)
 docs/architecture.md # request lifecycle, lifespan, dispatch matrix, env vars, gotchas
 docs/cli.md          # operator CLI: top-level options, subcommands, env-var table

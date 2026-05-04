@@ -1,0 +1,22 @@
+{
+  "name": "@magos/opencode-plugin",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that registers models from a running magos instance.",
+  "type": "module",
+  "main": "./magos.ts",
+  "exports": {
+    ".": "./magos.ts"
+  },
+  "files": [
+    "magos.ts",
+    "README.md"
+  ],
+  "devDependencies": {
+    "@opencode-ai/plugin": "*",
+    "@opencode-ai/sdk": "*",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  }
+}
