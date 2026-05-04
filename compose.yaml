@@ -1,0 +1,24 @@
+services:
+  magos:
+    build: .
+    image: ghcr.io/byteflux/magos
+    container_name: magos
+    restart: unless-stopped
+    ports:
+      - "2570:2570"
+    env_file:
+      - .env
+    volumes:
+      - ${USERPROFILE:-${HOME:-.}}/.cache/huggingface:/root/.cache/huggingface
+      - ./magos.yaml:/etc/magos/magos.yaml:ro
+      - magos-state:/var/lib/magos
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  magos-state:
