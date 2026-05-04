@@ -100,6 +100,15 @@ def _metric_points(data: MetricsData | None, name: str) -> list[Any]:
 def test_successful_refresh_emits_metrics_and_event(
     tmp_path: Path, metric_reader: InMemoryMetricReader
 ) -> None:
+    # Counters are cumulative across the meter's lifetime; baseline them
+    # so prior tests' openrouter adds don't leak into our delta assertion.
+    baseline = metric_reader.get_metrics_data()
+    baseline_added = sum(
+        p.value
+        for p in _metric_points(baseline, "magos.registry.models.added")
+        if dict(p.attributes).get("provider") == "openrouter"
+    )
+
     cfg = _config(boot_discovery_max_attempts=1)
     adapter = _StaticAdapter(
         (
@@ -137,7 +146,10 @@ def test_successful_refresh_emits_metrics_and_event(
     assert any(a == {"provider": "openrouter", "status": "attempt"} for a in success_attrs)
 
     added_points = _metric_points(data, "magos.registry.models.added")
-    assert sum(p.value for p in added_points) == 2
+    openrouter_added = sum(
+        p.value for p in added_points if dict(p.attributes).get("provider") == "openrouter"
+    )
+    assert openrouter_added - baseline_added == 2
 
     gauge_points = _metric_points(data, "magos.registry.models.total")
     assert any(

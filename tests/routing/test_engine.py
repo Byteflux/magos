@@ -7,25 +7,12 @@ from typing import Any
 from magos.routing import RoutingConfig
 from magos.routing.engine import RouteDecision, route
 from magos.routing.errors import RouteError
-from magos.routing.request import RoutedRequest
+
+from ._helpers import make_req as _req
 
 
 def _cfg(spec: dict[str, Any]) -> RoutingConfig:
     return RoutingConfig.model_validate(spec)
-
-
-def _req(
-    *,
-    endpoint: str = "/v1/messages",
-    body: dict[str, Any] | None = None,
-    headers: dict[str, str] | None = None,
-) -> RoutedRequest:
-    return RoutedRequest(
-        endpoint=endpoint,  # type: ignore[arg-type]
-        headers=headers or {},
-        body=body or {},
-        raw_body=b"",
-    )
 
 
 # --- First-match-wins ---

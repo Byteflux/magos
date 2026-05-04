@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from magos.routing import (
@@ -18,24 +16,10 @@ from magos.routing import (
     ModelAtom,
     Not,
     RegexMatcher,
-    RoutedRequest,
 )
 from magos.routing.matchers import matches
 
-
-def _req(
-    *,
-    endpoint: str = "/v1/messages",
-    body: dict[str, Any] | None = None,
-    headers: dict[str, str] | None = None,
-) -> RoutedRequest:
-    return RoutedRequest(
-        endpoint=endpoint,  # type: ignore[arg-type]
-        headers=headers or {},
-        body=body or {},
-        raw_body=b"",
-    )
-
+from ._helpers import make_req as _req
 
 # --- ModelAtom ---
 
@@ -96,7 +80,7 @@ def test_model_missing_field_matches_empty_regex() -> None:
 )
 def test_endpoint_literal(endpoint: str) -> None:
     expr = EndpointAtom(endpoint=LiteralMatcher(literal=endpoint))
-    assert matches(expr, _req(endpoint=endpoint))
+    assert matches(expr, _req(endpoint=endpoint))  # type: ignore[arg-type]
 
 
 def test_endpoint_glob() -> None:

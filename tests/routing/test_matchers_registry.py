@@ -9,18 +9,15 @@ from magos.routing.matchers import matches
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import ModelFieldAtom
 
+from ._helpers import make_registry, make_req
+
 
 def _request(model: str) -> RoutedRequest:
-    return RoutedRequest(
-        endpoint="/v1/messages",
-        headers={},
-        body={"model": model},
-        raw_body=b"",
-    )
+    return make_req(body={"model": model})
 
 
 def _registry(entry: ModelEntry) -> RegistryState:
-    return RegistryState(entries={entry.namespaced_id: entry})
+    return make_registry(entry)
 
 
 def _entry(**fields: object) -> ModelEntry:

@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
-from magos.registry.state import ModelEntry, RegistryState
+from magos.registry.state import ModelEntry
 from magos.routing.engine import RouteDecision, route
 from magos.routing.errors import RouteError
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import RoutingConfig
+
+from ._helpers import make_registry as _registry_with
+from ._helpers import make_req
 
 
 def _routing_cfg() -> RoutingConfig:
@@ -26,16 +29,7 @@ def _routing_cfg() -> RoutingConfig:
 
 
 def _request(model: str) -> RoutedRequest:
-    return RoutedRequest(
-        endpoint="/v1/messages",
-        headers={},
-        body={"model": model},
-        raw_body=b"",
-    )
-
-
-def _registry_with(*entries: ModelEntry) -> RegistryState:
-    return RegistryState(entries={e.namespaced_id: e for e in entries})
+    return make_req(body={"model": model})
 
 
 def test_explicit_rule_wins_over_registry_match() -> None:
