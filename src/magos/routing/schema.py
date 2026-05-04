@@ -75,12 +75,14 @@ class ModelFieldExpr(_Frozen):
     """Test a registry-resolved model field with one operator.
 
     ``field`` names a ``ModelEntry`` attribute (``context_size``,
-    ``max_output``, ``input_cost``, ``output_cost``, ``modalities``).
-    ``op`` is the comparator. ``value`` is whatever the operator
-    expects: scalars for ``eq``/``gt``/``gte``/``lt``/``lte``, a single
-    string for ``contains`` (membership in a tuple field like
-    ``modalities``), or a list for ``in`` (membership of the field's
-    scalar value in a list).
+    ``max_output``, ``input_cost``, ``output_cost``,
+    ``cache_read_cost``, ``cache_write_cost``, ``input_modalities``,
+    ``output_modalities``). ``op`` is the comparator. ``value`` is
+    whatever the operator expects: scalars for
+    ``eq``/``gt``/``gte``/``lt``/``lte``, a single string for
+    ``contains`` (membership in a tuple field like
+    ``input_modalities``), or a list for ``in`` (membership of the
+    field's scalar value in a list).
     """
 
     field: Literal[
@@ -88,7 +90,10 @@ class ModelFieldExpr(_Frozen):
         "max_output",
         "input_cost",
         "output_cost",
-        "modalities",
+        "cache_read_cost",
+        "cache_write_cost",
+        "input_modalities",
+        "output_modalities",
     ]
     op: ModelFieldOp
     value: int | float | str | list[int | float | str]

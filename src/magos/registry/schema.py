@@ -88,7 +88,8 @@ class ModelOverride(_Frozen):
     output_cost: float | None = Field(default=None, ge=0)
     cache_read_cost: float | None = Field(default=None, ge=0)
     cache_write_cost: float | None = Field(default=None, ge=0)
-    modalities: tuple[str, ...] | None = None
+    input_modalities: tuple[str, ...] | None = None
+    output_modalities: tuple[str, ...] | None = None
     litellm_id: str | None = Field(default=None, min_length=1)
 
 

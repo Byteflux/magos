@@ -60,11 +60,23 @@ def test_numeric_ops_against_context_size(
     assert result is expected
 
 
-def test_contains_against_modalities() -> None:
-    entry = _entry(modalities=("text", "image"))
+def test_contains_against_input_modalities() -> None:
+    entry = _entry(input_modalities=("text", "image"))
     request = _request(entry.namespaced_id)
-    assert matches(_atom("modalities", "contains", "image"), request, registry=_registry(entry))
-    assert not matches(_atom("modalities", "contains", "audio"), request, registry=_registry(entry))
+    assert matches(
+        _atom("input_modalities", "contains", "image"), request, registry=_registry(entry)
+    )
+    assert not matches(
+        _atom("input_modalities", "contains", "audio"), request, registry=_registry(entry)
+    )
+
+
+def test_contains_against_output_modalities() -> None:
+    entry = _entry(output_modalities=("text", "audio"))
+    request = _request(entry.namespaced_id)
+    assert matches(
+        _atom("output_modalities", "contains", "audio"), request, registry=_registry(entry)
+    )
 
 
 def test_in_against_scalar_field() -> None:

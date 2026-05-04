@@ -98,7 +98,8 @@ def _partial_from_openrouter_entry(raw: dict[str, Any]) -> PartialEntry:
         output_cost=_per_token_to_per_million(_coerce_float(pricing.get("completion"))),
         cache_read_cost=_per_token_to_per_million(_coerce_float(pricing.get("input_cache_read"))),
         cache_write_cost=_per_token_to_per_million(_coerce_float(pricing.get("input_cache_write"))),
-        modalities=_coerce_modalities(architecture),
+        input_modalities=_input_modalities(architecture),
+        output_modalities=_output_modalities(architecture),
     )
 
 
@@ -139,14 +140,41 @@ def _coerce_float(value: Any) -> float | None:
     return None
 
 
-def _coerce_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
-    modality = architecture.get("modality")
-    if not isinstance(modality, str):
+def _input_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
+    """Prefer the explicit ``architecture.input_modalities`` array.
+
+    Older catalog entries only carry a legacy ``modality: "X+Y->Z"``
+    string; we split on the arrow and take the left side.
+    """
+    explicit = _modality_array(architecture.get("input_modalities"))
+    if explicit is not None:
+        return explicit
+    return _legacy_modality_side(architecture.get("modality"), side=0)
+
+
+def _output_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
+    """Same shape as :func:`_input_modalities`, but the output side."""
+    explicit = _modality_array(architecture.get("output_modalities"))
+    if explicit is not None:
+        return explicit
+    return _legacy_modality_side(architecture.get("modality"), side=1)
+
+
+def _modality_array(value: Any) -> tuple[str, ...] | None:
+    if not isinstance(value, list):
         return None
-    # OpenRouter uses "+" delimiters: "text+image->text", "text->text", etc.
-    # We only care about the input side for routing decisions.
-    inputs = modality.split("->", 1)[0]
-    parts = tuple(p.strip() for p in inputs.split("+") if p.strip())
+    items = tuple(v.strip() for v in value if isinstance(v, str) and v.strip())
+    return items or None
+
+
+def _legacy_modality_side(value: Any, *, side: int) -> tuple[str, ...] | None:
+    """Pull one side of OpenRouter's legacy ``"text+image->text"`` field."""
+    if not isinstance(value, str):
+        return None
+    halves = value.split("->", 1)
+    if len(halves) <= side:
+        return None
+    parts = tuple(p.strip() for p in halves[side].split("+") if p.strip())
     return parts or None
 
 

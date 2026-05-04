@@ -84,10 +84,11 @@ def test_merge_modalities_take_first_non_none_tuple() -> None:
         provider="openrouter",
         raw_id="anthropic/claude-sonnet-4-6",
         default_litellm_id="x",
-        discovered=PartialEntry(modalities=("text", "image")),
-        litellm_fallback=PartialEntry(modalities=("text",)),
+        discovered=PartialEntry(input_modalities=("text", "image"), output_modalities=("text",)),
+        litellm_fallback=PartialEntry(input_modalities=("text",), output_modalities=("text",)),
     )
-    assert entry.modalities == ("text", "image")
+    assert entry.input_modalities == ("text", "image")
+    assert entry.output_modalities == ("text",)
 
 
 def test_merge_only_lists_sources_that_actually_contributed() -> None:

@@ -123,7 +123,8 @@ def _apply_op(  # noqa: PLR0911
         return False
     if op == "contains":
         # ``contains`` only makes sense on sequence-typed fields (e.g.
-        # ``modalities``). String fields use ``eq`` for membership.
+        # ``input_modalities`` / ``output_modalities``). String fields
+        # use ``eq`` for membership.
         if not isinstance(field_value, (tuple, list)):
             return False
         return value in field_value

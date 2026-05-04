@@ -39,8 +39,8 @@ class RouteDecision:
 
     ``entry`` is the registry record that produced an auto-routed
     decision (None for explicit-rule decisions). Downstream code can
-    use it to read context_size, modalities, etc. without re-querying
-    the registry.
+    use it to read context_size, input/output_modalities, etc. without
+    re-querying the registry.
     """
 
     rule: Rule

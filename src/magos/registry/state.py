@@ -39,7 +39,14 @@ class ModelEntry:
     # them ``None``; consumers should fall back to ``input_cost``.
     cache_read_cost: float | None = None
     cache_write_cost: float | None = None
-    modalities: tuple[str, ...] = ()
+    # Modalities the model accepts on the input side and emits on output.
+    # Most chat models are ``("text",) → ("text",)``; vision models add
+    # ``image`` on the input side; image-gen / TTS models add it on the
+    # output side. Sources that don't distinguish the two (e.g. raw
+    # LiteLLM capability flags) populate input from ``supports_*`` and
+    # default output to ``("text",)``.
+    input_modalities: tuple[str, ...] = ()
+    output_modalities: tuple[str, ...] = ()
     deprecated_at: datetime | None = None
     sources: tuple[str, ...] = ()
 

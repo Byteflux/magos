@@ -209,7 +209,51 @@ def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPa
     assert m.partial.output_cost == pytest.approx(15.0)
     assert m.partial.cache_read_cost == pytest.approx(0.30)
     assert m.partial.cache_write_cost == pytest.approx(3.75)
-    assert m.partial.modalities == ("text", "image")
+    assert m.partial.input_modalities == ("text", "image")
+    assert m.partial.output_modalities == ("text",)
+
+
+def test_openrouter_adapter_prefers_explicit_modality_arrays() -> None:
+    """The new ``architecture.{input,output}_modalities`` arrays win over the legacy string."""
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {
+            "data": [
+                {
+                    "id": "x/y",
+                    "architecture": {
+                        # Legacy field: input=text, output=image (would lose info).
+                        "modality": "text->image",
+                        # New explicit fields override the split.
+                        "input_modalities": ["text", "image"],
+                        "output_modalities": ["text", "image"],
+                    },
+                }
+            ]
+        }
+    )
+    result = asyncio.run(_run_openrouter(cfg, transport))
+    m = result.models[0]
+    assert m.partial.input_modalities == ("text", "image")
+    assert m.partial.output_modalities == ("text", "image")
+
+
+def test_openrouter_adapter_falls_back_to_legacy_modality_string() -> None:
+    cfg = ProviderConfig.model_validate({})
+    transport = _ok(
+        {
+            "data": [
+                {
+                    "id": "x/y",
+                    "architecture": {"modality": "text+image->text"},
+                }
+            ]
+        }
+    )
+    result = asyncio.run(_run_openrouter(cfg, transport))
+    m = result.models[0]
+    assert m.partial.input_modalities == ("text", "image")
+    assert m.partial.output_modalities == ("text",)
 
 
 def test_openrouter_adapter_omits_cache_costs_when_pricing_block_lacks_them() -> None:

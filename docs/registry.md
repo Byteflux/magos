@@ -182,15 +182,15 @@ rules:
   - name: vision-routing
     match:
       model_field:
-        field: modalities
+        field: input_modalities
         op: contains
         value: image
     action: { provider: openrouter, mode: translate }
 ```
 
 Operators: `eq`, `gt`, `gte`, `lt`, `lte` (numeric/string scalars),
-`contains` (membership in tuple fields like `modalities`), `in`
-(membership of the field value in a list).
+`contains` (membership in tuple fields like `input_modalities` /
+`output_modalities`), `in` (membership of the field value in a list).
 
 ## CLI
 

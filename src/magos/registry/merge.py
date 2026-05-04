@@ -71,7 +71,8 @@ def merge(
     output_cost = _pick_first(parts, "output_cost")
     cache_read_cost = _pick_first(parts, "cache_read_cost")
     cache_write_cost = _pick_first(parts, "cache_write_cost")
-    modalities = _pick_first(parts, "modalities")
+    input_modalities = _pick_first(parts, "input_modalities")
+    output_modalities = _pick_first(parts, "output_modalities")
 
     return ModelEntry(
         provider=provider,
@@ -87,7 +88,10 @@ def merge(
         cache_write_cost=(
             float(cache_write_cost) if isinstance(cache_write_cost, (int, float)) else None
         ),
-        modalities=tuple(modalities) if isinstance(modalities, tuple) else (),
+        input_modalities=(tuple(input_modalities) if isinstance(input_modalities, tuple) else ()),
+        output_modalities=(
+            tuple(output_modalities) if isinstance(output_modalities, tuple) else ()
+        ),
         sources=tuple(sources),
     )
 
@@ -100,7 +104,8 @@ _ENTRY_FIELDS: tuple[str, ...] = (
     "output_cost",
     "cache_read_cost",
     "cache_write_cost",
-    "modalities",
+    "input_modalities",
+    "output_modalities",
 )
 
 

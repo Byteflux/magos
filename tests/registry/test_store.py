@@ -20,7 +20,8 @@ def _entry(provider: str = "openrouter", raw_id: str = "anthropic/claude-sonnet-
         output_cost=15.0,
         cache_read_cost=0.30,
         cache_write_cost=3.75,
-        modalities=("text", "image"),
+        input_modalities=("text", "image"),
+        output_modalities=("text",),
         sources=("discovery", "litellm"),
     )
 

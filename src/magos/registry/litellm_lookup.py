@@ -38,7 +38,8 @@ class PartialEntry:
     output_cost: float | None = None
     cache_read_cost: float | None = None
     cache_write_cost: float | None = None
-    modalities: tuple[str, ...] | None = None
+    input_modalities: tuple[str, ...] | None = None
+    output_modalities: tuple[str, ...] | None = None
 
 
 class GetModelInfoFn(Protocol):
@@ -47,19 +48,37 @@ class GetModelInfoFn(Protocol):
     def __call__(self, model: str) -> dict[str, Any]: ...
 
 
-def _coerce_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
-    """Derive a modality tuple from LiteLLM's capability flags.
+def _coerce_input_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
+    """Derive the input modality tuple from LiteLLM's capability flags.
 
-    LiteLLM doesn't expose modalities as a list; it exposes booleans like
-    ``supports_vision``, ``supports_audio_input``. We translate to a small
-    fixed vocabulary so registry consumers can rely on string membership.
+    LiteLLM doesn't expose modalities as lists; it exposes booleans like
+    ``supports_vision``, ``supports_audio_input``. We translate to a
+    small fixed vocabulary so registry consumers can rely on string
+    membership. Every chat model accepts text; vision/audio flags add
+    ``image`` / ``audio``.
     """
     modalities: list[str] = ["text"]
     if info.get("supports_vision"):
         modalities.append("image")
     if info.get("supports_audio_input"):
         modalities.append("audio")
-    return tuple(modalities) if modalities else None
+    return tuple(modalities)
+
+
+def _coerce_output_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
+    """Derive the output modality tuple from LiteLLM's capability flags.
+
+    LiteLLM has fewer output flags than input ones; we recognise
+    ``supports_audio_output`` (TTS-capable models) and treat everything
+    else as text. Image-generation models would set
+    ``supports_image_output`` if LiteLLM ever exposes it.
+    """
+    modalities: list[str] = ["text"]
+    if info.get("supports_audio_output"):
+        modalities.append("audio")
+    if info.get("supports_image_output"):
+        modalities.append("image")
+    return tuple(modalities)
 
 
 def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> PartialEntry:
@@ -101,7 +120,8 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
         cache_write_cost=_per_token_to_per_million(
             info_dict.get("cache_creation_input_token_cost")
         ),
-        modalities=_coerce_modalities(info_dict),
+        input_modalities=_coerce_input_modalities(info_dict),
+        output_modalities=_coerce_output_modalities(info_dict),
     )
 
 

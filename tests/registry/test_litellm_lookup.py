@@ -36,7 +36,8 @@ def test_lookup_populates_all_known_fields() -> None:
         output_cost=15.0,
         cache_read_cost=0.3,
         cache_write_cost=3.75,
-        modalities=("text", "image"),
+        input_modalities=("text", "image"),
+        output_modalities=("text",),
     )
 
 
@@ -82,4 +83,14 @@ def test_lookup_includes_text_modality_by_default() -> None:
         return _info()
 
     result = lookup("anthropic/claude-haiku-4-5", get_info=fake)
-    assert result.modalities == ("text",)
+    assert result.input_modalities == ("text",)
+    assert result.output_modalities == ("text",)
+
+
+def test_lookup_promotes_audio_output_when_litellm_flags_it() -> None:
+    def fake(model: str) -> dict[str, Any]:
+        return _info(supports_audio_output=True)
+
+    result = lookup("openai/gpt-4o-audio", get_info=fake)
+    assert result.input_modalities == ("text",)
+    assert result.output_modalities == ("text", "audio")

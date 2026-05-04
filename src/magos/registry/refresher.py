@@ -357,7 +357,10 @@ def _override_to_partial(override: ModelOverride | None) -> PartialEntry | None:
         max_output=override.max_output,
         input_cost=override.input_cost,
         output_cost=override.output_cost,
-        modalities=override.modalities,
+        cache_read_cost=override.cache_read_cost,
+        cache_write_cost=override.cache_write_cost,
+        input_modalities=override.input_modalities,
+        output_modalities=override.output_modalities,
     )
 
 

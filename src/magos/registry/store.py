@@ -35,7 +35,8 @@ def _entry_to_dict(entry: ModelEntry) -> dict[str, Any]:
         "output_cost": entry.output_cost,
         "cache_read_cost": entry.cache_read_cost,
         "cache_write_cost": entry.cache_write_cost,
-        "modalities": list(entry.modalities),
+        "input_modalities": list(entry.input_modalities),
+        "output_modalities": list(entry.output_modalities),
         "deprecated_at": entry.deprecated_at.isoformat() if entry.deprecated_at else None,
         "sources": list(entry.sources),
     }
@@ -44,7 +45,8 @@ def _entry_to_dict(entry: ModelEntry) -> dict[str, Any]:
 def _entry_from_dict(data: dict[str, Any]) -> ModelEntry:
     deprecated_raw = data.get("deprecated_at")
     deprecated_at = datetime.fromisoformat(deprecated_raw) if deprecated_raw else None
-    modalities = data.get("modalities") or []
+    input_modalities = data.get("input_modalities") or []
+    output_modalities = data.get("output_modalities") or []
     sources = data.get("sources") or []
     return ModelEntry(
         provider=data["provider"],
@@ -56,7 +58,8 @@ def _entry_from_dict(data: dict[str, Any]) -> ModelEntry:
         output_cost=data.get("output_cost"),
         cache_read_cost=data.get("cache_read_cost"),
         cache_write_cost=data.get("cache_write_cost"),
-        modalities=tuple(modalities),
+        input_modalities=tuple(input_modalities),
+        output_modalities=tuple(output_modalities),
         deprecated_at=deprecated_at,
         sources=tuple(sources),
     )
