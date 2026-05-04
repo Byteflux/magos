@@ -112,6 +112,13 @@ def _translate_output_config(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# Fields where JSON Schema legitimately appears in an Anthropic Messages
+# body. ``messages`` content is plain text / tool_use / tool_result blocks
+# and never carries schemas, so scoping the walk avoids touching the bulk
+# of the body on every translate-mode request.
+_SCHEMA_BEARING_FIELDS: tuple[str, ...] = ("tools", "tool_choice", "response_format")
+
+
 def _coerce_empty_additional_properties(body: dict[str, Any]) -> dict[str, Any]:
     """Replace ``additionalProperties: {}`` with ``additionalProperties: true``.
 
@@ -122,43 +129,52 @@ def _coerce_empty_additional_properties(body: dict[str, Any]) -> dict[str, Any]:
     ``[] is not of type 'object', 'boolean'``. ``true`` flows through every
     validator we've tested and carries the same semantics.
 
-    Walks the entire body so the coercion catches schemas wherever they
-    appear -- ``tools[*].input_schema`` is the common case but
-    ``response_format`` (post translation), ``json_schema`` blocks, and
-    nested ``properties`` / ``items`` schemas can each carry the empty-dict
-    form.
+    Only ``tools``, ``tool_choice``, and ``response_format`` are walked --
+    the only top-level fields that legitimately carry JSON Schema. Skipping
+    ``messages`` keeps this off the per-character cost of long conversations.
+    Unchanged subtrees are returned by reference so a body with no offending
+    schema costs one shallow scan, not a full rebuild.
     """
-    out, changed = _walk_coerce_empty_ap(body)
-    if not changed or not isinstance(out, dict):
+    updates: dict[str, Any] = {}
+    for field in _SCHEMA_BEARING_FIELDS:
+        if field not in body:
+            continue
+        new_value = _coerce_empty_ap(body[field])
+        if new_value is not body[field]:
+            updates[field] = new_value
+    if not updates:
         return body
     log.info("anthropic.coerced_empty_additional_properties")
-    return out
+    return {**body, **updates}
 
 
-def _walk_coerce_empty_ap(value: Any) -> tuple[Any, bool]:
+def _coerce_empty_ap(value: Any) -> Any:
+    """Return ``value`` with empty-dict ``additionalProperties`` coerced to True.
+
+    Returns the input by reference if no coercion was needed -- the caller
+    uses ``is`` to detect changes, so unchanged subtrees share storage.
+    """
     if isinstance(value, dict):
-        changed = False
-        out: dict[str, Any] = {}
+        new_pairs: dict[str, Any] | None = None
         for key, child in value.items():
-            if key == "additionalProperties" and child == {}:
-                out[key] = True
-                changed = True
-            else:
-                new_child, child_changed = _walk_coerce_empty_ap(child)
-                if child_changed:
-                    changed = True
-                out[key] = new_child
-        return out, changed
+            if key == "additionalProperties" and isinstance(child, dict) and not child:
+                new_pairs = new_pairs or dict(value)
+                new_pairs[key] = True
+                continue
+            new_child = _coerce_empty_ap(child)
+            if new_child is not child:
+                new_pairs = new_pairs or dict(value)
+                new_pairs[key] = new_child
+        return new_pairs if new_pairs is not None else value
     if isinstance(value, list):
-        changed = False
-        out_list: list[Any] = []
-        for item in value:
-            new_item, item_changed = _walk_coerce_empty_ap(item)
-            if item_changed:
-                changed = True
-            out_list.append(new_item)
-        return out_list, changed
-    return value, False
+        new_items: list[Any] | None = None
+        for index, item in enumerate(value):
+            new_item = _coerce_empty_ap(item)
+            if new_item is not item:
+                new_items = new_items or list(value)
+                new_items[index] = new_item
+        return new_items if new_items is not None else value
+    return value
 
 
 def _strip_anthropic_extras(body: dict[str, Any], dispatch_model: str) -> dict[str, Any]:

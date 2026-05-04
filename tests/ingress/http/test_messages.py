@@ -137,15 +137,15 @@ def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
         }
     )
 
-    for body_model, expected in (
-        ("vultr/Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
-        ("Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
-    ):
-        received.clear()
-        app = create_app(routing=routing, registry=registry_cfg)
-        app.dependency_overrides[get_anthropic_messages_completion] = lambda: fake_anthropic
-        try:
-            with TestClient(app) as client:
+    app = create_app(routing=routing, registry=registry_cfg)
+    app.dependency_overrides[get_anthropic_messages_completion] = lambda: fake_anthropic
+    try:
+        with TestClient(app) as client:
+            for body_model, expected in (
+                ("vultr/Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
+                ("Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
+            ):
+                received.clear()
                 resp = client.post(
                     "/v1/messages",
                     json={
@@ -154,11 +154,10 @@ def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
                         "messages": [{"role": "user", "content": "hi"}],
                     },
                 )
-        finally:
-            app.dependency_overrides.clear()
-
-        assert resp.status_code == 200, body_model
-        assert received["model"] == expected, body_model
+                assert resp.status_code == 200, body_model
+                assert received["model"] == expected, body_model
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.integration

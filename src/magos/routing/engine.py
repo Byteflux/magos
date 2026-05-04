@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry, RegistryState
-from magos.routing.auto_route import try_auto_route
+from magos.routing.auto_route import provider_cred_overrides, try_auto_route
 from magos.routing.errors import (
     RouteError,
     format_dispatch_error_message,
@@ -174,14 +174,8 @@ def _fill_action_from_provider_config(
     """
     if providers is None or not rule.action.provider:
         return rule
-    provider_cfg = providers.get(rule.action.provider)
-    if provider_cfg is None:
-        return rule
-    updates: dict[str, str] = {}
-    if rule.action.api_key_env is None and provider_cfg.api_key_env is not None:
-        updates["api_key_env"] = provider_cfg.api_key_env
-    if rule.action.base_url is None and provider_cfg.base_url is not None:
-        updates["base_url"] = provider_cfg.base_url
+    overrides = provider_cred_overrides(providers.get(rule.action.provider))
+    updates = {key: value for key, value in overrides.items() if getattr(rule.action, key) is None}
     if not updates:
         return rule
     new_action = rule.action.model_copy(update=updates)
