@@ -163,6 +163,17 @@ class Refresher:
         timeout_seconds: int,
         max_attempts: int,
     ) -> None:
+        """Run one refresh, swallowing every exception so the loop survives.
+
+        ``_refresh_loop`` calls this on every interval; if anything escapes,
+        the asyncio Task dies and the strong reference held in
+        ``self._tasks`` prevents the "Task exception was never retrieved"
+        warning from ever firing — periodic refresh would silently stop
+        forever. ``DiscoveryError`` is the expected failure (transport,
+        auth, malformed catalog) and gets a structured warning;
+        anything else is a bug we want to see in the logs but must not
+        let take the loop down.
+        """
         try:
             await self._refresh_one(
                 provider_name, timeout_seconds=timeout_seconds, max_attempts=max_attempts
@@ -172,6 +183,13 @@ class Refresher:
                 "registry.refresh.failed",
                 provider=provider_name,
                 error=str(exc),
+            )
+        except Exception as exc:
+            log.exception(
+                "registry.refresh.unexpected_failure",
+                provider=provider_name,
+                error=str(exc),
+                error_type=type(exc).__name__,
             )
 
     async def _refresh_loop(self, provider_name: str) -> None:

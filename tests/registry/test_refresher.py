@@ -201,6 +201,49 @@ def test_boot_discovery_failure_leaves_provider_empty(tmp_path: Path) -> None:
     asyncio.run(run())
 
 
+def test_refresh_loop_swallows_unexpected_exception_to_keep_polling(tmp_path: Path) -> None:
+    """Non-``DiscoveryError`` exceptions must not escape the loop wrapper.
+
+    asyncio Tasks store unhandled exceptions silently while a strong
+    reference is held (see ``Refresher._tasks``), so any exception that
+    escapes ``_refresh_one_safe`` would kill periodic refresh forever
+    without a single log line. The wrapper must catch ``Exception`` and
+    log it so the next interval still fires.
+    """
+    target = tmp_path / "models.json"
+    cfg = _config({"openrouter": ProviderConfig.model_validate({"discovery": "openrouter"})})
+
+    class _BoomAdapter:
+        name = "boom"
+        default_base_url: str | None = None
+        calls = 0
+
+        async def discover(
+            self, provider_name: str, config: ProviderConfig, client: httpx.AsyncClient
+        ) -> DiscoveryResult:
+            self.calls += 1
+            raise RuntimeError("simulated bug — not a DiscoveryError")
+
+    adapter = _BoomAdapter()
+    refresher = Refresher(
+        cfg,
+        target,
+        adapter_factory=lambda _c: adapter,
+        client_factory=_noop_client,
+        litellm_lookup=_no_litellm,
+        clock=_fixed_clock(datetime(2026, 5, 2, tzinfo=UTC)),
+    )
+
+    async def run() -> None:
+        # Two back-to-back wrapper calls; if the first one re-raised,
+        # the second wouldn't run and adapter.calls would stay at 1.
+        await refresher._refresh_one_safe("openrouter", timeout_seconds=10, max_attempts=1)
+        await refresher._refresh_one_safe("openrouter", timeout_seconds=10, max_attempts=1)
+
+    asyncio.run(run())
+    assert adapter.calls == 2
+
+
 def test_refresh_failure_after_success_preserves_prior_state(tmp_path: Path) -> None:
     target = tmp_path / "models.json"
     cfg = _config({"openrouter": ProviderConfig.model_validate({"discovery": "openrouter"})})
