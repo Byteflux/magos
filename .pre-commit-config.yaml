@@ -21,6 +21,17 @@ repos:
         args: ["--fix"]
       - id: ruff-format
 
+  # mypy via the unsupported `language: system` escape hatch. pre-commit
+  # hides the project from hook venvs by design (per the framework author),
+  # so the supported `mirrors-mypy` hook can't see our deps. Enumerating
+  # ~25 deps in `additional_dependencies` works but resolves against PyPI
+  # rather than uv.lock and rebuilds a multi-GB isolated venv on every
+  # autoupdate.
+  #
+  # TODO: add a GitHub Actions workflow that runs `uv run mypy` against the
+  # locked venv with a persistent cache, then drop mypy from this file.
+  # Pre-commit is built for fast per-file checks (ruff), not whole-project
+  # type-checking.
   - repo: local
     hooks:
       - id: mypy
