@@ -31,9 +31,7 @@ ENV PYTHONUNBUFFERED=1 \
     MAGOS_LOG_COLOR=1 \
     MAGOS_KOMPRESS_BACKEND=pytorch \
     MAGOS_CONFIG_PATH=/etc/magos/magos.yaml \
-    MAGOS_MODELS_PATH=/var/lib/magos/models.json \
-    MAGOS_HOST=0.0.0.0 \
-    MAGOS_PORT=2570
+    MAGOS_MODELS_PATH=/var/lib/magos/models.json
 
 WORKDIR /app
 

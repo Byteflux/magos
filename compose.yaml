@@ -5,7 +5,8 @@ services:
     container_name: magos
     restart: unless-stopped
     ports:
-      - "2570:2570"
+      - "6246:6246"
+      - "6247:6247"
     env_file:
       - .env
     volumes:

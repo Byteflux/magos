@@ -19,12 +19,16 @@ Defaults baked into the image (override via env or `--port` / `--host`):
 
 | Env var                 | Image default                      |
 |-------------------------|------------------------------------|
-| `MAGOS_HOST`            | `0.0.0.0`                          |
-| `MAGOS_PORT`            | `2570`                             |
 | `MAGOS_CONFIG_PATH`     | `/etc/magos/magos.yaml`            |
 | `MAGOS_MODELS_PATH`     | `/var/lib/magos/models.json`       |
 | `MAGOS_KOMPRESS_BACKEND`| `pytorch`                          |
 | `MAGOS_LOG_COLOR`       | `1`                                |
+
+The image leaves `MAGOS_HOST` / `MAGOS_PORT` unset so they fall through
+to magos's schema defaults (`127.0.0.1:6246`). **Set `MAGOS_HOST=0.0.0.0`
+in your `.env`** — without it the FastAPI listener only binds to the
+container's loopback and compose's `ports:` mapping has nothing to
+forward to.
 
 The GPU image picks `pytorch` over `auto` because Headroom prefers ONNX
 Runtime when both are present, and ONNX doesn't see CUDA in this
@@ -40,8 +44,11 @@ services:
   magos:
     build: .
     image: ghcr.io/byteflux/magos
+    container_name: magos
+    restart: unless-stopped
     ports:
-      - "2570:2570"
+      - "6246:6246"   # FastAPI HTTP
+      - "6247:6247"   # mitmproxy HTTPS_PROXY (only useful if ingress.mitm.enabled)
     env_file:
       - .env
     volumes:
@@ -116,14 +123,14 @@ first:
 4. yaml defaults from `magos.yaml`.
 5. magos's schema defaults (`127.0.0.1:6246` HTTP, `:6247` mitm).
 
-Notable: `MAGOS_HOST=0.0.0.0` in the Dockerfile is what makes the
-container reachable from the host's mapped port. Don't override it
-back to loopback unless you know what you're doing.
+Notable: the image does **not** set `MAGOS_HOST` — set it to `0.0.0.0`
+in your `.env`, otherwise FastAPI binds to the container's loopback
+and compose's `ports:` mapping has nothing to forward to.
 
 ## Loop hazard with mitmproxy ingress
 
 If you enable `ingress.mitm.enabled: true` in yaml, the container
-runs both FastAPI (default 2570) and mitmproxy (default 6247). The
+runs both FastAPI (default 6246) and mitmproxy (default 6247). The
 client `HTTPS_PROXY` setting is yours to manage on the host;
 [`docs/ingress.md`](ingress.md) covers the loop-hazard caveat in
 detail. Map both ports if you intend to use the proxy from outside the
