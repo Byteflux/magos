@@ -22,47 +22,49 @@ interception too — see `docs/ingress.md` for the operator guide.
 ```
                        ┌─────────────────── single magos process ──────────────────┐
 client (direct) ──────▶│ FastAPI (uvicorn) :8000                                   │──▶ provider API
-                       │   server.py → route() → dispatch()                        │
+                       │   ingress.http → routing.engine → egress.dispatch         │
                        │                                                           │
 client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :8080  (optional)                    │
-                       │   ├── MagosIngressAddon  (TLS terminate + rewrite to :8000)│
-                       │   ├── MagosObserverAddon (egress logging)                 │
-                       │   └── structlog bridge   (uniform log shape)              │
+                       │   ├── ingress.mitm.addon (TLS terminate + rewrite to :8000)│
+                       │   ├── egress.observer    (egress logging)                 │
+                       │   └── ingress.mitm.log_bridge (mitmproxy log → structlog) │
                        └───────────────────────────────────────────────────────────┘
 ```
 
 Three roles for the mitmproxy machinery:
 
-1. **In-process ingress (when configured)**: rewrites incoming
-   intercepted requests to the FastAPI loopback. Same process, same
-   asyncio loop — `magos.serve.serve_async` gathers both as named
-   tasks and shuts both down on first-task-done.
-2. **Optional out-of-process egress observer**: the historical use
-   for `src/magos/addon.py`. Run separately as
-   `mitmdump -s src/magos/addon.py` with `HTTPS_PROXY` set on
-   magos's own outbound to log provider responses. Today this is
-   rarely useful — `MagosObserverAddon` is also loaded by the
-   in-process master, so most operators won't need a second process.
+1. **In-process ingress (when configured)**: `magos.ingress.mitm`
+   rewrites incoming intercepted requests to the FastAPI loopback.
+   Same process, same asyncio loop — `magos.serve.serve_async` gathers
+   both as named tasks and shuts both down on first-task-done.
+2. **In-process egress observer**: `magos.egress.observer` is loaded
+   by the in-process master alongside the ingress addon, logging
+   outbound LLM provider traffic when magos's own outbound transits
+   mitmproxy (which it doesn't by default — see `docs/ingress.md`
+   "Loop hazard"). Can also be run standalone via
+   `mitmdump -s -m magos.egress.observer` if the operator prefers an
+   out-of-process observer.
 3. **Transitive runtime dependency**: `mitmproxy.http` is imported
    by `tests/test_addon.py` (and therefore the test suite) regardless
    of whether ingress is enabled. That import triggers the Windows
    pyarrow load-order workaround in `tests/conftest.py` — see
    `docs/headroom.md` "CacheAligner".
 
-When ingress is **disabled**, `addon.py` and `ingress/` are dormant.
-Routing-layer bugs are still never in either; routing always lives in
-`magos.routing` regardless of how the request entered.
+When ingress is **disabled**, both `magos.ingress.mitm` and
+`magos.egress.observer` are dormant. Routing-layer bugs are still
+never in either; routing always lives in `magos.routing` regardless
+of how the request entered.
 
 ## Request lifecycle
 
 Per request, the FastAPI app does this:
 
-1. **Inbound parsing** (`server.py`). Body parsed to dict (or kept as
-   `raw_body` bytes); inbound headers filtered through
-   `_BLOCKED_FORWARD_HEADERS` (`server.py:102`) — drops hop-by-hop
-   (RFC 7230) plus content-shaping headers (`content-length`,
-   `content-encoding`, `host`, etc.). The filtered headers are
-   lowercased into a dict.
+1. **Inbound parsing** (`ingress/http/run.py`). Body parsed to dict
+   (or kept as `raw_body` bytes); inbound headers filtered through
+   `_BLOCKED_FORWARD_HEADERS` in `ingress/http/headers.py` — drops
+   hop-by-hop (RFC 7230) plus content-shaping headers
+   (`content-length`, `content-encoding`, `host`, etc.). The filtered
+   headers are lowercased into a dict.
 2. **Construct `RoutedRequest`** (`routing/request.py`). Frozen
    dataclass carrying: endpoint kind, **templated path** (e.g.
    `/v1/responses/{id}`), **actual path** (e.g.
@@ -70,29 +72,30 @@ Per request, the FastAPI app does this:
    `raw_body` (bytes), `body_dirty=False`, lowercased headers.
 3. **Route** (`routing/engine.py:route`). Applies pre-rewrites, walks
    `rules` top-to-bottom, returns the first match's `RouteDecision` or
-   a `RouteError`. If no rule matches, **auto-routing** consults the
-   registry: exact `<provider>/<raw_id>` lookup, falling back per
+   a `RouteError`. If no rule matches, **auto-routing** (in
+   `routing/auto_route.py`) consults the registry: exact
+   `<provider>/<raw_id>` lookup, falling back per
    `on_unknown_model: error|passthrough`. **Explicit rules always win
    over the registry**; the registry only catches misses.
-4. **Dispatch** (`routing/dispatch.py`). Decision enum drives one of
+4. **Dispatch** (`egress/dispatch.py`). Decision enum drives one of
    eight branches:
 
 | Mode          | Endpoint                       | Streaming | Implementation                       |
 |---------------|--------------------------------|-----------|--------------------------------------|
-| `count_tokens`| `/v1/messages/count_tokens`    | n/a       | `litellm.acount_tokens` via `tokens.count_tokens` |
-| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | non-stream | `passthrough.call_passthrough` |
-| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | stream     | `passthrough.stream_passthrough` |
-| `translate`   | `/v1/messages`                 | non-stream| `litellm.anthropic_messages`         |
-| `translate`   | `/v1/messages`                 | stream    | `litellm.anthropic_messages` (stream)|
-| `translate`   | `/v1/chat/completions`         | non-stream| `litellm.acompletion`                |
-| `translate`   | `/v1/chat/completions`         | stream    | `litellm.acompletion` (stream)       |
-| `translate`   | `/v1/responses`                | both      | `litellm.aresponses`                 |
+| `count_tokens`| `/v1/messages/count_tokens`    | n/a       | `egress.tokens.count_tokens` (litellm) |
+| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | non-stream | `egress.passthrough.call_passthrough` |
+| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | stream     | `egress.passthrough.stream_passthrough` |
+| `translate`   | `/v1/messages`                 | non-stream| `egress.translate.anthropic.proxy`   |
+| `translate`   | `/v1/messages`                 | stream    | `egress.translate.anthropic.stream`  |
+| `translate`   | `/v1/chat/completions`         | non-stream| `egress.translate.openai_chat.proxy` |
+| `translate`   | `/v1/chat/completions`         | stream    | `egress.translate.openai_chat.stream`|
+| `translate`   | `/v1/responses`                | both      | `egress.translate.openai_responses`  |
 
-The full endpoint set (`routing/request.py:23-30`): `/v1/messages`,
+The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
 `/v1/responses/{id}`, `/v1/responses/{id}/input_items`. **Translate
-mode requires POST** (`dispatch.py:119`); auxiliary GET/DELETE
-endpoints must use `mode: passthrough`.
+mode requires POST** (enforced in `egress/dispatch.py`); auxiliary
+GET/DELETE endpoints must use `mode: passthrough`.
 
 5. **Response**. Translate mode lets LiteLLM regenerate
    `content-type` / `content-length` / `content-encoding`. Passthrough
@@ -100,20 +103,21 @@ endpoints must use `mode: passthrough`.
 
 ## The `body_dirty` contract
 
-`RoutedRequest.body_dirty` (`routing/request.py:63`) is a single bool
+`RoutedRequest.body_dirty` (`routing/request.py`) is a single bool
 that decides whether passthrough re-serialises JSON or sends bytes
 verbatim:
 
 ```python
-# routing/dispatch.py:91
+# egress/dispatch.py
 body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
 ```
 
 **Any rewrite primitive that mutates `body` MUST set
-`body_dirty=True`.** Today: `SetModel`, `JqPatch`, `Compress`
-(token+cache modes) all do this in `routing/rewrites.py`
-(grep for `body_dirty=True`). Header-only rewrites
-(`SetHeader` / `AddHeader` / `RemoveHeader`) leave it untouched.
+`body_dirty=True`.** Today: `SetModel` (`routing/rewrites/model.py`),
+`JqPatch` (`routing/rewrites/jq_patch.py`), `Compress`
+(`routing/rewrites/compress.py`, both token+cache modes) all do this.
+Header-only rewrites (`routing/rewrites/headers.py`) leave it
+untouched.
 
 Why this matters: Anthropic prompt-cache hashes are computed over the
 **exact bytes** of the prefix up to a `cache_control` breakpoint. Any
@@ -125,7 +129,7 @@ body-mutating rewrite op and forget the flag, passthrough sends the
 
 ## Passthrough is byte-exact on purpose
 
-`src/magos/passthrough.py` is a deliberate non-LiteLLM path. Two
+`magos.egress.passthrough` is a deliberate non-LiteLLM path. Two
 correctness reasons:
 
 1. **Anthropic prompt cache.** Hash stability requires byte-identical
@@ -138,11 +142,13 @@ correctness reasons:
    shape.
 
 **Don't** add JSON normalisation, header reordering, or "cleanup" to
-`passthrough.py`. Don't route it through LiteLLM "for consistency".
+`egress/passthrough.py`. Don't route it through LiteLLM "for
+consistency".
 
 ## Auth-header injection
 
-`routing/dispatch.py` injects an outbound auth header iff:
+`magos.egress.auth` (extracted from `egress/dispatch.py`) injects an
+outbound auth header iff:
 
 - `action.mode == "passthrough"` AND
 - The inbound request lacks both `Authorization` and `x-api-key`, AND
@@ -163,11 +169,10 @@ LiteLLM as the `api_key` kwarg; it does not write headers.)
 3. **Provider default** — `provider: anthropic` → `x-api-key`,
    everything else → `Authorization: Bearer`.
 
-OAuth-token detection lives in `routing/dispatch.py:207` and the
-registry-side discovery counterpart in
-`registry/discovery/anthropic.py:33`. If you change one, change both
-or the registry's discovery call will fail against an OAuth-only
-account.
+OAuth-token detection lives in `egress/auth.py` and the registry-side
+discovery counterpart in `registry/discovery/anthropic.py`. If you
+change one, change both or the registry's discovery call will fail
+against an OAuth-only account.
 
 ## Startup order
 
@@ -193,15 +198,17 @@ Two phases — `create_app()` (synchronous, builds the FastAPI app) and
    the other to shut down (uvicorn `should_exit`, mitm `shutdown()`),
    then surface any exception.
 
-**`create_app()` — sync, builds app object:**
+**`magos.ingress.http.app.create_app()` — sync, builds app object:**
 
 1. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
    (RegistryYaml), `refresher` (Refresher | None — None when
    `providers:` is empty).
-2. Mount `/metrics` endpoint if `MAGOS_METRICS_ENABLED=1`.
-3. Mount `/admin/registry/*` endpoints if a Refresher exists.
-4. Register the four POST handlers + three auxiliary
-   GET/DELETE handlers for `/v1/responses/{id}*`.
+2. Mount `/metrics` endpoint via `telemetry.metrics` if
+   `MAGOS_METRICS_ENABLED=1`.
+3. Mount `/admin/registry/*` endpoints (`ingress/http/admin.py`) if a
+   Refresher exists.
+4. Register the four POST handlers + three auxiliary GET/DELETE
+   handlers (`ingress/http/handlers.py`) for `/v1/responses/{id}*`.
 
 **`_lifespan()` — async, runs at startup:**
 
@@ -242,8 +249,10 @@ directly.
 
 ## `litellm.drop_params = True` is process-global
 
-Set once in `proxy.py:42`. LiteLLM silently drops any parameter the
-destination provider doesn't accept (e.g. `reasoning_effort` against a
+Set once in `egress/translate/__init__.py` (or
+`egress/translate/payload.py` — wherever the LiteLLM import lives in
+the new layout). LiteLLM silently drops any parameter the destination
+provider doesn't accept (e.g. `reasoning_effort` against a
 non-reasoning model). This is **not per-rule** and not toggleable.
 
 When debugging "param X isn't reaching provider Y": this is the first
@@ -254,9 +263,9 @@ list, not by reading magos's dispatch code.
 
 | Stage                         | What's blocked                                           | Why                                              |
 |-------------------------------|----------------------------------------------------------|--------------------------------------------------|
-| Server inbound (`server.py:102`) | RFC 7230 hop-by-hop + `host` / `content-length` / `content-encoding` / `accept-encoding` | Don't propagate transport-layer junk             |
-| Pre-LiteLLM body shape (`proxy.py:51`) | `content-type` / `content-length` / `content-encoding` / `accept-encoding` | LiteLLM regenerates these; overriding causes "unexpected keyword argument" errors at the SDK boundary |
-| Pre-LiteLLM auth (`proxy.py:63`) | `authorization` / `x-api-key` — **only when** the rule's `api_key` was resolved | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
+| Ingress inbound (`ingress/http/headers.py`) | RFC 7230 hop-by-hop + `host` / `content-length` / `content-encoding` / `accept-encoding` | Don't propagate transport-layer junk             |
+| Pre-LiteLLM body shape (`egress/translate/payload.py`) | `content-type` / `content-length` / `content-encoding` / `accept-encoding` | LiteLLM regenerates these; overriding causes "unexpected keyword argument" errors at the SDK boundary |
+| Pre-LiteLLM auth (`egress/translate/payload.py`) | `authorization` / `x-api-key` — **only when** the rule's `api_key` was resolved | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
 | Pre-passthrough               | nothing additional                                       | Byte-exact forwarding (cache hashes)             |
 
 If a header you expect to see at the provider isn't arriving, check
@@ -268,12 +277,12 @@ all three stages.
 provider mapped via routing) goes through
 `litellm.anthropic_messages`. LiteLLM accepts Anthropic-shape *in* and
 emits Anthropic-shape *out* regardless of upstream provider, but two
-preprocessing steps happen in magos first:
+preprocessing steps happen in `egress/translate/anthropic.py` first:
 
 - **Anthropic-only fields stripped** for non-Anthropic upstreams
-  (`_strip_anthropic_extras` in `proxy.py`): `context_management` and
-  similar fields LiteLLM passes through as `**kwargs` and that the
-  upstream provider doesn't understand.
+  (`_strip_anthropic_extras`): `context_management` and similar fields
+  LiteLLM passes through as `**kwargs` and that the upstream provider
+  doesn't understand.
 - **`output_config.effort` → `reasoning_effort`** translation. Anthropic
   uses `output_config.effort` (`low|medium|high|xhigh|max`); OpenAI
   uses `reasoning_effort` (`low|medium|high`). Magos clamps
@@ -293,7 +302,7 @@ Resolution order (highest first) for the routing config path:
 `MAGOS_HOME` is a **bootstrap-only env var**: it has no settings field
 on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 `models.json`, and is the resolution base for relative registry paths
-(not CWD, not the yaml file's parent). See `config.py:9`.
+(not CWD, not the yaml file's parent). See `config/paths.py`.
 
 | Variable                     | Default       | Purpose                                                |
 |------------------------------|---------------|--------------------------------------------------------|
@@ -312,7 +321,8 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 | `MAGOS_METRICS_ENABLED`      | `0`           | `1` exposes Prometheus `/metrics`                      |
 | `MAGOS_MODELS_PATH`          | `$MAGOS_HOME/models.json` | Override registry persistence path         |
 
-Removed env vars (warn on startup, now in YAML — `config.py:39-41`):
+Removed env vars (warn on startup, now in YAML —
+`config/settings.py`):
 `MAGOS_ANTHROPIC_PASSTHROUGH_ENABLED`,
 `MAGOS_ANTHROPIC_UPSTREAM_URL`,
 `MAGOS_COUNT_TOKENS_PASSTHROUGH_PROVIDERS`.
@@ -336,9 +346,10 @@ Removed env vars (warn on startup, now in YAML — `config.py:39-41`):
   for the full bisection.
 - **Test app construction**: tests call
   `create_app(routing=..., registry=...)` to inject config without a
-  YAML round-trip. `create_app` accepts both kwargs (`server.py`).
-  The `app.state.{routing,refresher,registry_config}` slots are
-  designed for direct replacement too (per `server.py`'s docstring),
+  YAML round-trip. `create_app` accepts both kwargs
+  (`ingress/http/app.py`). The
+  `app.state.{routing,refresher,registry_config}` slots are designed
+  for direct replacement too (per `ingress/http/app.py`'s docstring),
   but no current test exercises that path.
 - **Completion mocking**: tests use FastAPI's `dependency_overrides`
   against all four DI seams:
@@ -368,9 +379,9 @@ Removed env vars (warn on startup, now in YAML — `config.py:39-41`):
 - **Headroom `_is_onnx_available` is monkey-patched at startup** when
   `MAGOS_KOMPRESS_BACKEND=pytorch`. Looks weird, is intentional.
 - **Anthropic OAuth (`sk-ant-oat`) auth shape lives in two places** —
-  `routing/dispatch.py` (proxy) and
+  `egress/auth.py` (proxy-side injection) and
   `registry/discovery/anthropic.py` (discovery). Keep them in sync.
-- **Header blocking is three-level** — server inbound, pre-LiteLLM
+- **Header blocking is three-level** — ingress inbound, pre-LiteLLM
   body shape, and pre-LiteLLM auth (conditional on rule-resolved
   `api_key`). All three must be checked when a header isn't reaching
   the provider.
