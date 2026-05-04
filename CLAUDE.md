@@ -95,6 +95,7 @@ src/magos/
     auth.py          # provider-aware API-key + header injection
     passthrough.py   # byte-exact same-shape forwarding
     tokens.py        # async count_tokens via litellm.acount_tokens
+    usage.py         # per-response token-usage logging (UsageAccumulator, tap_stream)
     observer.py      # mitmproxy egress observer addon
     translate/       # LiteLLM SDK marshalling
       payload.py     # build_payload, header allowlists, canonical fields
@@ -156,8 +157,8 @@ tests/
   fixtures/              # test routing yaml
   cli/, config/, egress/{translate/}, ingress/{http,mitm}/,
   registry/, routing/{rewrites/}/
-  test_serve.py, test_smoke.py, test_telemetry.py,
-  test_e2e.py, test_e2e_agent_sdk.py
+  test_main_module.py, test_serve.py, test_smoke.py,
+  test_telemetry.py, test_e2e.py, test_e2e_agent_sdk.py
 ```
 
 Plain helper functions (request builders, sample payloads, TestClient

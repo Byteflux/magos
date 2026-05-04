@@ -71,7 +71,11 @@ it last.
 ## YAML grammar
 
 ```yaml
-pre_rewrites: []          # global rewrites; optional, default empty
+pre_rewrites: []          # global rewrites; optional. Each entry is either
+                          # a Rewrite (unconditional) or a guarded group:
+                          #   { match: <expr>, rewrites: [<Rewrite>, ...] }
+                          # Guarded groups apply only when match is true at
+                          # that point in the pre-rewrite chain.
 rules:                    # required, at least one
   - name: human-readable  # optional; appears in route.matched logs
     match: <expr>
@@ -81,6 +85,11 @@ rules:                    # required, at least one
       mode: translate | passthrough
       base_url: <url>     # required when mode=passthrough
       api_key_env: <NAME> # optional
+      auth_header: <shape># optional; bearer | x-api-key. Defaults to
+                          # x-api-key for provider: anthropic, bearer
+                          # otherwise. Only consulted when injecting
+                          # api_key_env in passthrough mode; explicit
+                          # client headers always pass through verbatim.
 ```
 
 count_tokens calls go through `litellm.acount_tokens`, which auto-selects
