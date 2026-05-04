@@ -19,9 +19,11 @@ The ``magos`` script is installed by the ``[project.scripts]`` entry in
 
 Config resolution order (highest first):
 
-1. ``--config`` CLI flag (top-level option, before the subcommand)
-2. ``MAGOS_CONFIG_PATH`` env var
-3. ``~/.magos/magos.yaml`` (default)
+1. CLI flags ``--home`` / ``--config`` / ``--models`` (top-level
+   options, before the subcommand)
+2. ``MAGOS_HOME`` / ``MAGOS_CONFIG_PATH`` / ``MAGOS_MODELS_PATH`` env vars
+3. ``~/.magos`` for ``MAGOS_HOME``; ``$MAGOS_HOME/magos.yaml`` and
+   ``$MAGOS_HOME/models.json`` for the other two
 
 All other knobs live in ``MagosSettings`` (see :mod:`magos.config`); set
 them via environment variables prefixed ``MAGOS_`` or a local ``.env``.
@@ -56,11 +58,28 @@ def _version_callback(value: bool) -> None:
 
 @app.callback(invoke_without_command=True)
 def _root(
+    home: Annotated[
+        str | None,
+        typer.Option(
+            "--home",
+            help="Path to the magos data directory (overrides MAGOS_HOME; default ~/.magos).",
+        ),
+    ] = None,
     config: Annotated[
         str | None,
         typer.Option(
             "--config",
-            help="Path to magos.yaml (overrides MAGOS_CONFIG_PATH and the ~/.magos/magos.yaml default).",
+            help="Path to magos.yaml (overrides MAGOS_CONFIG_PATH and the $MAGOS_HOME/magos.yaml default).",
+        ),
+    ] = None,
+    models: Annotated[
+        str | None,
+        typer.Option(
+            "--models",
+            help=(
+                "Path to models.json (overrides MAGOS_MODELS_PATH and the "
+                "yaml ``registry.models_path``; default $MAGOS_HOME/models.json)."
+            ),
         ),
     ] = None,
     version: Annotated[
@@ -73,8 +92,12 @@ def _root(
         ),
     ] = False,
 ) -> None:
+    if home is not None:
+        os.environ["MAGOS_HOME"] = home
     if config is not None:
         os.environ["MAGOS_CONFIG_PATH"] = config
+    if models is not None:
+        os.environ["MAGOS_MODELS_PATH"] = models
 
 
 def main() -> None:

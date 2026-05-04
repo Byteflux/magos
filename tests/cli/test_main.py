@@ -57,10 +57,30 @@ def test_models_help_lists_verbs() -> None:
 
 
 def test_config_flag_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
     # `--help` after `--config` lets us test the side effect without
     # actually running serve(): the eager --help fires after the
-    # callback assigns MAGOS_CONFIG_PATH.
+    # callback assigns MAGOS_CONFIG_PATH. monkeypatch reverts os.environ
+    # at teardown so the assignment doesn't leak across tests.
+    monkeypatch.setenv("MAGOS_CONFIG_PATH", "")
+    monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
     result = runner.invoke(cli_app.app, ["--config", "/tmp/x.yaml", "models", "--help"])
     assert result.exit_code == 0
     assert os.environ.get("MAGOS_CONFIG_PATH") == "/tmp/x.yaml"
+
+
+def test_home_flag_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_HOME", "")
+    monkeypatch.delenv("MAGOS_HOME", raising=False)
+    result = runner.invoke(cli_app.app, ["--home", "/srv/magos", "models", "--help"])
+    assert result.exit_code == 0
+    assert os.environ.get("MAGOS_HOME") == "/srv/magos"
+
+
+def test_models_flag_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MODELS_PATH", "")
+    monkeypatch.delenv("MAGOS_MODELS_PATH", raising=False)
+    result = runner.invoke(
+        cli_app.app, ["--models", "/var/lib/magos/models.json", "models", "--help"]
+    )
+    assert result.exit_code == 0
+    assert os.environ.get("MAGOS_MODELS_PATH") == "/var/lib/magos/models.json"

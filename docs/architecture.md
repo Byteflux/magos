@@ -295,7 +295,8 @@ strip list.
 
 Resolution order (highest first) for the routing config path:
 
-1. `--config <path>` CLI flag
+1. `--config <path>` CLI flag (and `--home` / `--models` for the data
+   dir and registry-store paths)
 2. `MAGOS_CONFIG_PATH` env var
 3. `$MAGOS_HOME/magos.yaml` (default `~/.magos/magos.yaml`)
 

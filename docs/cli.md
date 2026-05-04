@@ -9,6 +9,7 @@ entrypoint (`magos.cli.app:main`).
 magos serve                 # run the FastAPI server
 magos models <verb>         # registry inspection / management
 magos --version             # print version and exit
+magos --home <dir> ...      # override the data directory
 magos --config <path> ...   # override the config file
 ```
 
@@ -19,12 +20,14 @@ start the server.
 
 | Flag         | Effect                                                          |
 |--------------|-----------------------------------------------------------------|
+| `--home`     | Path to the magos data directory. Overrides `MAGOS_HOME` (default `~/.magos`); anchors the `--config` and `--models` defaults. |
 | `--config`   | Path to `magos.yaml`. Overrides `MAGOS_CONFIG_PATH` and the `$MAGOS_HOME/magos.yaml` default. |
+| `--models`   | Path to `models.json`. Overrides `MAGOS_MODELS_PATH` and the yaml `registry.models_path` (default `$MAGOS_HOME/models.json`). |
 | `--version`  | Print `magos <version>` and exit.                               |
 | `-h` / `--help` | Show help.                                                   |
 
-`--config` is on the root command; subcommands inherit. Order matters:
-`magos --config /etc/x.yaml models list` works,
+These flags live on the root command; subcommands inherit them. Order
+matters: `magos --config /etc/x.yaml models list` works,
 `magos models --config /etc/x.yaml list` does not.
 
 ## `magos serve`
