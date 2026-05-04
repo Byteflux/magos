@@ -22,7 +22,6 @@ import typer
 
 from magos import __version__
 from magos.config.settings import MagosSettings
-from magos.serve import serve as serve_orchestrator
 from magos.telemetry import configure_logging, configure_tracing, get_logger
 
 
@@ -69,7 +68,49 @@ def bootstrap_and_serve(
         access_log=settings.access_log,
         kompress_backend=settings.kompress_backend,
     )
+    _preload_native_load_order(settings)
+    from magos.serve import serve as serve_orchestrator  # noqa: PLC0415
+
     serve_orchestrator(settings=settings)
+
+
+def _preload_native_load_order(settings: MagosSettings) -> None:
+    """Force ``sentence_transformers`` import before any PyO3-bound module.
+
+    Wins the Windows native-load-order race documented in
+    ``docs/headroom.md``: importing ``pyarrow``'s ``.pyd`` (transitively
+    via ``sentence_transformers``) after a PyO3 Rust extension has
+    initialized in the process — typically ``cryptography._rust`` or
+    ``tokenizers`` pulled in by ``litellm`` — segfaults during
+    ``create_module``. The compress rewrite already preloads on the
+    first request, but ``route()`` runs on a worker thread, and
+    importing pyarrow from a worker thread once PyO3 has initialized on
+    the main thread reproduces the crash. Doing it here, before we
+    touch ``magos.serve`` (which transitively imports ``litellm``),
+    keeps the import order deterministic.
+
+    Skipped when no compress rule is configured, since the import is
+    multi-second and operators not using compression should not pay it.
+    """
+    from magos.config.loader import load_full_config  # noqa: PLC0415
+    from magos.routing.schema import Compress  # noqa: PLC0415
+
+    try:
+        cfg = load_full_config(settings.config_path).routing
+    except Exception:
+        return  # malformed config; let serve_orchestrator surface the error
+
+    if not any(isinstance(rw, Compress) for rw in cfg.pre_rewrites) and not any(
+        isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites
+    ):
+        return
+
+    from magos.routing.rewrites.compress import (  # noqa: PLC0415
+        _preload_sentence_transformers,
+    )
+
+    _preload_sentence_transformers()
+    get_logger("magos").debug("compress.sentence_transformers_preloaded")
 
 
 def register(app: typer.Typer) -> None:

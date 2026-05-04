@@ -89,18 +89,40 @@ CacheAligner -> ContentRouter -> IntelligentContext
 
   Magos uses Headroom's intended default (`use_dynamic_detector=True`)
   and works around the load-order bug by force-importing
-  `sentence_transformers` first. Two preload sites:
+  `sentence_transformers` first. Three preload sites:
 
+  - `_preload_native_load_order()` in `cli/serve.py` runs **before**
+    `magos.serve` is imported. This is the load-bearing one: importing
+    `magos.serve` transitively pulls in `magos.ingress.http.handlers`,
+    which does `import litellm` at module top — and litellm pulls in
+    PyO3 Rust bindings (cryptography, tokenizers) on import. Once any
+    PyO3 ext has initialized on the main thread, importing pyarrow's
+    `.pyd` (transitively via sentence_transformers) crashes during
+    `create_module`, on **either** the main thread or a worker thread.
+    Doing the preload before that import wins the race.
   - `_preload_sentence_transformers()` in `rewrites/compress.py` runs
     immediately before any headroom import inside `_apply_compress`
-    and `_apply_cache_aligner`. In a pure FastAPI deployment this is
-    sufficient because `magos.ingress.http` does not transitively load
-    cryptography at import time (verified against `litellm` and
-    `magos.ingress.http`'s `sys.modules` graph).
+    and `_apply_cache_aligner`. Belt-and-suspenders for callers that
+    don't go through `cli/serve.py` (e.g. tests, embedded use).
   - `tests/conftest.py` does the preload at session start. Required
     because `tests/ingress/mitm/test_addon.py` imports `mitmproxy.http` which loads
     cryptography Rust before the cache-align test gets a chance to
     preload.
+
+  **Why the request-time preload alone isn't sufficient** since the
+  `route()`-on-worker-thread refactor: the request-time preload now
+  runs on a worker thread, and pyarrow's `.pyd` load on a worker
+  thread after PyO3 has initialized on the main thread also crashes
+  (same `create_module` failure, just observed from a different
+  thread). The CLI-level preload runs on the main thread before
+  any PyO3 ext is loaded, so both subsequent main-thread and
+  worker-thread imports of pyarrow find it already cached and skip
+  `create_module` entirely. ONNX backend tends to surface this faster
+  because nothing on the ONNX kompress code path imports
+  sentence_transformers at startup, so the very first import of it
+  is on a worker thread when the first compress request lands. The
+  PyTorch backend usually transitively imports it earlier as a side
+  effect of `transformers` / `safetensors` setup.
 
   Operators running magos behind the mitmproxy addon process should
   note: that's a *separate* `mitmdump` process, not the magos FastAPI
