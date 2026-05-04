@@ -53,6 +53,7 @@ services:
       - .env
     volumes:
       - ${USERPROFILE:-${HOME:-.}}/.cache/huggingface:/root/.cache/huggingface
+      - ${USERPROFILE:-${HOME:-.}}/.mitmproxy:/root/.mitmproxy
       - ./magos.yaml:/etc/magos/magos.yaml:ro
       - magos-state:/var/lib/magos
     deploy:
@@ -135,6 +136,28 @@ client `HTTPS_PROXY` setting is yours to manage on the host;
 [`docs/ingress.md`](ingress.md) covers the loop-hazard caveat in
 detail. Map both ports if you intend to use the proxy from outside the
 container.
+
+### Mount the host mitmproxy CA
+
+mitmproxy generates a self-signed CA at `/root/.mitmproxy/` on first
+run **inside the container**. Without a volume mount, that CA is
+distinct from your host's `~/.mitmproxy/` — so a host client
+configured with `NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem`
+cannot verify any leaf cert the container's proxy emits, and every
+intercepted request fails with a TLS error.
+
+Mount the host CA dir into the container so they share state:
+
+```yaml
+volumes:
+  - ${USERPROFILE:-${HOME}}/.mitmproxy:/root/.mitmproxy
+```
+
+Now both sides use the same CA, the host trust step described in
+[`docs/ingress.md`](ingress.md#1-install-mitmproxys-ca-in-your-os-trust-store)
+covers both, and clients on the host can talk to
+`HTTPS_PROXY=http://127.0.0.1:6247` (mapped from the container)
+without TLS errors.
 
 ## Health and observability
 

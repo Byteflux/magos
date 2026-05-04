@@ -2,7 +2,6 @@ services:
   magos:
     build: .
     image: ghcr.io/byteflux/magos
-    container_name: magos
     restart: unless-stopped
     ports:
       - "6246:6246"
@@ -10,6 +9,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ${USERPROFILE:-${HOME:-.}}/.mitmproxy:/root/.mitmproxy
       - ${USERPROFILE:-${HOME:-.}}/.cache/huggingface:/root/.cache/huggingface
       - ./magos.yaml:/etc/magos/magos.yaml:ro
       - magos-state:/var/lib/magos
