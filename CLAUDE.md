@@ -68,6 +68,7 @@ src/magos/
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
       headers.py    # _BLOCKED_FORWARD_HEADERS + filter
+      models.py     # GET /v1/models (registry-backed, OpenAI/Anthropic shape)
       admin.py      # /admin/registry/* mount
     mitm/            # optional in-process mitmproxy ingress (HTTPS_PROXY interception)
       addon.py      # MagosIngressAddon: TLS termination + rewrite to FastAPI

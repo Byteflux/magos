@@ -98,6 +98,14 @@ The full endpoint set (`routing/request.py`): `/v1/messages`,
 mode requires POST** (enforced in `egress/dispatch.py`); auxiliary
 GET/DELETE endpoints must use `mode: passthrough`.
 
+`GET /v1/models` (`ingress/http/models.py`) sits beside the routed
+endpoints but skips the rule engine entirely: it lists registry
+entries (`app.state.refresher.state.entries`, deprecated entries
+omitted, sorted by `namespaced_id`) in OpenAI shape by default, or
+Anthropic shape when the request carries `anthropic-version` or
+`x-api-key`. Returns an empty list when the registry feature is
+dormant.
+
 5. **Response**. Translate mode lets LiteLLM regenerate
    `content-type` / `content-length` / `content-encoding`. Passthrough
    forwards response bytes verbatim.

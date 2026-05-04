@@ -7,6 +7,7 @@
 - :mod:`magos.ingress.http.handlers` — DI seams + 7 endpoint handlers
 - :mod:`magos.ingress.http.run` — shared dispatch flow
 - :mod:`magos.ingress.http.headers` — inbound header filter
+- :mod:`magos.ingress.http.models` — ``GET /v1/models`` registry listing
 - :mod:`magos.ingress.http.admin` — ``/admin/registry/*`` endpoints
 """
 

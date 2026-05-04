@@ -29,6 +29,7 @@ from magos.config.settings import MagosSettings
 from magos.ingress.http.admin import mount_admin_registry_endpoints
 from magos.ingress.http.handlers import register_handlers
 from magos.ingress.http.lifespan import lifespan
+from magos.ingress.http.models import register_models_endpoint
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import RoutingConfig
@@ -89,4 +90,5 @@ def create_app(
         mount_admin_registry_endpoints(app)
 
     register_handlers(app)
+    register_models_endpoint(app)
     return app
