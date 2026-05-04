@@ -257,6 +257,26 @@ uv run pre-commit run --all-files
   absolute value — otherwise the test silently picks up emissions from
   any prior test that happens to run first.
 
+### Comments and docstrings
+
+- **Describe current behaviour, not history.** Comments and docstrings
+  are documentation, not changelog. "Was the X seam", "extracted from
+  Y", "no longer infers Z", "after the SDK fold-in", "renamed from W"
+  — all noise. Rewrite each as "does X" / "is Y" / "infers Z when …".
+  The git log carries the "what changed" story; the comment exists for
+  someone reading the code today.
+- **Keep version pins and compatibility notes.** "LiteLLM 1.82+ yields
+  bytes already SSE-framed" stays — it's a real fact a reader needs
+  when debugging or upgrading. The test is whether the note still
+  helps if you removed the surrounding history: a version pin does, a
+  refactor reference doesn't.
+- **Don't name internal feature tags** ("the registry batch", "the
+  ingress reorg") in comments. They're shorthand only the original
+  author understands. Describe the concept (`provider/provider_order/registry`
+  yaml blocks) instead.
+- **When you change behaviour, update the docstrings/comments around
+  it in the same change** — same rule as docs, same reason.
+
 ### Documentation
 
 - Docs live in `docs/` (one file per top-level concept) and are
