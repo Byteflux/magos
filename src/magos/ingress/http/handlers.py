@@ -33,6 +33,7 @@ import litellm
 from fastapi import Depends, FastAPI, Request
 
 from magos.config.settings import MagosSettings, get_settings
+from magos.egress.translate.anthropic import _dispatch_anthropic_messages
 from magos.ingress.http.run import run_endpoint
 
 CompletionFn = Callable[..., Awaitable[Any]]
@@ -46,12 +47,17 @@ def get_completion() -> CompletionFn:
 def get_anthropic_messages_completion() -> CompletionFn:
     """Upstream completion for /v1/messages (Anthropic-unified shape).
 
-    LiteLLM's ``anthropic_messages`` accepts Anthropic-shape requests and
-    emits Anthropic-shape responses regardless of upstream provider, so it
-    is the right call site for both Anthropic-on-Anthropic and cross-
-    provider routing (Anthropic shape -> OpenAI/Gemini/Bedrock/etc.).
+    Returns ``_dispatch_anthropic_messages`` rather than ``litellm.
+    anthropic_messages`` directly: the LiteLLM helper leaks the
+    provider prefix into the outbound body when dispatched to non-
+    Anthropic upstreams (OpenRouter rejects ``model: 'openrouter/qwen/
+    ...'`` with 400 *not a valid model ID*). The dispatcher detects
+    non-Anthropic dispatch and re-routes through ``litellm.acompletion``
+    + manual Anthropic↔OpenAI body translation, which strips the
+    prefix correctly. Anthropic-bound traffic stays on the fast pass-
+    through.
     """
-    return cast(CompletionFn, litellm.anthropic_messages)
+    return cast(CompletionFn, _dispatch_anthropic_messages)
 
 
 def get_responses_completion() -> CompletionFn:
