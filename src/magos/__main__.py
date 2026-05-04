@@ -71,6 +71,7 @@ def serve(host: str | None = None, port: int | None = None) -> None:
         host=settings.host,
         port=settings.port,
         config_path=settings.config_path,
+        models_path_override=settings.models_path,
         log_level=settings.log_level,
         log_json=settings.log_json,
         otel_enabled=settings.otel_enabled,

@@ -47,7 +47,13 @@ MAGOS_CONFIG_PATH=/etc/magos.yaml magos  # env override
 ```
 
 Config path resolution (highest wins): `--config` flag, then
-`MAGOS_CONFIG_PATH`, then `~/.magos/magos.yaml`.
+`MAGOS_CONFIG_PATH`, then `$MAGOS_HOME/magos.yaml` (which falls back
+to `~/.magos/magos.yaml` when `MAGOS_HOME` is unset).
+
+`MAGOS_HOME` is the magos data directory: it anchors the default
+location of both `magos.yaml` and the registry's `models.json`. Set
+it once (e.g. `MAGOS_HOME=/srv/magos`) and both files default into
+the same directory without editing the yaml.
 
 ## Pipeline
 

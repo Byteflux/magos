@@ -180,3 +180,7 @@ providers:
 # registry:
 #   refresh_interval: 2h
 #   on_unknown_model: error
+#   # ~ expands; absolute passes through; relative anchors to $MAGOS_HOME (default
+#   # ~/.magos). Defaults to $MAGOS_HOME/models.json. Override at runtime with
+#   # MAGOS_MODELS_PATH (same path semantics, wins over the yaml value).
+#   models_path: models.json

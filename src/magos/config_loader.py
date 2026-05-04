@@ -21,6 +21,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from magos.config import magos_home
 from magos.registry.discovery.factory import adapter_for
 from magos.registry.schema import ProviderConfig, RegistryYaml
 from magos.routing.loader import RoutingConfigError
@@ -37,19 +38,37 @@ class MagosConfig:
     source: Path = Path()  # the yaml file the config was loaded from
 
 
-def resolve_models_path(config_path: str | Path, registry: RegistryYaml) -> Path:
-    """Resolve ``registry.models_path`` relative to the config file's parent.
+def resolve_models_path(registry: RegistryYaml, *, override: str | None = None) -> Path:
+    """Resolve the registry's ``models.json`` location to an absolute Path.
 
-    Absolute paths pass through unchanged. Relative paths anchor to the
-    yaml file's directory so server boot, CLI list, and CLI refresh all
-    agree on which file is in play regardless of CWD. ``models.json`` is
-    server-owned: out-of-process readers are fine, but the only writer
-    is the running magos server (via the Refresher).
+    Precedence of which raw string is resolved:
+
+    1. ``override`` (the ``MAGOS_MODELS_PATH`` env var, threaded through
+       by callers as ``MagosSettings.models_path``).
+    2. ``registry.registry.models_path`` from ``magos.yaml`` when set.
+    3. The literal default ``"models.json"``, which after step 4 lands
+       at ``$MAGOS_HOME/models.json``.
+
+    Path-string semantics (applied to whichever string wins):
+
+    - ``~``-prefixed → expand against the OS user home directory.
+    - Absolute → pass through unchanged.
+    - Relative → anchor to ``$MAGOS_HOME`` (default ``~/.magos``), not
+      CWD and not the yaml file's parent. ``MAGOS_HOME`` is the magos
+      data directory; relative ``models_path`` values are deliberately
+      decoupled from where the yaml happens to live.
+
+    ``models.json`` is server-owned: out-of-process readers are fine,
+    but the only writer is the running magos server (via the
+    Refresher).
     """
-    raw = Path(registry.registry.models_path)
+    raw_str = override or registry.registry.models_path or "models.json"
+    if raw_str.startswith("~"):
+        return Path(raw_str).expanduser()
+    raw = Path(raw_str)
     if raw.is_absolute():
         return raw
-    return Path(config_path).resolve().parent / raw
+    return magos_home() / raw
 
 
 def load_full_config(path: str | Path) -> MagosConfig:

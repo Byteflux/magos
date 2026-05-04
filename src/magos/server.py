@@ -204,17 +204,19 @@ def _mount_metrics_endpoint(app: FastAPI) -> None:
         return Response(content=generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
 
 
-def _resolve_models_path(config_path: str, registry_cfg: RegistryYaml) -> Path:
-    """Anchor the registry block's ``models_path`` to the config file's parent.
+def _resolve_models_path(registry_cfg: RegistryYaml, override: str | None) -> Path:
+    """Resolve the registry block's ``models_path`` against precedence rules.
 
     Delegates to ``magos.config_loader.resolve_models_path`` so server
     boot, CLI ``list --from-disk``, and CLI ``show`` all agree on the
-    same file regardless of CWD. ``models.json`` is server-owned: out-
-    of-process readers are fine; the only writer is the Refresher.
+    same file regardless of CWD. ``override`` carries
+    ``MAGOS_MODELS_PATH`` (via ``MagosSettings.models_path``) and wins
+    over the yaml value. ``models.json`` is server-owned: out-of-
+    process readers are fine; the only writer is the Refresher.
     """
     from magos.config_loader import resolve_models_path  # noqa: PLC0415
 
-    return resolve_models_path(config_path, registry_cfg)
+    return resolve_models_path(registry_cfg, override=override)
 
 
 def _config_uses_compress(cfg: RoutingConfig) -> bool:
@@ -399,7 +401,10 @@ def create_app(
     app.state.routing = cfg
     app.state.registry_config = registry_cfg
     app.state.refresher = (
-        Refresher(registry_cfg, _resolve_models_path(settings.config_path, registry_cfg))
+        Refresher(
+            registry_cfg,
+            _resolve_models_path(registry_cfg, settings.models_path),
+        )
         if registry_cfg.providers
         else None
     )

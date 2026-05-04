@@ -112,7 +112,7 @@ class RegistrySettings(_Frozen):
 
     refresh_interval: DurationSeconds = Field(default=2 * 3600)
     on_unknown_model: OnUnknownModel = "error"
-    models_path: str = Field(default="./models.json", min_length=1)
+    models_path: str | None = Field(default=None, min_length=1)
     deprecation_grace_seconds: DurationSeconds = Field(default=3 * 86400)
     discovery_timeout_seconds: DurationSeconds = Field(default=30)
     discovery_max_attempts: int = Field(default=3, ge=1)

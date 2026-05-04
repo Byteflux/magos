@@ -19,6 +19,8 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     # conftest.py sets MAGOS_CONFIG_PATH so create_app() finds the test
     # fixture; clear it here to verify the field default in isolation.
     monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("MAGOS_HOME", raising=False)
+    monkeypatch.delenv("MAGOS_MODELS_PATH", raising=False)
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
     assert s.host == "127.0.0.1"
     assert s.port == 8000
@@ -27,6 +29,31 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert s.otel_enabled is False
     assert s.otel_endpoint is None
     assert s.config_path == str(Path.home() / ".magos" / "magos.yaml")
+    assert s.models_path is None
+
+
+def test_magos_home_relocates_config_path_default(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
+    monkeypatch.setenv("MAGOS_HOME", str(tmp_path / "srv"))
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.config_path == str(tmp_path / "srv" / "magos.yaml")
+
+
+def test_explicit_config_path_wins_over_magos_home(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("MAGOS_HOME", str(tmp_path / "srv"))
+    monkeypatch.setenv("MAGOS_CONFIG_PATH", "/etc/magos.yaml")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.config_path == "/etc/magos.yaml"
+
+
+def test_models_path_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MAGOS_MODELS_PATH", "/var/lib/magos/models.json")
+    s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
+    assert s.models_path == "/var/lib/magos/models.json"
 
 
 def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

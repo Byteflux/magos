@@ -74,7 +74,7 @@ providers:
 registry:
   refresh_interval: 2h                             # global default
   on_unknown_model: error                          # error (404, default) | passthrough
-  models_path: ./models.json                       # relative paths anchor to the yaml file's parent
+  models_path: models.json                         # ~ expands, absolute passes through, relative anchors to $MAGOS_HOME
   deprecation_grace_seconds: 259200                # 3 days
   discovery_timeout_seconds: 30
   discovery_max_attempts: 3
@@ -82,10 +82,21 @@ registry:
   boot_discovery_max_attempts: 1
 ```
 
-`models_path` resolves relative to the config file's parent directory
-(absolute paths pass through). The server is the sole writer of
-`models.json`; out-of-process readers are fine, but mutations go
-through the admin endpoints (or the CLI, which wraps them).
+`models_path` defaults to `$MAGOS_HOME/models.json` (i.e.
+`~/.magos/models.json` when `MAGOS_HOME` is unset). `~`-prefixed paths
+expand against the operator's home directory; other absolute paths
+pass through; relative paths anchor to `$MAGOS_HOME` (the magos data
+directory), not the yaml file's parent or CWD.
+
+Operators can override this without editing the yaml by setting
+`MAGOS_MODELS_PATH`. Precedence: `MAGOS_MODELS_PATH` env >
+`registry.models_path` in yaml > derived default. Same path
+semantics apply at every layer (`~`, absolute, or relative-to-
+`$MAGOS_HOME`).
+
+The server is the sole writer of `models.json`; out-of-process
+readers are fine, but mutations go through the admin endpoints (or
+the CLI, which wraps them).
 
 Discovery adapters: `openai`, `anthropic`, `openrouter`, `vultr`, `noop`.
 When `discovery:` is omitted, the adapter is inferred from the provider's

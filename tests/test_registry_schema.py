@@ -45,7 +45,7 @@ def test_registry_settings_defaults() -> None:
     s = RegistrySettings()
     assert s.refresh_interval == 7200
     assert s.on_unknown_model == "error"
-    assert s.models_path == "./models.json"
+    assert s.models_path is None
     assert s.deprecation_grace_seconds == 3 * 86400
     assert s.discovery_timeout_seconds == 30
     assert s.discovery_max_attempts == 3

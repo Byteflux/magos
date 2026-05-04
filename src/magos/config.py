@@ -6,9 +6,14 @@ Routing-shape decisions (passthrough toggling, count_tokens mode, provider
 lookup) live in ``magos.yaml`` and reach the app via ``app.state.routing``;
 this module owns only what an operator sets via env or ``.env``.
 
+``MAGOS_HOME`` is a bootstrap-only env var (no settings field): it anchors
+the defaults for ``MAGOS_CONFIG_PATH`` and the registry's ``models.json``
+path, and is the directory that relative ``registry.models_path`` values
+resolve against. Defaults to ``~/.magos`` when unset.
+
 Example::
 
-    MAGOS_PORT=9000 MAGOS_LOG_JSON=1 MAGOS_CONFIG_PATH=/etc/magos.yaml \\
+    MAGOS_PORT=9000 MAGOS_LOG_JSON=1 MAGOS_HOME=/srv/magos \\
       python -m magos
 """
 
@@ -37,6 +42,20 @@ _REMOVED_ENV_VARS: tuple[str, ...] = (
 )
 
 
+def magos_home() -> Path:
+    """Return the magos data directory (``MAGOS_HOME`` or ``~/.magos``).
+
+    Bootstrap-only env var: not a ``MagosSettings`` field. Read directly
+    from the environment so the result is consistent across the
+    ``config_path`` default factory, ``resolve_models_path`` defaults,
+    and any future caller that needs the data directory anchor.
+    """
+    raw = os.environ.get("MAGOS_HOME")
+    if raw:
+        return Path(raw).expanduser()
+    return Path.home() / ".magos"
+
+
 class MagosSettings(BaseSettings):
     """Runtime settings for the magos server."""
 
@@ -60,11 +79,24 @@ class MagosSettings(BaseSettings):
     )
 
     config_path: str = Field(
-        default_factory=lambda: str(Path.home() / ".magos" / "magos.yaml"),
+        default_factory=lambda: str(magos_home() / "magos.yaml"),
         description=(
-            "Path to the routing config YAML. Defaults to ~/.magos/magos.yaml; "
-            "override with MAGOS_CONFIG_PATH or the --config CLI flag. The file "
-            "must exist; ship a copy of magos.example.yaml as a starting point."
+            "Path to the routing config YAML. Defaults to $MAGOS_HOME/magos.yaml "
+            "(``~/.magos/magos.yaml`` when MAGOS_HOME is unset); override with "
+            "MAGOS_CONFIG_PATH or the --config CLI flag. The file must exist; "
+            "ship a copy of magos.example.yaml as a starting point."
+        ),
+    )
+
+    models_path: str | None = Field(
+        default=None,
+        description=(
+            "Override for the registry's models.json location. When set, wins "
+            "over yaml's ``registry.models_path``; when unset, the yaml value "
+            "(or the derived default ``$MAGOS_HOME/models.json``) applies. "
+            "Same path semantics as the yaml field: ``~`` expands against the "
+            "OS user home, absolute paths pass through, relative paths anchor "
+            "to ``$MAGOS_HOME``."
         ),
     )
 

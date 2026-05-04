@@ -44,7 +44,7 @@ def _admin_client(settings: MagosSettings) -> AdminClient:
 
 def _load_state_from_disk(settings: MagosSettings) -> RegistryState:
     cfg = load_full_config(settings.config_path)
-    return load(resolve_models_path(settings.config_path, cfg.registry))
+    return load(resolve_models_path(cfg.registry, override=settings.models_path))
 
 
 def _load_state(settings: MagosSettings, *, prefer_disk: bool) -> tuple[RegistryState, str]:
