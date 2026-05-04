@@ -1,5 +1,5 @@
 import type { PluginModule } from "@opencode-ai/plugin"
-import type { Model as ModelV2 } from "@opencode-ai/sdk/v2"
+import type { Model as ModelV2, Provider as ProviderV2 } from "@opencode-ai/sdk/v2"
 
 const DEFAULT_BASE_URL = "http://localhost:6246"
 const FETCH_TIMEOUT_MS = 3000
@@ -25,8 +25,19 @@ type MagosRegistry = {
   entries: MagosEntry[]
 }
 
-function baseURL(): string {
-  return (process.env.MAGOS_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, "")
+/**
+ * Resolve the magos host root.
+ *
+ * Priority: opencode.jsonc `options.baseURL` > `MAGOS_BASE_URL` env var >
+ * `DEFAULT_BASE_URL`. The opencode value typically has a `/v1` suffix
+ * (the SDK uses it verbatim for chat completions); we strip it so the
+ * same root works for `/admin/registry`.
+ */
+function baseURL(provider?: ProviderV2): string {
+  const fromOptions = provider?.options?.baseURL
+  const raw =
+    (typeof fromOptions === "string" && fromOptions) || process.env.MAGOS_BASE_URL || DEFAULT_BASE_URL
+  return raw.replace(/\/+$/, "").replace(/\/v1$/, "")
 }
 
 function namespacedId(entry: MagosEntry): string {
@@ -40,7 +51,9 @@ function modalityFlags(modalities: string[]) {
     audio: has("audio"),
     image: has("image"),
     video: has("video"),
-    pdf: false,
+    // Magos emits `file` for arbitrary file uploads (PDFs, etc.); OpenCode
+    // tracks pdf specifically. Map file -> pdf as the closest fit.
+    pdf: has("file"),
   }
 }
 
@@ -108,8 +121,8 @@ async function fetchRegistry(base: string): Promise<MagosRegistry | null> {
   }
 }
 
-async function fetchModels(): Promise<Record<string, ModelV2>> {
-  const base = baseURL()
+async function fetchModels(provider: ProviderV2): Promise<Record<string, ModelV2>> {
+  const base = baseURL(provider)
   const registry = await fetchRegistry(base)
   if (!registry) return {}
   const models: Record<string, ModelV2> = {}
@@ -124,9 +137,17 @@ async function fetchModels(): Promise<Record<string, ModelV2>> {
 const plugin: PluginModule = {
   id: "magos",
   server: async () => ({
+    // Inject default `provider.magos` fields so users don't have to
+    // declare them in opencode.json. Field-level merge: anything the
+    // user supplied wins, only missing fields get defaulted.
+    config: async (input) => {
+      const providers = (input.provider ??= {})
+      const cfg = (providers.magos ??= {})
+      cfg.name ??= "Magos"
+    },
     provider: {
       id: "magos",
-      models: async () => fetchModels(),
+      models: async (provider) => fetchModels(provider),
     },
   }),
 }

@@ -29,33 +29,51 @@ OpenCode runs on Bun, which imports `.ts` directly — no build step.
 
 ## Configure OpenCode
 
-The plugin only supplies the model list. The wire transport
-(`@ai-sdk/openai-compatible` pointed at magos) goes in
-`opencode.json` (or `opencode.jsonc`):
+The default install requires no `opencode.json` changes — the plugin
+injects a `provider.magos` block at startup, and the SDK package
+(`@ai-sdk/openai-compatible`) plus base URL come from each registered
+`ModelV2`.
+
+To point the plugin at a non-default magos host, add an explicit
+provider block:
 
 ```json
 {
   "provider": {
     "magos": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Magos",
-      "options": { "baseURL": "http://localhost:6246/v1" }
+      "options": { "baseURL": "http://192.168.10.100:6246/v1" }
     }
   }
 }
 ```
 
-If your magos isn't on the default port, set `MAGOS_BASE_URL` in the
-shell that launches OpenCode and update `options.baseURL` to match.
+The plugin reads `options.baseURL` from this block, so both
+`/admin/registry` lookups and SDK wire calls hit the same host. The
+trailing `/v1` is required by the SDK and is stripped internally for
+the registry fetch.
+
+`MAGOS_BASE_URL` (env var, no `/v1` suffix) is honored as a fallback
+when `options.baseURL` isn't set. Resolution order:
+
+1. `provider.magos.options.baseURL` from `opencode.json`
+2. `$MAGOS_BASE_URL` environment variable
+3. `http://localhost:6246` (default)
 
 ## How it works
 
 1. On startup, OpenCode loads `magos.ts` and calls its `server` hook.
-2. The hook returns a `provider` hook with `id: "magos"`.
-3. OpenCode invokes `provider.models()`, which `fetch`es
-   `${MAGOS_BASE_URL}/admin/registry` (3s timeout) and maps each entry
-   to OpenCode's `ModelV2` shape.
-4. If magos isn't reachable, the plugin logs a single warning and
+2. The hook's `config` callback ensures `provider.magos` exists in
+   the merged config (no-op if the user already declared one).
+3. The hook's `provider` callback registers `id: "magos"` and a
+   `models()` function.
+4. OpenCode invokes `provider.models(provider, ctx)`, passing the
+   merged provider config. The plugin resolves the magos host
+   (priority: `provider.options.baseURL` → `MAGOS_BASE_URL` →
+   `http://localhost:6246`), `fetch`es `${host}/admin/registry` with a
+   3s timeout, and maps each entry to OpenCode's `ModelV2` shape.
+5. Each `ModelV2` carries `api.npm` and `api.url`, so OpenCode can
+   instantiate the SDK without needing those fields in `opencode.json`.
+6. If magos isn't reachable, the plugin logs a single warning and
    returns no models — OpenCode still starts cleanly.
 
 Model ids are namespaced (`<magos-provider>/<raw-id>`, e.g.
@@ -76,7 +94,7 @@ and that `curl ${MAGOS_BASE_URL}/admin/registry` returns 200.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `MAGOS_BASE_URL` | `http://localhost:6246` | Base URL of the running magos instance. |
+| `MAGOS_BASE_URL` | `http://localhost:6246` | Fallback magos host when `provider.magos.options.baseURL` isn't set in `opencode.json`. No `/v1` suffix. |
 
 ## Static-block fallback
 
