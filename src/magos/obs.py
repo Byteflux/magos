@@ -10,6 +10,7 @@ Tracing only ships spans when ``MAGOS_OTEL_ENABLED=1``. Logging always emits;
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import sys
@@ -88,6 +89,15 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
         lg = logging.getLogger(name)
         lg.handlers = []
         lg.propagate = True
+
+    # Silence transformers' weight-load report (emitted when Kompress loads
+    # ModernBERT without the LM head). Env var is read at transformers import;
+    # the module call covers the case where it's already imported.
+    os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+    transformers = sys.modules.get("transformers")
+    if transformers is not None:
+        with contextlib.suppress(AttributeError):
+            transformers.logging.set_verbosity_error()
 
 
 def configure_tracing(
