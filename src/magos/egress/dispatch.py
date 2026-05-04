@@ -22,7 +22,7 @@ from fastapi import Response
 from fastapi.responses import StreamingResponse
 
 from magos.egress.auth import DispatchError, maybe_inject_api_key, resolve_api_key
-from magos.egress.passthrough import call_passthrough, stream_passthrough
+from magos.egress.passthrough import _HTTP_ERROR_THRESHOLD, call_passthrough, stream_passthrough
 from magos.egress.tokens import count_tokens
 from magos.egress.translate import (
     proxy_anthropic_messages,
@@ -31,6 +31,11 @@ from magos.egress.translate import (
     stream_anthropic_messages,
     stream_openai_chat_completions,
     stream_openai_responses,
+)
+from magos.egress.usage import (
+    log_usage_from_body,
+    shape_for_endpoint,
+    tap_stream,
 )
 from magos.routing.engine import RouteDecision
 from magos.telemetry import get_logger
@@ -42,7 +47,7 @@ log = get_logger("magos.egress.dispatch")
 CompletionFn = Callable[..., Awaitable[Any]]
 
 
-async def dispatch_decision(  # noqa: PLR0911
+async def dispatch_decision(  # noqa: PLR0911, PLR0912
     decision: RouteDecision,
     *,
     completion: CompletionFn,
@@ -66,18 +71,24 @@ async def dispatch_decision(  # noqa: PLR0911
             raise DispatchError("passthrough rule has no base_url")
         body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
         model_hint = str(req.body.get("model", ""))
+        shape = shape_for_endpoint(req.endpoint)
         if is_streaming:
-            return StreamingResponse(
-                stream_passthrough(
-                    body_bytes,
-                    forward_headers,
-                    action.base_url,
-                    path=req.forward_path,
-                    method=req.method,
-                    model_hint=model_hint,
-                ),
-                media_type="text/event-stream",
+            upstream = stream_passthrough(
+                body_bytes,
+                forward_headers,
+                action.base_url,
+                path=req.forward_path,
+                method=req.method,
+                model_hint=model_hint,
             )
+            iterator = (
+                tap_stream(
+                    upstream, shape, endpoint=req.endpoint, fallback_model=model_hint or None
+                )
+                if shape is not None
+                else upstream
+            )
+            return StreamingResponse(iterator, media_type="text/event-stream")
         status, raw, content_type = await call_passthrough(
             body_bytes,
             forward_headers,
@@ -86,6 +97,17 @@ async def dispatch_decision(  # noqa: PLR0911
             method=req.method,
             model_hint=model_hint,
         )
+        if (
+            shape is not None
+            and status < _HTTP_ERROR_THRESHOLD
+            and content_type.startswith("application/json")
+        ):
+            try:
+                parsed = json.loads(raw)
+            except (UnicodeDecodeError, ValueError):
+                parsed = None
+            if parsed is not None:
+                log_usage_from_body(shape, parsed, endpoint=req.endpoint)
         return Response(content=raw, status_code=status, media_type=content_type)
 
     # mode: translate -- only POST endpoints have litellm equivalents.

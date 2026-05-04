@@ -18,6 +18,7 @@ from magos.egress.translate.payload import (
     coerce_to_dict,
 )
 from magos.egress.translate.sse import sse_named_event
+from magos.egress.usage import log_usage_from_body, tap_stream
 from magos.telemetry import get_logger, traced
 
 log = get_logger("magos.egress.translate")
@@ -43,10 +44,12 @@ async def proxy_openai_responses(
         api_base=api_base,
     )
     log.info("dispatch", shape="openai-responses", model=dispatch_model)
-    return coerce_to_dict(await dispatch(**payload))
+    body = coerce_to_dict(await dispatch(**payload))
+    log_usage_from_body("openai-responses", body, endpoint="/v1/responses")
+    return body
 
 
-async def stream_openai_responses(
+def stream_openai_responses(
     openai_request: dict[str, Any],
     *,
     dispatch_model: str,
@@ -65,6 +68,18 @@ async def stream_openai_responses(
         api_base=api_base,
     )
     log.info("dispatch", shape="openai-responses", model=dispatch_model, stream=True)
+    return tap_stream(
+        _openai_responses_bytes_iter(request, dispatch),
+        "openai-responses",
+        endpoint="/v1/responses",
+        fallback_model=dispatch_model,
+    )
+
+
+async def _openai_responses_bytes_iter(
+    request: dict[str, Any],
+    dispatch: Callable[..., Awaitable[Any]],
+) -> AsyncIterator[bytes]:
     stream = await dispatch(**request)
     async for chunk in stream:
         event = coerce_to_dict(chunk)

@@ -110,6 +110,15 @@ dormant.
    `content-type` / `content-length` / `content-encoding`. Passthrough
    forwards response bytes verbatim.
 
+   `egress.usage` log: every successful response (translate or
+   passthrough, streaming or not, all three shapes) emits a single
+   `egress.usage` event with normalised `input` / `output` /
+   `cache_read` / `cache_write` token counts. Field mapping lives in
+   `egress/usage.py`; streaming paths use a byte-level SSE tap
+   (`tap_stream`) that forwards bytes verbatim while accumulating the
+   terminal-event usage block. ``cache_write`` is Anthropic-only;
+   OpenAI shapes always report 0.
+
 ## The `body_dirty` contract
 
 `RoutedRequest.body_dirty` (`routing/request.py`) is a single bool

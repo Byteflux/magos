@@ -19,6 +19,7 @@ from magos.egress.translate.payload import (
     coerce_to_dict,
 )
 from magos.egress.translate.sse import sse_event
+from magos.egress.usage import log_usage_from_body, tap_stream
 from magos.telemetry import get_logger, traced
 
 log = get_logger("magos.egress.translate")
@@ -44,10 +45,12 @@ async def proxy_openai_chat_completions(
         api_base=api_base,
     )
     log.info("dispatch", shape="openai", model=dispatch_model)
-    return coerce_to_dict(await dispatch(**payload))
+    body = coerce_to_dict(await dispatch(**payload))
+    log_usage_from_body("openai-chat", body, endpoint="/v1/chat/completions")
+    return body
 
 
-async def stream_openai_chat_completions(
+def stream_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
     dispatch_model: str,
@@ -71,6 +74,18 @@ async def stream_openai_chat_completions(
         api_base=api_base,
     )
     log.info("dispatch", shape="openai", model=dispatch_model, stream=True)
+    return tap_stream(
+        _openai_chat_bytes_iter(request, dispatch),
+        "openai-chat",
+        endpoint="/v1/chat/completions",
+        fallback_model=dispatch_model,
+    )
+
+
+async def _openai_chat_bytes_iter(
+    request: dict[str, Any],
+    dispatch: Callable[..., Awaitable[Any]],
+) -> AsyncIterator[bytes]:
     stream = await dispatch(**request)
     async for chunk in stream:
         yield sse_event(json.dumps(coerce_to_dict(chunk)))

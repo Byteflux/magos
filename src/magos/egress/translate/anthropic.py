@@ -25,6 +25,7 @@ from magos.egress.translate.payload import (
     coerce_to_dict,
 )
 from magos.egress.translate.sse import sse_named_event
+from magos.egress.usage import log_usage_from_body, tap_stream
 from magos.telemetry import get_logger, traced
 
 log = get_logger("magos.egress.translate")
@@ -148,7 +149,9 @@ async def proxy_anthropic_messages(
         api_base=api_base,
     )
     log.info("dispatch", shape="anthropic", model=dispatch_model)
-    return coerce_to_dict(await dispatch(**payload))
+    body = coerce_to_dict(await dispatch(**payload))
+    log_usage_from_body("anthropic", body, endpoint="/v1/messages")
+    return body
 
 
 def stream_anthropic_messages(
@@ -179,7 +182,12 @@ def stream_anthropic_messages(
         api_base=api_base,
     )
     log.info("dispatch", shape="anthropic", model=dispatch_model, stream=True)
-    return _anthropic_bytes_iter(payload, dispatch)
+    return tap_stream(
+        _anthropic_bytes_iter(payload, dispatch),
+        "anthropic",
+        endpoint="/v1/messages",
+        fallback_model=dispatch_model,
+    )
 
 
 async def _anthropic_bytes_iter(
