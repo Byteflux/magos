@@ -150,6 +150,8 @@ addopts = [
     "-ra",
     "--strict-markers",
     "--strict-config",
+    "--cov",
+    "--cov-report=term-missing:skip-covered",
 ]
 markers = [
     "unit: unit tests",
@@ -184,3 +186,4 @@ exclude_lines = [
 ]
 show_missing = true
 skip_covered = false
+fail_under = 90

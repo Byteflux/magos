@@ -108,3 +108,69 @@ def test_admin_refresh_unknown_provider_returns_404(tmp_path: Path) -> None:
     with TestClient(app) as client:
         response = client.post("/admin/registry/refresh", params={"provider": "missing"})
         assert response.status_code == 404
+
+
+def test_admin_refresh_returns_refreshed_provider_list(tmp_path: Path) -> None:
+    """Successful refresh path: noop discovery → refresh() returns clean state."""
+    models_path = tmp_path / "models.json"
+    save_state(RegistryState(), models_path)
+    # `discovery: noop` returns an empty result, so refresh() succeeds
+    # without any network. Exercises the success branch of the handler.
+    cfg = _registry_yaml(
+        models_path,
+        {
+            "manual": {"discovery": "noop"},
+            "other": {"discovery": "noop"},
+        },
+    )
+    app = create_app(routing=_routing_only(), registry=cfg)
+    with TestClient(app) as client:
+        response = client.post("/admin/registry/refresh")
+    assert response.status_code == 200
+    payload = response.json()
+    assert sorted(payload["refreshed"]) == ["manual", "other"]
+    assert payload["failed"] == {}
+
+
+def test_admin_refresh_scoped_to_one_provider(tmp_path: Path) -> None:
+    """``?provider=X`` refreshes only that provider."""
+    models_path = tmp_path / "models.json"
+    save_state(RegistryState(), models_path)
+    cfg = _registry_yaml(
+        models_path,
+        {"manual": {"discovery": "noop"}, "other": {"discovery": "noop"}},
+    )
+    app = create_app(routing=_routing_only(), registry=cfg)
+    with TestClient(app) as client:
+        response = client.post("/admin/registry/refresh", params={"provider": "manual"})
+    assert response.status_code == 200
+    assert response.json()["refreshed"] == ["manual"]
+
+
+def test_admin_prune_reports_deprecated_counts(tmp_path: Path) -> None:
+    """Prune triggers a refresh round and reports deprecated_before/after.
+
+    Pre-seed the registry with one deprecated entry; the noop adapter
+    returns an empty discovery result for the provider, so the entry's
+    deprecation mark survives the refresh and the before/after counts
+    bracket it.
+    """
+    models_path = tmp_path / "models.json"
+    deprecated_entry = ModelEntry(
+        provider="manual",
+        raw_id="abandoned",
+        litellm_id="manual/abandoned",
+        deprecated_at=datetime(2026, 5, 2, tzinfo=UTC),
+    )
+    save_state(
+        RegistryState(entries={deprecated_entry.namespaced_id: deprecated_entry}),
+        models_path,
+    )
+    cfg = _registry_yaml(models_path, {"manual": {"discovery": "noop"}})
+    app = create_app(routing=_routing_only(), registry=cfg)
+    with TestClient(app) as client:
+        response = client.post("/admin/registry/prune")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "deprecated_before" in payload
+    assert "deprecated_after" in payload

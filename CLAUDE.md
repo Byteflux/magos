@@ -247,7 +247,16 @@ uv run pre-commit run --all-files
 
 - pytest; markers `unit`, `integration`, `e2e` are declared but only
   applied in a handful of files. End-to-end tests gate on
-  `MAGOS_E2E=1`. No coverage threshold is enforced today.
+  `MAGOS_E2E=1`. Coverage runs on every `pytest` invocation
+  (`addopts` includes `--cov`); `fail_under = 90` in
+  `[tool.coverage.report]` gates merges. Use `# pragma: no cover` only
+  for code paths that genuinely cannot be exercised in-process (e.g.
+  the `python -m magos` entrypoint guard).
+- Running a subset (e.g. `pytest tests/cli/test_admin_client.py`)
+  triggers the coverage gate against partial data and will fail the
+  threshold. For iteration on a single file, append
+  `--no-cov` (or `--cov-fail-under=0`) explicitly. Full-suite runs
+  hit the gate as intended.
 - One test file per source module, in the mirrored directory. Drop
   redundant directory-implied prefixes from filenames.
 - Plain helpers in `_helpers.py` at the appropriate scope; pytest
