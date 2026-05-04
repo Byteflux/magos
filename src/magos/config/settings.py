@@ -180,9 +180,9 @@ class MagosSettings(BaseSettings):
         description=(
             "Mount a Prometheus-format /metrics endpoint backed by the OTel "
             "MeterProvider. When enabled, the server installs the Prometheus "
-            "exporter at startup and exposes registry + future per-subsystem "
-            "metrics. Off by default to avoid touching the global "
-            "MeterProvider when the operator hasn't asked for it."
+            "exporter at startup and exposes registry meters. Off by default "
+            "to avoid touching the global MeterProvider when the operator "
+            "hasn't asked for it."
         ),
     )
 

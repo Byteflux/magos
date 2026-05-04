@@ -1,6 +1,7 @@
 """Pydantic schemas for the registry-related YAML grammar.
 
-Mirrors the new top-level blocks in ``magos.yaml``:
+Mirrors the top-level ``providers`` / ``provider_order`` / ``registry``
+blocks in ``magos.yaml``:
 
 - ``providers:``        per-provider declaration (creds, base_url, discovery
                         adapter override, refresh interval override, optional
