@@ -8,7 +8,7 @@ packages = ["src/magos"]
 [project]
 name = "magos"
 version = "0.0.1"
-description = "Add your description here"
+description = "Declarative LLM API routing proxy with provider-discovered model registry and context compression."
 readme = "README.md"
 requires-python = ">=3.12,<=3.14"
 dependencies = [

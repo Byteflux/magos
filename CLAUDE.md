@@ -1,13 +1,14 @@
 # Magos
 
-Declarative routing proxy for LLM API traffic. Inbound requests
-(Anthropic Messages, OpenAI Chat Completions, OpenAI Responses) hit a
-rule engine that decides per request: which provider, byte-exact
-passthrough vs LiteLLM-translated dispatch, which rewrites apply
-(including Headroom context compression). A provider-discovered model
-registry catches anything the rules don't match. An optional embedded
-mitmproxy listener handles `HTTPS_PROXY`-style ingress for clients that
-can't be reconfigured (notably Claude Code).
+Declarative LLM API routing proxy with provider-discovered model
+registry and context compression. Inbound requests (Anthropic Messages,
+OpenAI Chat Completions, OpenAI Responses) hit a rule engine that
+decides per request: which provider, byte-exact passthrough vs
+LiteLLM-translated dispatch, which rewrites apply (including Headroom
+context compression). A provider-discovered model registry catches
+anything the rules don't match. An optional embedded mitmproxy
+listener handles `HTTPS_PROXY`-style ingress for clients that can't be
+reconfigured (notably Claude Code).
 
 ## Conceptual model
 
