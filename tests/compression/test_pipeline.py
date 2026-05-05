@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 
 from magos.compression import PipelineConfig, apply
+from magos.compression import registry as reg_mod
 
 
 @dataclass
@@ -31,8 +32,6 @@ class _StubPipeline:
 
 
 def _patch_registry(monkeypatch: pytest.MonkeyPatch, pipeline: _StubPipeline) -> None:
-    from magos.compression import registry as reg_mod
-
     class _StubRegistry:
         def get_or_build(self, *_args: Any, **_kwargs: Any) -> _StubPipeline:
             return pipeline
