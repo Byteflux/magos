@@ -58,7 +58,7 @@ yaml `ingress.http` / `ingress.mitm` block > schema defaults
 The CLI bootstrap (logging + tracing config + the
 `server.bootstrapping` log event) happens here, then control hands
 off to the orchestrator in `magos.serve`. See
-[`docs/architecture.md`](architecture.md) for the request lifecycle
+[`docs/architecture/request-flow.md`](architecture/request-flow.md) for the request lifecycle
 and process topology.
 
 ## `magos models`
