@@ -8,7 +8,7 @@ Two seams:
 - :func:`mount_metrics_endpoint` exposes the resulting metrics under
   ``GET /metrics`` on a FastAPI app.
 
-``prometheus_client.start_http_server`` is intentionally avoided —
+``prometheus_client.start_http_server`` is intentionally avoided;
 exposing through the FastAPI mount keeps the server bound to one port
 for everything (HTTP API + admin + metrics).
 """

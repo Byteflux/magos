@@ -12,7 +12,7 @@ Inference rules when ``discovery`` is unset:
 - ``base_url`` is set (anything else)    → ``openai``
 - ``base_url`` is unset                  → ``noop`` (manual-only)
 
-Operators can always force an adapter explicitly via ``discovery:`` —
+Operators can always force an adapter explicitly via ``discovery:``;
 inference only fires when the field is omitted.
 """
 

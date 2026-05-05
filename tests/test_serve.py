@@ -2,7 +2,7 @@
 
 Covers the env-over-yaml bind layering and that the mitm task is only
 spawned when explicitly enabled with at least one intercept host.
-The real ``DumpMaster`` and ``uvicorn.Server`` are mocked out — full
+The real ``DumpMaster`` and ``uvicorn.Server`` are mocked out; full
 network integration belongs in manual smoke testing per the plan.
 """
 

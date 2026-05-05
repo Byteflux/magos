@@ -14,13 +14,13 @@ reconfigured (notably Claude Code).
 
 Three layers, in flow order:
 
-- **Ingress** — how requests enter. FastAPI is the default entry point;
+- **Ingress**: how requests enter. FastAPI is the default entry point;
   mitmproxy is the optional `HTTPS_PROXY` entry point. Both feed the
   same routing engine.
-- **Routing** — the rule engine in `magos.routing`. The product. Reads
+- **Routing**: the rule engine in `magos.routing`. The product. Reads
   `magos.yaml`, decides per request: provider, mode, rewrites,
   dispatch model id.
-- **Egress** — how requests leave. Three paths: byte-exact passthrough,
+- **Egress**: how requests leave. Three paths: byte-exact passthrough,
   wire-shape-translated via LiteLLM, or count-tokens.
 
 ## Goals
@@ -130,7 +130,7 @@ src/magos/
     _helpers.py      # shared state-loading + print helpers (admin_client, load_state, print_list)
     admin_client.py  # tiny httpx wrapper for /admin/registry endpoints
 magos.example.yaml   # routing config to copy and customise
-tests/               # mirrors src/magos/ — see "Test layout" below
+tests/               # mirrors src/magos/, see "Test layout" below
 scripts/             # operator-facing one-shot probes
 integrations/        # third-party tool integrations
   opencode/         # OpenCode plugin: registers magos models via /admin/registry
@@ -162,7 +162,7 @@ tests/
 ```
 
 Plain helper functions (request builders, sample payloads, TestClient
-factories) live in `_helpers.py` modules at the appropriate scope —
+factories) live in `_helpers.py` modules at the appropriate scope:
 `tests/routing/_helpers.py`, `tests/ingress/http/_helpers.py`, etc. Tests
 import them via relative imports (`from ._helpers import make_req`).
 `conftest.py` is reserved for pytest fixtures; do not put plain helpers
@@ -188,7 +188,7 @@ wire-shape translation across providers.
 |---------|------|---------------|
 | FastAPI | HTTP-level entry routing | `magos.ingress.http` |
 | mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.ingress.mitm` |
-| — | rule-based router (the product) | `magos.routing` |
+| (none) | rule-based router (the product) | `magos.routing` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 
@@ -210,14 +210,14 @@ uv run pre-commit run --all-files
 ### Layout & module shape
 
 - **Direction-of-flow top-level packages**. `ingress/` (how requests
-  enter), `routing/` (the rule engine — the product), `egress/` (how
+  enter), `routing/` (the rule engine, the product), `egress/` (how
   they leave). New code goes into one of these, picked by which side of
   the request lifecycle it touches. Cross-cutting infrastructure
   (`telemetry/`, `config/`, `registry/`, `cli/`) gets its own peer
   package; do not bury it under a flow package.
 - **Name modules for what they do, not what they are.** `translate`
   (LiteLLM SDK marshalling), `passthrough` (byte-exact forwarding),
-  `observer` (mitmproxy log addon) — not `proxy.py`, `addon.py`,
+  `observer` (mitmproxy log addon), not `proxy.py`, `addon.py`,
   `utils.py`. Re-name when the role changes; a wrong name compounds.
 - **Small focused files.** Aim for one cohesive concept per module.
   When a single file grows past ~400 LOC and contains multiple variants
@@ -288,7 +288,7 @@ uv run pre-commit run --all-files
   fixtures in `conftest.py`. Don't mix them.
 - Counters / OTel meters are cumulative across the test session.
   Snapshot a baseline at test start and assert on the delta, not the
-  absolute value — otherwise the test silently picks up emissions from
+  absolute value, otherwise the test silently picks up emissions from
   any prior test that happens to run first.
 
 ### Comments and docstrings
@@ -296,11 +296,11 @@ uv run pre-commit run --all-files
 - **Describe current behaviour, not history.** Comments and docstrings
   are documentation, not changelog. "Was the X seam", "extracted from
   Y", "no longer infers Z", "after the SDK fold-in", "renamed from W"
-  — all noise. Rewrite each as "does X" / "is Y" / "infers Z when …".
+  are all noise. Rewrite each as "does X" / "is Y" / "infers Z when …".
   The git log carries the "what changed" story; the comment exists for
   someone reading the code today.
 - **Keep version pins and compatibility notes.** "LiteLLM 1.82+ yields
-  bytes already SSE-framed" stays — it's a real fact a reader needs
+  bytes already SSE-framed" stays: it's a real fact a reader needs
   when debugging or upgrading. The test is whether the note still
   helps if you removed the surrounding history: a version pin does, a
   refactor reference doesn't.
@@ -309,13 +309,13 @@ uv run pre-commit run --all-files
   author understands. Describe the concept (`provider/provider_order/registry`
   yaml blocks) instead.
 - **When you change behaviour, update the docstrings/comments around
-  it in the same change** — same rule as docs, same reason.
+  it in the same change**: same rule as docs, same reason.
 
 ### Documentation
 
 - Docs live in `docs/` (one file per top-level concept) and are
   indexed in the layout block above. **Update docs as part of the
-  change that invalidates them**, not in a follow-up PR — drift is
+  change that invalidates them**, not in a follow-up PR, since drift is
   load-bearing for new contributors and the agents reading this file.
 - When you move or rename a source file, grep `docs/` and `CLAUDE.md`
   for the old path and update every reference. The cost is one
@@ -324,12 +324,12 @@ uv run pre-commit run --all-files
 - When you add a new top-level concept (a CLI subapp, a new ingress
   mode, a new egress translation path, a new env var, a new yaml
   block), decide whether it warrants:
-  1. A new doc — only if it's a distinct operator-facing surface
+  1. A new doc: only if it's a distinct operator-facing surface
      with its own configuration / lifecycle / failure modes (e.g.
      `cli.md`, `ingress.md`).
-  2. A section in an existing doc — the default; cross-link from
+  2. A section in an existing doc: the default; cross-link from
      the layout block in this file.
-  3. Just a docstring on the source — for internal-only concepts.
+  3. Just a docstring on the source: for internal-only concepts.
 - Cross-link freely between docs. Each doc should have a "See also"
   pointer back to `architecture.md` and to peers it depends on.
 - Worked examples in docs (yaml, CLI invocations) should be valid as

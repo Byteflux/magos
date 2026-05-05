@@ -111,15 +111,15 @@ Atoms (each is a single-key dict):
 
 `<matcher>` is exactly one of:
 
-- `{ literal: "x" }` — exact equality, case-sensitive
-- `{ glob: "x*" }` — fnmatch, case-sensitive
-- `{ regex: "^x" }` — `re.fullmatch`, no implicit flags
+- `{ literal: "x" }`: exact equality, case-sensitive
+- `{ glob: "x*" }`: fnmatch, case-sensitive
+- `{ regex: "^x" }`: `re.fullmatch`, no implicit flags
 
 Combinators:
 
-- `{ all_of: [<expr>, ...] }` — every child must match
-- `{ any_of: [<expr>, ...] }` — at least one child must match
-- `{ not: <expr> }` — child must not match
+- `{ all_of: [<expr>, ...] }`: every child must match
+- `{ any_of: [<expr>, ...] }`: at least one child must match
+- `{ not: <expr> }`: child must not match
 
 A bare atom at the top of `match` is shorthand for a single-atom expression.
 
@@ -146,10 +146,10 @@ offending rule at startup (event `routing.passthrough_body_touch`).
 For `mode: translate`, the engine resolves the dispatch model id in this
 order before handing it to LiteLLM:
 
-1. Literal registry hit on the body model — e.g.
+1. Literal registry hit on the body model, e.g.
    `set_model: vultr/Qwen/Qwen3.5-...` looks up that exact key and
    substitutes the entry's `litellm_id` (`custom_openai/Qwen/...`).
-2. Registry hit on `<action.provider>/<model>` — e.g. with
+2. Registry hit on `<action.provider>/<model>`, e.g. with
    `provider: vultr` in the action, `set_model: Qwen/Qwen3.5-...`
    resolves the same entry without the prefix.
 3. Otherwise, the model is passed through as-is if it already contains
@@ -166,10 +166,10 @@ under `providers:` so the registry knows the mapping; see
 
 Runs Headroom against `body.messages`. Two modes:
 
-- `mode: token` (default) — full pipeline (CacheAligner + ContentRouter
+- `mode: token` (default): full pipeline (CacheAligner + ContentRouter
   + IntelligentContext). Messages may be rewritten or dropped. Maximises
   token savings.
-- `mode: cache` — CacheAligner only. Extracts dynamic content (dates,
+- `mode: cache`: CacheAligner only. Extracts dynamic content (dates,
   whitespace) from system prompts so the prefix is byte-stable across
   requests. Does not touch user/assistant messages. Improves provider
   prompt-cache hit rate without changing semantics.
@@ -236,7 +236,7 @@ time, not config-load time (env state can change between deploys).
 When a rule's `action` declares `provider:` but omits `api_key_env` /
 `base_url`, those fields are inherited from the matching entry in the
 top-level `providers:` block. This keeps third-party openai-compatible
-upstreams (Vultr, hosted vLLM, etc.) working with concise rules — without
+upstreams (Vultr, hosted vLLM, etc.) working with concise rules, without
 the inheritance, dispatch silently falls through to LiteLLM's per-provider
 defaults (e.g. `OPENAI_API_KEY` against `api.openai.com`), producing a
 401 from a totally unrelated upstream. Explicit values on the action
@@ -244,11 +244,11 @@ always win over the provider config.
 
 ## Errors
 
-- `404` — no rule matched. Body: per-endpoint error envelope echoing
+- `404`: no rule matched. Body: per-endpoint error envelope echoing
   the inbound `model` and a `magos.yaml` hint.
-- `503` — a rule matched but dispatch failed (jq_patch result not an
+- `503`: a rule matched but dispatch failed (jq_patch result not an
   object, missing api_key_env). Body: `route configuration error: ...`.
-- `502` — upstream returned an error or the connection failed.
+- `502`: upstream returned an error or the connection failed.
   Untouched by routing; the existing handler in `ingress/http/` wraps it.
 
 Endpoint-shaped envelopes:
@@ -272,7 +272,7 @@ Loader rejects (raises `RoutingConfigError`):
 Loader debug-logs (structlog `routing.passthrough_body_touch`):
 
 - a `mode: passthrough` rule combined with a body-touching rewrite
-  (`set_model` or `jq_patch`) — re-serialisation breaks byte-exact
+  (`set_model` or `jq_patch`); re-serialisation breaks byte-exact
   cache hits.
 
 ## Examples
@@ -391,10 +391,10 @@ rules:
 
 Per-request structlog events:
 
-- `route.matched` — `rule`, `endpoint`, `model`, `mode`
-- `route.unmatched` — `endpoint`, `model`, `message`
-- `route.dispatch_error` — `rule`, `endpoint`, `error`
+- `route.matched`: `rule`, `endpoint`, `model`, `mode`
+- `route.unmatched`: `endpoint`, `model`, `message`
+- `route.dispatch_error`: `rule`, `endpoint`, `error`
 
 Per-startup events:
 
-- `routing.passthrough_body_touch` — body-rewrite + passthrough warning
+- `routing.passthrough_body_touch`: body-rewrite + passthrough warning

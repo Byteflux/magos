@@ -4,9 +4,9 @@ Exposed only when a :class:`Refresher` is active (i.e.
 ``providers:`` non-empty in ``magos.yaml``). The CLI reads from these
 to show server-state and trigger out-of-band refreshes:
 
-- ``GET /admin/registry``                — snapshot of in-memory state
-- ``POST /admin/registry/refresh``       — refresh one or all providers
-- ``POST /admin/registry/prune``         — sweep deprecation past grace
+- ``GET /admin/registry``                : snapshot of in-memory state
+- ``POST /admin/registry/refresh``       : refresh one or all providers
+- ``POST /admin/registry/prune``         : sweep deprecation past grace
 
 ``magos models list/show`` fall back to disk when the server is down,
 so these endpoints are convenience surfaces, not the only way to read

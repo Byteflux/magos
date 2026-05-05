@@ -26,10 +26,10 @@ def build_ingress_master(
     """Construct an embedded ``DumpMaster`` configured for the ingress addon.
 
     ``target_host`` / ``target_port`` are where intercepted requests are
-    rewritten to — i.e. the FastAPI bind address. The egress observer
+    rewritten to, i.e. the FastAPI bind address. The egress observer
     addon (``MagosObserverAddon``) is also loaded so the same mitmproxy
     process can log outbound LLM provider traffic when magos's own
-    requests transit it (which they don't by default — see
+    requests transit it (which they don't by default; see
     ``docs/ingress.md`` "Loop hazard").
     """
     options = Options(

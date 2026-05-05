@@ -2,9 +2,9 @@
 
 magos's normal mode of operation has clients pointing directly at the
 FastAPI listener (e.g. `ANTHROPIC_BASE_URL=http://localhost:6246`).
-For clients that change behavior when their base URL is overridden —
-notably **Claude Code**, which alters auth/feature handling when
-`ANTHROPIC_BASE_URL` is set — that mode is unusable.
+For clients that change behavior when their base URL is overridden
+(notably **Claude Code**, which alters auth/feature handling when
+`ANTHROPIC_BASE_URL` is set), that mode is unusable.
 
 The ingress proxy is the workaround. magos runs an embedded
 `mitmproxy` listener alongside FastAPI in the same process. A client
@@ -21,7 +21,7 @@ and the response flows back transparently.
   layer and the transparent intercept, on one port pair, one config.
 
 For native-`base_url`-aware clients (most LLM SDKs, including
-`anthropic`, `openai`, `litellm`), you don't need the ingress proxy —
+`anthropic`, `openai`, `litellm`), you don't need the ingress proxy:
 just point them at `http://localhost:6246`.
 
 ## Architecture
@@ -48,7 +48,7 @@ through mitmproxy to the client.
 
 Hosts not on the allowlist hit `tls_clienthello`, get
 `ignore_connection = True`, and the original CONNECT flows through
-verbatim — mitmproxy never sees the inner bytes.
+verbatim; mitmproxy never sees the inner bytes.
 
 ## Setup
 
@@ -116,7 +116,7 @@ HTTPS_PROXY=http://127.0.0.1:6247 claude --print "hi"
 
 Claude Code keeps using `api.anthropic.com` as the base URL and its
 behavior is unchanged. magos's structlog will show a `route.matched`
-event for each request — the existing Anthropic passthrough rule
+event for each request: the existing Anthropic passthrough rule
 fires as if the client had hit FastAPI directly.
 
 ## Loop hazard
@@ -158,19 +158,19 @@ hop) instead of infinite, but it doesn't fix the underlying loop.
 
 ## What stays unchanged
 
-- All routing rules, rewrites, and dispatch behavior — same as a
+- All routing rules, rewrites, and dispatch behavior: same as a
   client hitting FastAPI directly.
-- Anthropic prompt-cache hashes — mitmproxy streams the body through
+- Anthropic prompt-cache hashes: mitmproxy streams the body through
   byte-exact, and magos's passthrough mode forwards bytes verbatim
   upstream.
-- OAuth tokens (`sk-ant-oat...`) — auth-header injection still runs
+- OAuth tokens (`sk-ant-oat...`): auth-header injection still runs
   on the FastAPI side; the ingress addon doesn't touch headers.
-- Egress observability — `MagosObserverAddon` is loaded alongside the
+- Egress observability: `MagosObserverAddon` is loaded alongside the
   ingress addon, so outbound LLM provider traffic that does pass
   through mitmproxy (e.g. via translate-mode `litellm`'s default
   httpx) gets the same `egress.request` / `egress.response` events as
   before. Note this only fires when magos's outbound is configured to
-  use the local mitmproxy as a proxy — which we explicitly recommend
+  use the local mitmproxy as a proxy, which we explicitly recommend
   against (see "Loop hazard").
 
 ## Disabling

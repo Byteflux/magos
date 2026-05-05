@@ -6,7 +6,7 @@ upstream sees the client's auth, version pins, and beta flags verbatim,
 which preserves provider billing shape (and Anthropic prompt-cache hash
 stability under passthrough).
 
-This is the **first** of three header-filter stages — see
+This is the **first** of three header-filter stages; see
 ``docs/architecture.md`` "Header forwarding". The other two live in
 :mod:`magos.egress.translate`.
 """

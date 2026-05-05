@@ -98,7 +98,7 @@ def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
 ) -> None:
     """``set_model: vultr/Qwen/...`` style body model is translated to the
     registry entry's ``litellm_id`` (``custom_openai/Qwen/...``) before
-    dispatch — without this LiteLLM rejects the unknown ``vultr/`` prefix.
+    dispatch; without this LiteLLM rejects the unknown ``vultr/`` prefix.
 
     Also exercises the bare-id form (``Qwen/...`` with ``provider: vultr``)
     which is resolved by prepending the action's provider for lookup.

@@ -110,7 +110,7 @@ def test_request_leaves_off_list_host_alone() -> None:
 def test_request_skips_when_already_at_target() -> None:
     """Loop-guard: a re-entrant request from magos's own outbound httpx
     (when ``HTTPS_PROXY`` is set globally) lands here as a request to the
-    loopback target. The addon must not re-rewrite — leaving it alone
+    loopback target. The addon must not re-rewrite; leaving it alone
     keeps the loop visible at most once instead of silently swallowing it.
     """
     addon = _addon(intercept=("127.0.0.1",))  # forced overlap

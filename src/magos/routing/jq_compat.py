@@ -4,7 +4,7 @@ Two responsibilities:
 
 - ``check_program``: parse-validate a jq expression at config-load time so
   syntax errors surface with file + rule context instead of at first request.
-- ``Truthy`` evaluation: the predicate semantics for match atoms — a jq
+- ``Truthy`` evaluation: the predicate semantics for match atoms. A jq
   expression matches iff its first result value is truthy under Python rules
   (``None``, ``False``, ``0``, ``""``, empty containers all falsy).
 

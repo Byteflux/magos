@@ -87,7 +87,7 @@ def test_handler_routes_warning_records() -> None:
 @pytest.mark.unit
 def test_handler_falls_back_to_raw_msg_on_format_error() -> None:
     handler = StructlogHandler()
-    # %s arg count mismatch — getMessage will raise.
+    # %s arg count mismatch: getMessage will raise.
     record = logging.LogRecord(
         name="mitmproxy",
         level=logging.INFO,

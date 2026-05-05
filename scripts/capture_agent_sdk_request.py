@@ -128,7 +128,7 @@ def main() -> None:
         thread.join(timeout=3)
 
     if not captured:
-        print("NO REQUESTS CAPTURED — agent SDK never reached the echo server")
+        print("NO REQUESTS CAPTURED: agent SDK never reached the echo server")
         return
 
     for i, req in enumerate(captured):

@@ -166,7 +166,7 @@ def _fill_action_from_provider_config(
     ``provider:`` (and omits ``api_key_env`` / ``base_url``) inherits those
     from ``providers[action.provider]`` if present. Without this, LiteLLM
     is invoked with no api_key/api_base and silently falls back to its
-    per-provider defaults — e.g. ``OPENAI_API_KEY`` against ``api.openai.com``
+    per-provider defaults, e.g. ``OPENAI_API_KEY`` against ``api.openai.com``
     for the generic ``custom_openai`` provider used by Vultr / hosted vLLM,
     producing a misleading 401 against a totally unrelated upstream.
 
@@ -190,13 +190,13 @@ def _compute_dispatch_model(
     Passthrough does not go through LiteLLM, so the bare model is preserved
     for logging only. For translate mode the resolution order is:
 
-    1. Literal registry hit on the body model (``vultr/Qwen/Qwen3.5-...``)
-       — substitute ``entry.litellm_id``.
+    1. Literal registry hit on the body model (``vultr/Qwen/Qwen3.5-...``):
+       substitute ``entry.litellm_id``.
     2. Registry hit on ``<action.provider>/<model>`` (``Qwen/Qwen3.5-...``
-       with ``provider: vultr``) — substitute ``entry.litellm_id``.
-    3. Already namespaced (contains ``/``) — return as-is. LiteLLM's bundled
+       with ``provider: vultr``): substitute ``entry.litellm_id``.
+    3. Already namespaced (contains ``/``): return as-is. LiteLLM's bundled
        provider router resolves names like ``openai/gpt-4o`` natively.
-    4. Bare name — prepend ``<action.provider>/``.
+    4. Bare name: prepend ``<action.provider>/``.
 
     Steps 1-2 fix the ``custom_openai``-style providers where the magos
     namespace (``vultr/``) and LiteLLM's dispatch id (``custom_openai/``)

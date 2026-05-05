@@ -208,7 +208,7 @@ def test_responses_cache_mode_noop_when_instructions_empty() -> None:
 def test_responses_token_mode_does_not_call_headroom(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``mode: token`` is unsupported on /v1/responses — must not call compress()."""
+    """``mode: token`` is unsupported on /v1/responses: must not call compress()."""
 
     def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
         raise AssertionError("compress() must not be called for Responses token mode")

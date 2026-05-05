@@ -222,7 +222,7 @@ def test_refresh_loop_swallows_unexpected_exception_to_keep_polling(tmp_path: Pa
             self, provider_name: str, config: ProviderConfig, client: httpx.AsyncClient
         ) -> DiscoveryResult:
             self.calls += 1
-            raise RuntimeError("simulated bug — not a DiscoveryError")
+            raise RuntimeError("simulated bug, not a DiscoveryError")
 
     adapter = _BoomAdapter()
     refresher = Refresher(

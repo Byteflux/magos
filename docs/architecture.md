@@ -17,7 +17,7 @@ on the FastAPI port and clients hit it directly. When
 `ingress.mitm.enabled` is true in `magos.yaml`, an embedded
 `mitmproxy` listener runs alongside FastAPI on the same asyncio loop
 (`magos.serve`) so a client pointed at `HTTPS_PROXY=...` sees TLS
-interception too — see `docs/ingress.md` for the operator guide.
+interception too. See `docs/ingress.md` for the operator guide.
 
 ```
                        ┌─────────────────── single magos process ──────────────────┐
@@ -35,12 +35,12 @@ Three roles for the mitmproxy machinery:
 
 1. **In-process ingress (when configured)**: `magos.ingress.mitm`
    rewrites incoming intercepted requests to the FastAPI loopback.
-   Same process, same asyncio loop — `magos.serve.serve_async` gathers
+   Same process, same asyncio loop; `magos.serve.serve_async` gathers
    both as named tasks and shuts both down on first-task-done.
 2. **In-process egress observer**: `magos.egress.observer` is loaded
    by the in-process master alongside the ingress addon, logging
    outbound LLM provider traffic when magos's own outbound transits
-   mitmproxy (which it doesn't by default — see `docs/ingress.md`
+   mitmproxy (which it doesn't by default; see `docs/ingress.md`
    "Loop hazard"). Can also be run standalone via
    `mitmdump -s src/magos/egress/observer.py --listen-port 8080` if
    the operator prefers an out-of-process observer.
@@ -49,11 +49,12 @@ Three roles for the mitmproxy machinery:
    `tests/egress/test_observer.py` (via `magos.egress.observer`),
    regardless of whether ingress is enabled. That import triggers the
    Windows pyarrow load-order
-   workaround in `tests/conftest.py` — see `docs/headroom.md`
+   workaround in `tests/conftest.py`. See `docs/headroom.md`
    "CacheAligner".
 
 When ingress is **disabled**, both `magos.ingress.mitm` and
 `magos.egress.observer` are dormant. Routing-layer bugs are still
+
 never in either; routing always lives in `magos.routing` regardless
 of how the request entered.
 
@@ -63,7 +64,7 @@ Per request, the FastAPI app does this:
 
 1. **Inbound parsing** (`ingress/http/run.py`). Body parsed to dict
    (or kept as `raw_body` bytes); inbound headers filtered through
-   `_BLOCKED_FORWARD_HEADERS` in `ingress/http/headers.py` — drops
+   `_BLOCKED_FORWARD_HEADERS` in `ingress/http/headers.py`, which drops
    hop-by-hop (RFC 7230) plus content-shaping headers
    (`content-length`, `content-encoding`, `host`, etc.). The filtered
    headers are lowercased into a dict.
@@ -145,7 +146,7 @@ JSON whitespace shift, key reordering, or float-formatting change
 silently invalidates the cache. The `raw_body` short-circuit preserves
 byte-exactness when no rewrite touched the body. If you add a new
 body-mutating rewrite op and forget the flag, passthrough sends the
-*pre-rewrite* bytes — a silent correctness bug, not a crash.
+*pre-rewrite* bytes: a silent correctness bug, not a crash.
 
 ## Passthrough is byte-exact on purpose
 
@@ -179,16 +180,16 @@ LiteLLM as the `api_key` kwarg; it does not write headers.)
 
 **Resolution order for the header shape (highest first):**
 
-1. **OAuth detection** — `provider: anthropic` rule whose
+1. **OAuth detection**: `provider: anthropic` rule whose
    `api_key_env` value starts with `sk-ant-oat` →
    `Authorization: Bearer <token>` + `anthropic-beta: oauth-2025-04-20`
    (overrides everything; api.anthropic.com 401s on `x-api-key` for
    that credential class). The provider guard is required: a
    non-anthropic rule whose env var happens to start with that prefix
    does not get OAuth headers.
-2. **Per-rule `action.auth_header` override** — explicit
+2. **Per-rule `action.auth_header` override**: explicit
    `x-api-key` or `bearer` value on the rule.
-3. **Provider default** — `provider: anthropic` → `x-api-key`,
+3. **Provider default**: `provider: anthropic` → `x-api-key`,
    everything else → `Authorization: Bearer`.
 
 OAuth-token detection lives in `egress/auth.py` and the registry-side
@@ -198,10 +199,10 @@ against an OAuth-only account.
 
 ## Startup order
 
-Two phases — `create_app()` (synchronous, builds the FastAPI app) and
+Two phases: `create_app()` (synchronous, builds the FastAPI app) and
 `_lifespan()` (async, runs once when uvicorn starts the app).
 
-**`magos.serve.serve_async()` — top-level orchestrator:**
+**`magos.serve.serve_async()`, top-level orchestrator:**
 
 1. Resolve config path: `--config` flag → `MAGOS_CONFIG_PATH` →
    `$MAGOS_HOME/magos.yaml` (default `~/.magos/magos.yaml`).
@@ -220,10 +221,10 @@ Two phases — `create_app()` (synchronous, builds the FastAPI app) and
    the other to shut down (uvicorn `should_exit`, mitm `shutdown()`),
    then surface any exception.
 
-**`magos.ingress.http.app.create_app()` — sync, builds app object:**
+**`magos.ingress.http.app.create_app()`, sync, builds app object:**
 
 1. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
-   (RegistryYaml), `refresher` (Refresher | None — None when
+   (RegistryYaml), `refresher` (Refresher | None, None when
    `providers:` is empty).
 2. Mount `/metrics` endpoint via `telemetry.metrics` if
    `MAGOS_METRICS_ENABLED=1`.
@@ -234,24 +235,24 @@ Two phases — `create_app()` (synchronous, builds the FastAPI app) and
 5. Register the `GET /v1/models` registry-backed endpoint
    (`ingress/http/models.py`).
 
-**`_lifespan()` — async, runs at startup:**
+**`_lifespan()`, async, runs at startup:**
 
-1. **Kompress backend monkey-patch** — only if
+1. **Kompress backend monkey-patch**: only if
    `MAGOS_KOMPRESS_BACKEND=pytorch`. Replaces
    `headroom.transforms.kompress_compressor._is_onnx_available` with a
    False-stub. See `docs/headroom.md` "Forcing the Kompress backend".
-2. **OTel MeterProvider configuration** — only if
+2. **OTel MeterProvider configuration**: only if
    `MAGOS_METRICS_ENABLED=1`. Wires the Prometheus exporter into the
    global meter provider; the `/metrics` endpoint mounted in
    `create_app` reads from this.
-3. **Headroom pipeline warmup** — only if any rule uses `compress`.
+3. **Headroom pipeline warmup**: only if any rule uses `compress`.
    Builds `TransformPipeline` (lazy thread-locked singleton inside
    Headroom).
-4. **Kompress preload background task** — only inside the compress
+4. **Kompress preload background task**: only inside the compress
    branch above, AND only if `MAGOS_KOMPRESS_PRELOAD=1` (the default).
    Async via `asyncio.to_thread`, doesn't block startup; cancelled on
    shutdown.
-5. **Refresher startup** (`registry/refresher.py`) — only if a
+5. **Refresher startup** (`registry/refresher.py`): only if a
    Refresher was constructed. Loads `models.json`, kicks off
    per-provider boot-discovery tasks, schedules periodic refresh.
 
@@ -264,7 +265,7 @@ from anywhere (CLI, admin endpoints, routing engine). The store
 (`registry/store.py`) does atomic temp-file + rename, but cross-process
 write races are not guarded. If you need to mutate the registry from a
 new code path, route through the Refresher (e.g. add a method that
-schedules a refresh tick) — don't call `store.write()` directly.
+schedules a refresh tick); don't call `store.write()` directly.
 
 CLI commands that look like writes (`magos models refresh`,
 `magos models prune`) hit `/admin/registry/*` HTTP endpoints, which
@@ -288,7 +289,7 @@ list, not by reading magos's dispatch code.
 |-------------------------------|----------------------------------------------------------|--------------------------------------------------|
 | Ingress inbound (`ingress/http/headers.py`) | RFC 7230 hop-by-hop + `host` / `content-length` / `content-encoding` / `accept-encoding` | Don't propagate transport-layer junk             |
 | Pre-LiteLLM body shape (`egress/translate/payload.py`) | `content-type` / `content-length` / `content-encoding` / `accept-encoding` | LiteLLM regenerates these; overriding causes "unexpected keyword argument" errors at the SDK boundary |
-| Pre-LiteLLM auth (`egress/translate/payload.py`) | `authorization` / `x-api-key` — **only when** the rule's `api_key` was resolved | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
+| Pre-LiteLLM auth (`egress/translate/payload.py`) | `authorization` / `x-api-key` (**only when** the rule's `api_key` was resolved) | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
 | Pre-passthrough               | nothing additional                                       | Byte-exact forwarding (cache hashes)             |
 
 If a header you expect to see at the provider isn't arriving, check
@@ -306,11 +307,11 @@ preprocessing steps happen in `egress/translate/anthropic.py` first:
   (`_strip_anthropic_extras`): `context_management` and similar fields
   LiteLLM passes through as `**kwargs` and that the upstream provider
   doesn't understand.
-- **`output_config.effort` → `reasoning_effort`** translation. Anthropic
+- **`output_config.effort` to `reasoning_effort`** translation. Anthropic
   uses `output_config.effort` (`low|medium|high|xhigh|max`); OpenAI
   uses `reasoning_effort` (`low|medium|high`). Magos clamps
   `xhigh`/`max` → `high`.
-- **`additionalProperties: {}` → `additionalProperties: true`** in tool
+- **`additionalProperties: {}` to `additionalProperties: true`** in tool
   `input_schema` blocks (`_coerce_empty_additional_properties`). Anthropic's
   Messages API accepts the empty-object form (an empty schema means
   "any extras allowed, no constraints"); some openai-compatible upstreams
@@ -372,7 +373,7 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 - **Markers**: `unit`, `integration`, `e2e` are declared (and
   enforced via `--strict-markers` in `pyproject.toml`), but only ~8 of
   ~33 test files apply them. Selecting via `-m unit` runs a strict
-  subset, not "all unit tests" — most tests are unmarked. Run all with
+  subset, not "all unit tests"; most tests are unmarked. Run all with
   `uv run pytest`; default config does not skip e2e by marker, but…
 - **E2E gate**: most e2e tests require `MAGOS_E2E=1` and skip by
   default (provider creds, network).
@@ -412,7 +413,7 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 - **`litellm.drop_params=True` is global.** Suspect this first when a
   param vanishes.
 - **mitmproxy is opt-in for ingress.** When `ingress.mitm.enabled`
-  is false (the default), mitmproxy is completely dormant — no
+  is false (the default), mitmproxy is completely dormant: no
   listener, no addon hooks running. When enabled, it terminates TLS
   for allowlisted hosts and rewrites to FastAPI loopback; routing
   itself still happens in FastAPI.
@@ -421,10 +422,10 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
   pays nothing).
 - **Headroom `_is_onnx_available` is monkey-patched at startup** when
   `MAGOS_KOMPRESS_BACKEND=pytorch`. Looks weird, is intentional.
-- **Anthropic OAuth (`sk-ant-oat`) auth shape lives in two places** —
+- **Anthropic OAuth (`sk-ant-oat`) auth shape lives in two places**:
   `egress/auth.py` (proxy-side injection) and
   `registry/discovery/anthropic.py` (discovery). Keep them in sync.
-- **Header blocking is three-level** — ingress inbound, pre-LiteLLM
+- **Header blocking is three-level**: ingress inbound, pre-LiteLLM
   body shape, and pre-LiteLLM auth (conditional on rule-resolved
   `api_key`). All three must be checked when a header isn't reaching
   the provider.

@@ -11,7 +11,7 @@ Covers:
 
 The endpoint reads ``app.state.refresher.state`` and nothing else, so
 the data-bearing tests assign a tiny stub directly and skip the
-lifespan dance — building a real ``Refresher`` would mean fighting
+lifespan dance; building a real ``Refresher`` would mean fighting
 boot discovery and per-provider refresh tasks for no added coverage.
 """
 

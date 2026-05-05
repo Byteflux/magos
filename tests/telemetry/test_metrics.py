@@ -4,7 +4,7 @@
 because OTel only honors the first real provider per process, we cannot
 re-install one cleanly across tests. The test below verifies the call
 returns without raising and that the provider class flips off the
-no-op default — but skips when the provider has already been set
+no-op default, but skips when the provider has already been set
 (e.g. by a prior test or by ``tests/registry/test_telemetry.py``'s import).
 
 ``mount_metrics_endpoint`` is fully testable: it just registers a
@@ -23,7 +23,7 @@ from magos.telemetry.metrics import configure_meter_provider, mount_metrics_endp
 
 @pytest.mark.unit
 def test_configure_meter_provider_runs_without_raising() -> None:
-    """The configurator is best-effort — calling it twice is safe."""
+    """The configurator is best-effort: calling it twice is safe."""
     # First call installs the provider (or no-ops if already installed
     # by an earlier test); second call exercises the
     # already-installed branch in OTel itself, surfacing as a warning

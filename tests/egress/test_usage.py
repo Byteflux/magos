@@ -214,7 +214,7 @@ def test_shape_for_endpoint(endpoint: str, expected: str | None) -> None:
 
 
 # ---------------------------------------------------------------------------
-# tap_stream — end-to-end SSE
+# tap_stream: end-to-end SSE
 # ---------------------------------------------------------------------------
 
 

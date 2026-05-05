@@ -5,7 +5,7 @@ Two hooks:
 - ``tls_clienthello`` reads the SNI and sets
   ``data.ignore_connection = True`` for any host outside the allowlist.
   mitmproxy then forwards the original CONNECT verbatim and never sees
-  the decrypted bytes — so a client pointed at ``HTTPS_PROXY`` can keep
+  the decrypted bytes, so a client pointed at ``HTTPS_PROXY`` can keep
   using unrelated services without breakage.
 - ``request`` (fired only for intercepted, decrypted flows) rewrites
   ``host`` / ``port`` / ``scheme`` so the next hop is magos's local
@@ -43,7 +43,7 @@ class MagosIngressAddon:
         """Skip TLS interception for hosts not on the allowlist.
 
         Setting ``ignore_connection`` here makes mitmproxy treat the
-        CONNECT as opaque — the original TLS handshake passes through
+        CONNECT as opaque: the original TLS handshake passes through
         to the real upstream and we never see the inner bytes.
         """
         sni = data.client_hello.sni
@@ -55,7 +55,7 @@ class MagosIngressAddon:
         original_host = flow.request.pretty_host
         if not self._is_intercepted(original_host):
             return
-        # Already at the FastAPI target — likely a re-entrant request from
+        # Already at the FastAPI target: likely a re-entrant request from
         # magos's own outbound httpx if HTTPS_PROXY is set globally. Leave
         # it alone so the loop is at least visible (not silently swallowed).
         if flow.request.host == self._target_host and flow.request.port == self._target_port:

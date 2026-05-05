@@ -133,7 +133,7 @@ class Refresher:
         """Aggressive parallel discovery for providers absent from disk state.
 
         On boot, providers that already have entries in ``models.json``
-        (i.e. survived a prior run) skip discovery — they will be
+        (i.e. survived a prior run) skip discovery; they will be
         refreshed on their normal interval. Providers with zero entries
         get a one-shot discovery attempt with tight timeouts; failure
         just leaves the provider empty until the background loop catches
@@ -168,7 +168,7 @@ class Refresher:
         ``_refresh_loop`` calls this on every interval; if anything escapes,
         the asyncio Task dies and the strong reference held in
         ``self._tasks`` prevents the "Task exception was never retrieved"
-        warning from ever firing — periodic refresh would silently stop
+        warning from ever firing; periodic refresh would silently stop
         forever. ``DiscoveryError`` is the expected failure (transport,
         auth, malformed catalog) and gets a structured warning;
         anything else is a bug we want to see in the logs but must not
@@ -287,7 +287,7 @@ class Refresher:
 
         Manual-only entries (override keys not seen in discovery) are
         synthesized as if discovery had returned an empty PartialEntry
-        for them — the override layer supplies the dispatch id and any
+        for them; the override layer supplies the dispatch id and any
         fields the operator declared.
         """
         fresh: dict[str, ModelEntry] = {}

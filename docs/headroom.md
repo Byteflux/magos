@@ -8,15 +8,15 @@ Verified against `headroom-ai==0.10.16`.
 
 Two distinct subsystems shipped in one package:
 
-1. **Compression pipeline** (`headroom.compress`) — token-reduction
+1. **Compression pipeline** (`headroom.compress`): token-reduction
    transforms on `messages` lists.
-2. **Cache optimizers** (`headroom.cache.*`) — provider-specific cache
+2. **Cache optimizers** (`headroom.cache.*`): provider-specific cache
    helpers (Anthropic ephemeral breakpoints, OpenAI prefix caching,
    Google). Insert `cache_control` markers, track prefix hashes, score
    breakpoint placement.
 
 Magos uses (1) directly. (2) is opt-in via `mode: cache` in the
-`compress` rewrite, which runs only the `CacheAligner` transform — no
+`compress` rewrite, which runs only the `CacheAligner` transform, no
 breakpoint insertion. Auto-`cache_control` injection via
 `AnthropicCacheOptimizer` is not wired; revisit if cache hit rates need
 improving beyond prefix stabilisation.
@@ -59,7 +59,7 @@ CacheAligner -> ContentRouter -> IntelligentContext
 - Default `enabled=False` for the standalone transform; the full
   pipeline flips it on. Magos flips it on for `mode: cache`.
 - Default `use_dynamic_detector=True` cascades into
-  `sentence_transformers -> sklearn -> pandas -> pyarrow`, and pyarrow's
+  `sentence_transformers` to `sklearn` to `pandas` to `pyarrow`, and pyarrow's
   native `.pyd` segfaults during `create_module` on Windows when
   `cryptography.hazmat.bindings._rust` has already been imported in the
   process. Magos always loads `cryptography` transitively (via
@@ -94,7 +94,7 @@ CacheAligner -> ContentRouter -> IntelligentContext
   - `_preload_native_load_order()` in `cli/serve.py` runs **before**
     `magos.serve` is imported. This is the load-bearing one: importing
     `magos.serve` transitively pulls in `magos.ingress.http.handlers`,
-    which does `import litellm` at module top — and litellm pulls in
+    which does `import litellm` at module top, and litellm pulls in
     PyO3 Rust bindings (cryptography, tokenizers) on import. Once any
     PyO3 ext has initialized on the main thread, importing pyarrow's
     `.pyd` (transitively via sentence_transformers) crashes during
@@ -134,7 +134,7 @@ CacheAligner -> ContentRouter -> IntelligentContext
   top level (wrapped in `try/except ImportError` for graceful
   degradation, which doesn't help when the deps *are* installed).
   Default `detection_tiers=['regex']` means none of the ML code
-  actually runs — Tier 1 regex covers UUIDs, request IDs, sessions,
+  actually runs: Tier 1 regex covers UUIDs, request IDs, sessions,
   ISO 8601 datetimes, versions, high-entropy identifiers. We pay the
   import to get those, then run regex only at execution time.
 
@@ -178,7 +178,7 @@ outputs per the docstring. Two prediction heads:
   (`:124-130`). Borderline tokens get rescued if their surrounding
   span scores high.
 
-Operators can swap the model — domain-specific variants like
+Operators can swap the model: domain-specific variants like
 `chopratejas/kompress-finance` are referenced in the docstring example.
 Magos exposes this via `CompressOptions.kompress_model` (three-way
 switch: `null` → default model, `"disabled"` → skip ML entirely,
@@ -200,7 +200,7 @@ Per-call mechanics: word-tokenize input, skip if `< 10` words
 (passthrough), chunk into windows of `chunk_words=350` (model-coupled
 default), per-chunk ModernBERT forward pass, reduce per-token
 decisions to per-word keep set, reassemble surviving words. Inference
-is **sequential per chunk** — long content (many 350-word chunks)
+is **sequential per chunk**: long content (many 350-word chunks)
 translates to many forward passes. No batching across chunks.
 
 Two compression modes:
@@ -210,7 +210,7 @@ Two compression modes:
   content.
 - **`target_ratio` set** (e.g. `0.3`): score per token, rank globally,
   keep top-N. Forces a specific ratio regardless of content
-  compressibility. Aggressive — only set when you're sure.
+  compressibility. Aggressive; only set when you're sure.
 
 Kompress weights are cached at module level (`_kompress_cache: dict`,
 thread-locked) keyed by `model_id`, so repeated rules with the same
@@ -224,7 +224,7 @@ Kompress is **not preloaded by magos**. The lifespan hook calls
 text-bearing compress request pays the HF download (~tens of seconds
 on a fresh deployment) or disk-cache deserialization (~hundreds of
 ms). ContentRouter has a warmup-style method that eagerly loads
-Kompress (`content_router.py:1232-1239`) — magos doesn't call it.
+Kompress (`content_router.py:1232-1239`); magos doesn't call it.
 Worth wiring into the lifespan hook only if cold-start latency
 becomes a complaint.
 
@@ -232,9 +232,9 @@ Gotchas:
 
 - **`chunk_words=350` is model-coupled.** Custom models trained on
   different chunk sizes need matching `chunk_words` and
-  `score_threshold` — Headroom doesn't validate, mismatched chunk
+  `score_threshold`; Headroom doesn't validate, mismatched chunk
   sizes silently produce worse compression.
-- **`question` parameter is ignored** (`kompress_compressor.py:362`) —
+- **`question` parameter is ignored** (`kompress_compressor.py:362`):
   reserved for future QA-aware compression. Setting it has no effect
   today.
 - **ONNX availability check is import-only.** `_is_onnx_available`
@@ -262,7 +262,7 @@ Gotchas:
   `context_pressure = tokens_before / model_limit` and linearly
   interpolates between relaxed and aggressive compression thresholds.
 
-`CacheAligner` doesn't use it — prefix stabilisation is model-agnostic.
+`CacheAligner` doesn't use it; prefix stabilisation is model-agnostic.
 
 Headroom's higher-level integrations (`HeadroomClient`, langchain,
 agno, strands, ASGI proxy) all auto-detect `model_limit` per request
@@ -276,9 +276,9 @@ caller. Magos's `_apply_compress` (`rewrites/compress.py`) resolves
 `model_limit` itself via `_resolve_model_limit(dispatch_model,
 registry=...)`, walking three sources in order:
 
-1. The model registry, if loaded — picks `context_size` off the
+1. The model registry, if loaded: picks `context_size` off the
    matching `ModelEntry`. Bypasses the LiteLLM call entirely.
-2. `litellm.get_model_info(dispatch_model)` — reads `max_input_tokens`
+2. `litellm.get_model_info(dispatch_model)`: reads `max_input_tokens`
    (or `max_tokens`). Cached per dispatch id, success and fallback
    both, so unknown models don't keep retriggering LiteLLM's noisy
    "model not mapped" stderr print.
@@ -296,8 +296,8 @@ Failure modes for the lookup:
 - LiteLLM not installed -> import error -> fallback.
 
 The fallback default 200000 matches Anthropic's typical context
-window. It's wrong for OpenAI models (128K — IntelligentContext won't
-fire when it should) and Claude Opus 4.7 (1M — fires too eagerly).
+window. It's wrong for OpenAI models (128K, IntelligentContext won't
+fire when it should) and Claude Opus 4.7 (1M, fires too eagerly).
 This is why we always do the lookup rather than rely on the default.
 
 ## Defaults that matter
@@ -330,7 +330,7 @@ hot cache.
   messages, zero metrics).
 
 Magos does **not** wrap this. We do swallow import errors as a defence
-against optional extras (kompress weights, etc.) being missing — log
+against optional extras (kompress weights, etc.) being missing: log
 `compress.import_failed` and pass through.
 
 ## Pipeline init cost
@@ -346,7 +346,7 @@ Two distinct init costs:
    uses `compress`.
 
 2. **Kompress weight load.** Separate from pipeline construction.
-   `KompressCompressor._get_kompress` is lazy *inside* the compressor —
+   `KompressCompressor._get_kompress` is lazy *inside* the compressor:
    first plain-text compress request triggers HF download (or disk
    cache deserialization on subsequent restarts). Magos does not warm
    this. Cold start: tens of seconds on a fresh deployment, hundreds
@@ -356,7 +356,7 @@ Two distinct init costs:
    cold-start latency hasn't been a complaint.
 
 Operators who want zero per-request ML cost can declare
-`kompress_model: disabled` per-rule — that bypasses Kompress entirely
+`kompress_model: disabled` per-rule; that bypasses Kompress entirely
 while keeping the rest of the pipeline (CacheAligner, SmartCrusher,
 non-ML compressors).
 
@@ -384,7 +384,7 @@ Caveats:
   by `model_id`, not by backend.
 - `pytorch` requires `torch` (and `safetensors` + `transformers`) to
   be installed. If they're missing, the first compress request raises
-  `ImportError` from Headroom — magos's lazy import catch logs
+  `ImportError` from Headroom; magos's lazy import catch logs
   `compress.import_failed` and the rule no-ops.
 - For GPU, you also need a CUDA-enabled `torch` build. The default
   PyPI `torch` wheels include CPU + CUDA on Linux/Windows; macOS
@@ -392,13 +392,13 @@ Caveats:
   to verify GPU availability.
 - The override fires unconditionally at lifespan startup when
   `kompress_backend=pytorch`, regardless of whether any rule actually
-  uses `compress`. The cost is one attribute assignment — no I/O, no
+  uses `compress`. The cost is one attribute assignment: no I/O, no
   model load.
 
 Why we don't expose ONNX CUDA via this knob: even with `onnxruntime-gpu`
 installed, Headroom's `_load_kompress_onnx` hardcodes
 `providers=["CPUExecutionProvider"]` (`kompress_compressor.py:179-183`),
-so flipping `_is_onnx_available` doesn't help — the ONNX session would
+so flipping `_is_onnx_available` doesn't help; the ONNX session would
 still be CPU-bound. A working ONNX-CUDA path needs an upstream Headroom
 patch to thread an EP list through, plus careful handling of INT8
 operator coverage on CUDA EP (many INT8 ops fall back to CPU). See
@@ -409,7 +409,7 @@ prior research notes; not pursued.
 | Shape                                                | Verdict |
 |------------------------------------------------------|---------|
 | `headroom.compress()` direct call                    | **Adopted.** Wrapped as `Compress` rewrite primitive. |
-| `headroom.integrations.litellm_callback.HeadroomCallback` | **Rejected.** Implements LiteLLM's `CustomLogger.async_pre_call_hook`, which only fires when LiteLLM runs as a *proxy server*. Magos uses the LiteLLM SDK (`litellm.acompletion`, `litellm.anthropic_messages`, `litellm.aresponses`). The hook never fires in our architecture — verified by grep: `async_pre_call_hook` exists only under `litellm/proxy/`. |
+| `headroom.integrations.litellm_callback.HeadroomCallback` | **Rejected.** Implements LiteLLM's `CustomLogger.async_pre_call_hook`, which only fires when LiteLLM runs as a *proxy server*. Magos uses the LiteLLM SDK (`litellm.acompletion`, `litellm.anthropic_messages`, `litellm.aresponses`). The hook never fires in our architecture, verified by grep: `async_pre_call_hook` exists only under `litellm/proxy/`. |
 | `headroom.proxy.handlers.*` (HeadroomProxy)          | **Rejected.** ~6,300 LOC of FastAPI handlers that re-implement provider routing, header forwarding, streaming. Stacking it under magos's mitmproxy + FastAPI duplicates routing. |
 
 ## Endpoint scope
@@ -420,7 +420,7 @@ prior research notes; not pursued.
 | `/v1/chat/completions`            | `messages`     | both modes       |
 | `/v1/messages/count_tokens`       | `messages`     | both modes (useful: post-compression token preview) |
 | `/v1/responses`                   | `instructions` | **`mode: cache` only** |
-| `/v1/responses`                   | `input`        | unsupported — different shape from `messages`, no upstream Headroom path; `mode: token` silently no-ops |
+| `/v1/responses`                   | `input`        | unsupported (different shape from `messages`, no upstream Headroom path); `mode: token` silently no-ops |
 | `/v1/responses/{id}` and friends  | n/a            | no-op (no body to compress)                         |
 
 The Responses `instructions` string is wrapped as a synthetic
@@ -442,9 +442,9 @@ so there's no upstream conversion to mirror.
 Headroom uses its own "proxy mode" terminology in
 `headroom/proxy/modes.py`:
 
-- `PROXY_MODE_TOKEN` — prioritise compression (history may be
+- `PROXY_MODE_TOKEN`: prioritise compression (history may be
   rewritten).
-- `PROXY_MODE_CACHE` — prioritise cache stability (freeze prior turns).
+- `PROXY_MODE_CACHE`: prioritise cache stability (freeze prior turns).
 
 Magos mirrors these as the `mode: token | cache` switch on the
 `compress` rewrite. The semantics differ in scope:
@@ -457,8 +457,8 @@ Magos mirrors these as the `mode: token | cache` switch on the
 ## Subtleties worth not forgetting
 
 - Headroom protects images from cache invalidation in
-  `proxy/handlers/anthropic.py:_compress_latest_user_turn_images_cache_safe`
-  — only the latest non-frozen user turn's images are touched, leaving
+  `proxy/handlers/anthropic.py:_compress_latest_user_turn_images_cache_safe`:
+  only the latest non-frozen user turn's images are touched, leaving
   historical image bytes alone because they're likely cached.
   Magos doesn't (yet) replicate this; if we add image-aware compression
   later, mirror this approach.

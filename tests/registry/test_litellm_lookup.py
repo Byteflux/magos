@@ -43,7 +43,7 @@ def test_lookup_populates_all_known_fields() -> None:
 
 def test_lookup_leaves_cache_costs_none_when_litellm_omits_them() -> None:
     def fake(model: str) -> dict[str, Any]:
-        # No cache_*_token_cost keys — common for non-Anthropic providers.
+        # No cache_*_token_cost keys: common for non-Anthropic providers.
         return _info()
 
     result = lookup("openai/gpt-4o", get_info=fake)

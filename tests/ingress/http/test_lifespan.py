@@ -95,7 +95,7 @@ def test_lifespan_warmup_failure_does_not_block_startup(
         # App must come up despite the warmup failure; routing-layer
         # health is unaffected because compression is best-effort.
         resp = client.post("/v1/messages", json={"model": "x", "messages": []})
-    # 400 (validation) or routed; either is fine — the point is "didn't crash on startup".
+    # 400 (validation) or routed; either is fine: the point is "didn't crash on startup".
     assert resp.status_code != 500
 
 
@@ -154,5 +154,5 @@ def test_lifespan_default_leaves_onnx_check_untouched(
     with TestClient(app):
         pass
 
-    # Function identity preserved — no monkeypatch by lifespan.
+    # Function identity preserved: no monkeypatch by lifespan.
     assert _kc_module._is_onnx_available is _KC_ORIGINAL_IS_ONNX_AVAILABLE

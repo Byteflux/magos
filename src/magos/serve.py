@@ -3,7 +3,7 @@
 When ``ingress.mitm.enabled`` is true in ``magos.yaml``, an embedded
 ``DumpMaster`` runs alongside uvicorn as a sibling asyncio task. A
 client pointing ``HTTPS_PROXY`` at the ingress listener can then reach
-magos's routing rules transparently — see ``docs/ingress.md`` for
+magos's routing rules transparently; see ``docs/ingress.md`` for
 operator setup.
 
 Bind-address layering for FastAPI:
@@ -35,7 +35,7 @@ from magos.telemetry import get_logger
 log = get_logger("magos.serve")
 
 # How long to wait for FastAPI to finish lifespan startup before kicking
-# off the mitm task. Polling is fine here — uvicorn flips ``started``
+# off the mitm task. Polling is fine here: uvicorn flips ``started``
 # only after the lifespan completes (Headroom warmup, registry refresher
 # init), so the mitm listener can't accept a request that races a
 # half-warm app.
@@ -127,7 +127,7 @@ async def serve_async(*, settings: MagosSettings) -> None:
     # Wait for the FastAPI lifespan to complete (Headroom warmup,
     # registry refresher start, /metrics provider configured) before
     # the ingress listener can accept its first request. uvicorn flips
-    # ``Server.started`` when its lifespan event finishes — there is no
+    # ``Server.started`` when its lifespan event finishes; there is no
     # event we can await directly, so polling is the documented idiom.
     while not uvi_server.started and not fastapi_task.done():  # noqa: ASYNC110
         await asyncio.sleep(_FASTAPI_READY_POLL_SECONDS)

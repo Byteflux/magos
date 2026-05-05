@@ -2,7 +2,7 @@
 
 ``proxy_anthropic_messages`` is a thin marshalling layer over
 ``litellm.anthropic_messages``: there is no per-field translation
-happening in magos, so these tests assert the marshalling contract —
+happening in magos, so these tests assert the marshalling contract:
 payload composition (model rewrite, header forwarding, api_key
 threading) and response coercion. The cross-provider behaviour LiteLLM
 itself implements is covered by the e2e suite (``MAGOS_E2E=1``).

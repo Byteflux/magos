@@ -31,15 +31,15 @@ boot
 
 Failure modes:
 
-- **Boot discovery fails** → that provider boots empty; other providers
+- **Boot discovery fails**: that provider boots empty; other providers
   unaffected. The background loop will retry on its normal cadence.
-- **Background refresh fails** → prior state preserved (atomic). Failure
+- **Background refresh fails**: prior state preserved (atomic). Failure
   metric increments; logs include the error type. Next tick tries again.
-- **Provider drops a model** → the entry is marked `deprecated_at = now`
+- **Provider drops a model**: the entry is marked `deprecated_at = now`
   and continues serving. If absent for 3 days (configurable), the entry
   is hard-deleted on the next refresh that includes that provider.
-- **Model reappears mid-grace** → the deprecation mark is cleared.
-- **Corrupt models.json** → file is treated as missing; live discovery
+- **Model reappears mid-grace**: the deprecation mark is cleared.
+- **Corrupt models.json**: file is treated as missing; live discovery
   rebuilds. No schema versioning by design.
 
 ## Config grammar
@@ -115,9 +115,9 @@ When `discovery:` is omitted, the adapter is inferred from the provider's
 For each model the registry resolves fields by walking three sources
 in order; the first non-null value wins per field:
 
-1. **Override** — `providers.<X>.models.<id>` in `magos.yaml`
-2. **Discovery** — what the live adapter returned
-3. **LiteLLM** — `litellm.get_model_info(litellm_id)` lookup
+1. **Override**: `providers.<X>.models.<id>` in `magos.yaml`
+2. **Discovery**: what the live adapter returned
+3. **LiteLLM**: `litellm.get_model_info(litellm_id)` lookup
 
 The `sources` field on each entry records which layers contributed,
 in priority order.
@@ -142,8 +142,8 @@ explicit pin > `provider_order` > lexicographically smallest provider.
 LiteLLM has no vultr-specific provider (verify with
 `'vultr' in litellm.provider_list`). The same is true for most
 openai-compatible third parties. LiteLLM does ship generic
-openai-compatible shapes — `custom_openai`, `openai_like`,
-`aiohttp_openai` — meant exactly for this case. Magos picks one by
+openai-compatible shapes (`custom_openai`, `openai_like`,
+`aiohttp_openai`) meant exactly for this case. Magos picks one by
 stamping `litellm_id` with a litellm-known provider prefix:
 
 | Adapter      | Default `litellm_provider` | Why                                                                                           |
@@ -155,7 +155,7 @@ stamping `litellm_id` with a litellm-known provider prefix:
 
 Picking `openai` for a non-OpenAI host is the common footgun: the call
 succeeds in flight but lands on `api.openai.com` with `OPENAI_API_KEY`,
-returning a misleading 401 "Incorrect API key provided: sk-proj-…" —
+returning a misleading 401 "Incorrect API key provided: sk-proj-…":
 looks like an auth bug, is really a routing bug.
 
 When adding a new openai-compatible adapter for a host with no
@@ -218,7 +218,7 @@ yaml; precedence is `--config` > `MAGOS_CONFIG_PATH` > the
 `refresh` and `prune` require the server to be running and hit
 `POST /admin/registry/{refresh,prune}`.
 
-## Public listing — `GET /v1/models`
+## Public listing: `GET /v1/models`
 
 The registry is also surfaced to API clients via `GET /v1/models`. The
 response shape is content-negotiated: requests carrying
@@ -235,11 +235,13 @@ probe unconditionally.
 
 OTel metrics (`magos.registry.*`) emitted by the refresher:
 
-- `refresh.total{provider, status}` — counter (`attempt`, `success`, `failure`)
-- `refresh.failures{provider, error_type}` — counter
-- `refresh.duration` — histogram (seconds, per provider)
-- `models.total{provider}` — observable gauge (active count, includes deprecated)
-- `models.added{provider}`, `models.deprecated{provider}`, `models.pruned{provider}` — counters
+| Metric | Type | Notes |
+|--------|------|-------|
+| `refresh.total{provider, status}` | counter | `attempt`, `success`, `failure` |
+| `refresh.failures{provider, error_type}` | counter | |
+| `refresh.duration` | histogram | seconds, per provider |
+| `models.total{provider}` | observable gauge | active count, includes deprecated |
+| `models.added{provider}`, `models.deprecated{provider}`, `models.pruned{provider}` | counters | |
 
 Set `MAGOS_METRICS_ENABLED=1` to install the OTel Prometheus exporter
 at startup and mount the `GET /metrics` endpoint. Without the env var,
@@ -247,7 +249,9 @@ the meters bind to OTel's no-op default and `/metrics` is not served.
 
 structlog events:
 
-- `registry.refresh.attempt` — debug, per refresh start
-- `registry.refresh.success` — info, includes added/deprecated/pruned counts
-- `registry.refresh.failure` — warning, includes error and error_type
-- `registry.auto_route` — debug, when auto-routing picks a provider
+| Event | Level | Notes |
+|-------|-------|-------|
+| `registry.refresh.attempt` | debug | per refresh start |
+| `registry.refresh.success` | info | includes added/deprecated/pruned counts |
+| `registry.refresh.failure` | warning | includes error and error_type |
+| `registry.auto_route` | debug | when auto-routing picks a provider |

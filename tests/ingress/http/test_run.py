@@ -4,7 +4,7 @@ The single load-bearing invariant exercised here: ``route()`` runs off
 the asyncio event loop. Routing is sync by design and can do CPU-bound
 work or block on Headroom's Kompress thread-locked singleton during a
 cold-cache download. If the loop services that work directly, every
-in-flight request stalls until the blocking step completes — which is
+in-flight request stalls until the blocking step completes, which is
 how the embedded mitm proxy disconnects clients on the first request
 after a cold start.
 """

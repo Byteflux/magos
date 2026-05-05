@@ -2,12 +2,12 @@
 
 Two seams the dispatcher relies on:
 
-- ``resolve_api_key(env)`` — translate-mode helper. Reads the env var
+- ``resolve_api_key(env)``: translate-mode helper. Reads the env var
   named by ``action.api_key_env`` and hands the value off to LiteLLM
   as ``api_key=``. Lets one provider host multiple keys (e.g. tier
   routing) by declaring separate rules with different env vars.
 
-- ``maybe_inject_api_key(headers, action)`` — passthrough-mode helper.
+- ``maybe_inject_api_key(headers, action)``: passthrough-mode helper.
   When the inbound request carries no ``Authorization`` or
   ``x-api-key`` header and ``action.api_key_env`` is set, injects the
   env value in the shape that provider expects:

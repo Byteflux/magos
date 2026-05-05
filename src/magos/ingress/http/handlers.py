@@ -13,7 +13,7 @@ POST handlers
     /v1/chat/completions          OpenAI Chat Completions shape
     /v1/responses                 OpenAI Responses shape
 
-Auxiliary OpenAI Responses handlers (passthrough only — translate mode
+Auxiliary OpenAI Responses handlers (passthrough only; translate mode
 rejects non-POST):
     GET    /v1/responses/{id}                   retrieve
     DELETE /v1/responses/{id}                   cancel

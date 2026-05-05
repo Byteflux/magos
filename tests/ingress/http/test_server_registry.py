@@ -73,7 +73,7 @@ def test_app_with_registry_starts_refresher_and_serves_admin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     models_path = tmp_path / "models.json"
-    # Pre-seed disk so boot discovery is skipped — keeps the test
+    # Pre-seed disk so boot discovery is skipped, keeping the test
     # independent of the synthetic adapter being injected.
     entry = ModelEntry(
         provider="openrouter",

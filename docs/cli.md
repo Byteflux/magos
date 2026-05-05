@@ -113,7 +113,7 @@ Settings (read from the process env, optionally via `.env`):
 | `MAGOS_KOMPRESS_PRELOAD`    | `1`                           | Background-load Kompress weights at startup. |
 
 Provider API keys (read by routing rules' `api_key_env` setting) are
-not part of `MagosSettings` — they're declared per-rule in
+not part of `MagosSettings`; they're declared per-rule in
 `magos.yaml` and read at request time. Common ones:
 
 | Variable                | Used by                                         |
@@ -133,11 +133,11 @@ not part of `MagosSettings` — they're declared per-rule in
 
 ## See also
 
-- [`docs/architecture.md`](architecture.md) — request lifecycle,
+- [`docs/architecture.md`](architecture.md): request lifecycle,
   process topology, env-var resolution.
-- [`docs/routing.md`](routing.md) — `magos.yaml` grammar.
-- [`docs/registry.md`](registry.md) — registry config, lifecycle, and
+- [`docs/routing.md`](routing.md): `magos.yaml` grammar.
+- [`docs/registry.md`](registry.md): registry config, lifecycle, and
   per-command behaviour for `magos models`.
-- [`docs/ingress.md`](ingress.md) — embedded mitmproxy ingress for
+- [`docs/ingress.md`](ingress.md): embedded mitmproxy ingress for
   clients that change behaviour when their `BASE_URL` is overridden.
-- [`docs/deployment.md`](deployment.md) — Docker / compose deployment.
+- [`docs/deployment.md`](deployment.md): Docker / compose deployment.

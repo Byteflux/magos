@@ -1,6 +1,6 @@
 """``jq_patch`` rewrite: arbitrary jq program over the body.
 
-The jq program must return a JSON object — anything else is a config
+The jq program must return a JSON object; anything else is a config
 error and surfaces as ``RewriteError`` (caught by ``route()`` and
 turned into a 503 ``dispatch_error`` envelope). Flips ``body_dirty``
 so passthrough's byte-exact path is bypassed.

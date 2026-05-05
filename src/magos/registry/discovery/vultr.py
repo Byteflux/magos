@@ -7,7 +7,7 @@ metadata endpoint. ``/v1/models/lookup`` returns ``context_length`` and
 extra fields into a ``PartialEntry``.
 
 LiteLLM has no vultr-specific provider, so the adapter defaults
-``litellm_provider`` to ``custom_openai`` — LiteLLM's generic
+``litellm_provider`` to ``custom_openai``: LiteLLM's generic
 openai-compatible shape, which requires an explicit ``api_base`` and
 won't silently fall back to ``api.openai.com`` + ``OPENAI_API_KEY``
 the way bare ``openai`` does. Operators must still supply ``base_url``

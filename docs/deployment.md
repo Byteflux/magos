@@ -2,7 +2,7 @@
 
 The repo ships a `Dockerfile` and `compose.yaml` aimed at GPU-backed
 deployments where Headroom's Kompress runs on PyTorch+CUDA. CPU-only
-deployments work too — just drop the `deploy.resources.reservations`
+deployments work too: just drop the `deploy.resources.reservations`
 block from compose and the GPU-extra install is harmless.
 
 ## What's in the image
@@ -26,7 +26,7 @@ Defaults baked into the image (override via env or `--port` / `--host`):
 
 The image leaves `MAGOS_HOST` / `MAGOS_PORT` unset so they fall through
 to magos's schema defaults (`127.0.0.1:6246`). **Set `MAGOS_HOST=0.0.0.0`
-in your `.env`** — without it the FastAPI listener only binds to the
+in your `.env`**; without it the FastAPI listener only binds to the
 container's loopback and compose's `ports:` mapping has nothing to
 forward to.
 
@@ -80,7 +80,7 @@ Volume layout:
   live discovery on next boot.
 
 `.env` (in the same directory as `compose.yaml`) is the standard place
-for provider API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.) —
+for provider API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, etc.),
 loaded into the container's process env via `env_file`.
 
 ## GPU prerequisites
@@ -97,7 +97,7 @@ before bringing magos up.
 
 For CPU-only: drop the `deploy:` block from compose and rebuild with
 `--extra cpu` in the Dockerfile (or just leave `gpu` and let CUDA be
-unused — the wheel is fatter but works).
+unused; the wheel is fatter but works).
 
 ## CPU-only build
 
@@ -108,7 +108,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-install-project --extra cpu --no-dev --no-editable
 ```
 
-…and remove the `deploy.resources.reservations` block from compose.
+and remove the `deploy.resources.reservations` block from compose.
 Set `MAGOS_KOMPRESS_BACKEND=auto` (or unset it) so Headroom picks ONNX
 where available.
 
@@ -124,7 +124,7 @@ first:
 4. yaml defaults from `magos.yaml`.
 5. magos's schema defaults (`127.0.0.1:6246` HTTP, `:6247` mitm).
 
-Notable: the image does **not** set `MAGOS_HOST` — set it to `0.0.0.0`
+Notable: the image does **not** set `MAGOS_HOST`. Set it to `0.0.0.0`
 in your `.env`, otherwise FastAPI binds to the container's loopback
 and compose's `ports:` mapping has nothing to forward to.
 
@@ -141,7 +141,7 @@ container.
 
 mitmproxy generates a self-signed CA at `/root/.mitmproxy/` on first
 run **inside the container**. Without a volume mount, that CA is
-distinct from your host's `~/.mitmproxy/` — so a host client
+distinct from your host's `~/.mitmproxy/`, so a host client
 configured with `NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem`
 cannot verify any leaf cert the container's proxy emits, and every
 intercepted request fails with a TLS error.
@@ -174,9 +174,9 @@ returns the routing-shaped 404. Use one of those for liveness probes.
 
 ## See also
 
-- [`docs/cli.md`](cli.md) — full env-var table, CLI flags.
-- [`docs/architecture.md`](architecture.md) — request lifecycle.
-- [`docs/headroom.md`](headroom.md) — Kompress backend selection,
+- [`docs/cli.md`](cli.md): full env-var table, CLI flags.
+- [`docs/architecture.md`](architecture.md): request lifecycle.
+- [`docs/headroom.md`](headroom.md): Kompress backend selection,
   model preload behaviour.
-- [`docs/ingress.md`](ingress.md) — mitmproxy ingress setup +
+- [`docs/ingress.md`](ingress.md): mitmproxy ingress setup +
   loop-hazard.

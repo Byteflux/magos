@@ -80,8 +80,8 @@ def _preload_native_load_order(settings: MagosSettings) -> None:
     Wins the Windows native-load-order race documented in
     ``docs/headroom.md``: importing ``pyarrow``'s ``.pyd`` (transitively
     via ``sentence_transformers``) after a PyO3 Rust extension has
-    initialized in the process — typically ``cryptography._rust`` or
-    ``tokenizers`` pulled in by ``litellm`` — segfaults during
+    initialized in the process (typically ``cryptography._rust`` or
+    ``tokenizers`` pulled in by ``litellm``) segfaults during
     ``create_module``. The compress rewrite already preloads on the
     first request, but ``route()`` runs on a worker thread, and
     importing pyarrow from a worker thread once PyO3 has initialized on

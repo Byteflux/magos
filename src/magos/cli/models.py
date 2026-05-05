@@ -3,7 +3,7 @@
 Read commands (``list`` / ``show``) try the running server's admin
 endpoints first and fall back to the on-disk ``models.json`` if the
 server isn't reachable. Mutating commands (``refresh`` / ``prune``)
-require the server. ``discover`` is the odd one out — it bypasses the
+require the server. ``discover`` is the odd one out: it bypasses the
 server entirely and queries the discovery adapter directly, useful for
 debugging a provider before wiring it into ``magos.yaml``.
 

@@ -199,7 +199,7 @@ def test_ca_mismatch_documents_failure_mode(magos_serve: tuple[int, int, Path]) 
     """
     _, mitm_port, _ = magos_serve
 
-    # Trust nothing — emulates the Docker case where the host CA doesn't
+    # Trust nothing: emulates the Docker case where the host CA doesn't
     # match the proxy's signing CA. Any unrelated CA bundle would fail
     # the same way; ``verify=True`` against the system store is the
     # cleanest stand-in.

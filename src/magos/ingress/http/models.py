@@ -1,4 +1,4 @@
-"""``GET /v1/models`` — list registry entries in OpenAI or Anthropic shape.
+"""``GET /v1/models``: list registry entries in OpenAI or Anthropic shape.
 
 The response shape is selected by sniffing inbound headers:
 
@@ -6,7 +6,7 @@ The response shape is selected by sniffing inbound headers:
 - otherwise → OpenAI shape (the default; Anthropic clients always send
   one of those two headers, so the heuristic is unambiguous in practice)
 
-Source of truth is ``app.state.refresher.state.entries`` — the same
+Source of truth is ``app.state.refresher.state.entries``: the same
 registry that drives auto-routing. Deprecated entries are omitted; the
 list is sorted by ``namespaced_id`` for stable output. When no
 refresher is active (registry feature dormant), the list is empty

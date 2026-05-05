@@ -2,21 +2,21 @@
 
 Phases (in order, each gated on its respective config):
 
-1. **Kompress backend monkey-patch** — when
+1. **Kompress backend monkey-patch**: when
    ``MAGOS_KOMPRESS_BACKEND=pytorch``, replace Headroom's
    ``_is_onnx_available`` with a False-stub so the loader picks the
    PyTorch path. See :func:`_force_kompress_pytorch`.
-2. **OTel meter provider** — when ``MAGOS_METRICS_ENABLED=1``, install
+2. **OTel meter provider**: when ``MAGOS_METRICS_ENABLED=1``, install
    the global ``MeterProvider`` with the Prometheus exporter via
    :func:`magos.telemetry.metrics.configure_meter_provider`.
-3. **Headroom pipeline warmup** — when any rewrite is a ``Compress``,
+3. **Headroom pipeline warmup**: when any rewrite is a ``Compress``,
    trigger Headroom's lazy thread-locked singleton init so the first
    user request doesn't pay multi-second latency.
-4. **Kompress preload background task** — when (3) ran AND
+4. **Kompress preload background task**: when (3) ran AND
    ``MAGOS_KOMPRESS_PRELOAD=1``, kick off
    :func:`_preload_kompress_model` so the HF download happens off the
    request path. Cancelled on shutdown.
-5. **Refresher startup** — if ``providers:`` is non-empty in yaml,
+5. **Refresher startup**: if ``providers:`` is non-empty in yaml,
    ``await refresher.start()``. Boot discovery uses tighter timeouts
    than background refresh so unrelated providers can come up fast.
 
@@ -59,7 +59,7 @@ def _force_kompress_pytorch() -> None:
     installed. Replacing that name with a False-returning stub flips the
     loader to the PyTorch branch (``_load_kompress_pytorch``), which
     auto-selects CUDA/MPS/CPU via ``device='auto'``. No Headroom patch
-    needed — Python late-binding does the work.
+    needed: Python late-binding does the work.
 
     Silently no-ops if Kompress isn't importable (no compress rules, or
     deps missing).

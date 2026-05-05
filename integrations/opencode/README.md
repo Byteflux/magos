@@ -25,11 +25,11 @@ ln -s ~/Projects/magos/integrations/opencode/magos.ts \
       .opencode/plugins/magos.ts
 ```
 
-OpenCode runs on Bun, which imports `.ts` directly — no build step.
+OpenCode runs on Bun, which imports `.ts` directly: no build step.
 
 ## Configure OpenCode
 
-The default install requires no `opencode.json` changes — the plugin
+The default install requires no `opencode.json` changes; the plugin
 injects a `provider.magos` block at startup, and the SDK package
 (`@ai-sdk/openai-compatible`) plus base URL come from each registered
 `ModelV2`.
@@ -74,7 +74,7 @@ when `options.baseURL` isn't set. Resolution order:
    through its config-providers loop and registers magos as a custom
    provider, models and all.
 5. If magos isn't reachable, the plugin logs a single warning and skips
-   model injection — OpenCode still starts cleanly, but the magos
+   model injection; OpenCode still starts cleanly, but the magos
    provider will have no models.
 
 Model ids are namespaced (`<magos-provider>/<raw-id>`, e.g.
@@ -88,7 +88,7 @@ against.
 > 1.14.33 it's silently skipped for any provider not already in the
 > `models.dev` catalog (see `provider/provider.ts:1153` in the opencode
 > source). magos isn't in the catalog, so the only way to register
-> models is through `cfg.provider.magos.models` — which is what the
+> models is through `cfg.provider.magos.models`, which is what the
 > `config` hook populates.
 
 ## Verify
@@ -108,7 +108,7 @@ and that `curl ${MAGOS_BASE_URL}/admin/registry` returns 200.
 
 If the plugin hook is bypassed in your OpenCode build (some versions
 skip `provider.models()` for providers that aren't in the `models.dev`
-catalog — see [sst/opencode#25630](https://github.com/sst/opencode/issues/25630)),
+catalog, see [sst/opencode#25630](https://github.com/sst/opencode/issues/25630)),
 fall back to a static `models` block in `opencode.json` until the
 upstream fix lands:
 

@@ -7,9 +7,9 @@ the YAML round-trip; production calls
 
 App-state slots (read by handlers, lifespan, and admin endpoints):
 
-- ``app.state.routing``         — :class:`magos.routing.RoutingConfig`
-- ``app.state.registry_config`` — :class:`magos.registry.schema.RegistryYaml`
-- ``app.state.refresher``       — :class:`Refresher` or ``None`` when
+- ``app.state.routing``         : :class:`magos.routing.RoutingConfig`
+- ``app.state.registry_config`` : :class:`magos.registry.schema.RegistryYaml`
+- ``app.state.refresher``       : :class:`Refresher` or ``None`` when
                                   ``providers:`` is empty
 
 A ``Refresher`` is constructed when the registry block declares any

@@ -3,11 +3,11 @@
 Three execution paths chosen by :mod:`magos.egress.dispatch` based on the
 ``RouteDecision`` it receives:
 
-- :mod:`magos.egress.passthrough` — byte-exact HTTP forwarding (preserves
+- :mod:`magos.egress.passthrough`: byte-exact HTTP forwarding (preserves
   Anthropic prompt-cache hashes and OAuth bearer shapes).
-- :mod:`magos.egress.translate` — wire-shape translation via the LiteLLM
+- :mod:`magos.egress.translate`: wire-shape translation via the LiteLLM
   SDK (``anthropic_messages`` / ``acompletion`` / ``aresponses``).
-- :mod:`magos.egress.tokens` — count-tokens dispatch via
+- :mod:`magos.egress.tokens`: count-tokens dispatch via
   ``litellm.acount_tokens``.
 
 Auth-header injection logic for passthrough mode is in

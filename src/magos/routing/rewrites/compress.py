@@ -2,12 +2,12 @@
 
 Two modes:
 
-- ``mode: token`` — full compression pipeline (IntelligentContext etc.)
+- ``mode: token``: full compression pipeline (IntelligentContext etc.)
   against ``messages``. Uses LiteLLM's ``get_model_info`` (or the
   registry's ``context_size``) to size the token budget so transforms
   fire at the right thresholds. Bails to no-op if Headroom or its
   optional deps don't import.
-- ``mode: cache`` — CacheAligner only. Replaces high-entropy tokens
+- ``mode: cache``: CacheAligner only. Replaces high-entropy tokens
   (UUIDs, timestamps, request ids) with stable placeholders so the
   Anthropic prompt-cache prefix doesn't drift across requests.
 

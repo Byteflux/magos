@@ -17,7 +17,7 @@ import litellm
 # request routed to ``custom_openai`` for Vultr). LiteLLM's per-provider
 # allow-lists raise ``UnsupportedParamsError`` by default; flipping
 # ``drop_params`` to True makes it silently drop unsupported params at the
-# destination only — supported providers (Anthropic for ``context_management``)
+# destination only; supported providers (Anthropic for ``context_management``)
 # still receive them. Without this, every new client-side feature that lands
 # in Claude Code or the OpenAI SDK breaks routing to alt providers until we
 # patch a request rewrite.

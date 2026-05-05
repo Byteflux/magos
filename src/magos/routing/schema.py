@@ -159,7 +159,7 @@ class CompressOptions(_Frozen):
       - ``token``: run the full pipeline (CacheAligner + ContentRouter +
         IntelligentContext) for maximum token savings; messages may be
         rewritten or dropped.
-      - ``cache``: run only CacheAligner — extract dynamic content from the
+      - ``cache``: run only CacheAligner: extract dynamic content from the
         system prompt and normalize whitespace so the prefix is byte-stable
         across requests. Does not touch user/assistant messages.
 

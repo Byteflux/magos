@@ -1,6 +1,6 @@
 """OpenAI-shape ``GET /v1/models`` adapter.
 
-Targets any server that implements the OpenAI models endpoint — OpenAI
+Targets any server that implements the OpenAI models endpoint: OpenAI
 proper, vLLM, SGLang, LM Studio, etc. The endpoint returns very little:
 ``{id, created, owned_by, object}`` per model. We pass through ``id``;
 field-precedence merging in ``magos.registry.merge`` fills the rest from

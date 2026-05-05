@@ -1,6 +1,6 @@
 """Shared CLI helpers used across subapps.
 
-The ``magos models`` subapp reads registry state via two paths — the
+The ``magos models`` subapp reads registry state via two paths: the
 running server's admin endpoints, or the on-disk ``models.json``. The
 helpers here centralise that resolution so future subapps that want the
 same fallback semantics can reuse it without duplicating the env-over-yaml

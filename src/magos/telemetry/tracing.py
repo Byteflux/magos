@@ -2,7 +2,7 @@
 
 Tracing only ships spans when ``MAGOS_OTEL_ENABLED=1`` (or when the
 caller passes ``enabled=True`` explicitly). Until ``configure_tracing``
-runs, ``traced`` wraps calls in OTel's no-op tracer — safe to import
+runs, ``traced`` wraps calls in OTel's no-op tracer: safe to import
 and decorate with at module load time.
 """
 

@@ -7,7 +7,7 @@ We pass through ``id``; field-precedence merging in
 or operator overrides.
 
 Auth uses the ``x-api-key`` header (Anthropic's convention) plus the
-``anthropic-version`` header — both required by the API. Claude-Code-
+``anthropic-version`` header, both required by the API. Claude-Code-
 style OAuth tokens (``sk-ant-oat...``) are detected and sent as
 ``Authorization: Bearer ...`` with the ``anthropic-beta: oauth-2025-04-20``
 opt-in header instead, which is what api.anthropic.com expects for that

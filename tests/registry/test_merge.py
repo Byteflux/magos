@@ -104,7 +104,7 @@ def test_merge_only_lists_sources_that_actually_contributed() -> None:
 
 
 def test_merge_handles_zero_cost_correctly() -> None:
-    """0.0 is a meaningful value, not "missing" — must not be skipped."""
+    """0.0 is a meaningful value, not "missing"; must not be skipped."""
     entry = merge(
         provider="local",
         raw_id="vllm-llama",

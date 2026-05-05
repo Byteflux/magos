@@ -89,7 +89,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
         with contextlib.suppress(AttributeError):
             transformers.logging.set_verbosity_error()
 
-    # Silence LiteLLM's chatty INFO logs (echoed twice — once via stdlib
+    # Silence LiteLLM's chatty INFO logs (echoed twice: once via stdlib
     # logging, once through our structlog bridge) and its hardcoded
     # "Give Feedback" / "Provider List" print() banners on error paths.
     # Env var is read at LiteLLM import; the module-level attr covers

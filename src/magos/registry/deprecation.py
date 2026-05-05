@@ -11,7 +11,7 @@ cleared. If the entry remains absent for ``grace_seconds`` past
 
 This module is deliberately pure: ``apply_deprecation`` takes the prior
 entries, the freshly-discovered entries, and a clock, and returns the
-next entry set. No I/O, no logging, no global state — easy to unit-test
+next entry set. No I/O, no logging, no global state, easy to unit-test
 across the just-deprecated / re-appeared / past-grace boundaries.
 """
 

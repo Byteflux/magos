@@ -8,7 +8,7 @@ flag.
 
 API-key resolution and per-provider auth-header injection live in
 :mod:`magos.egress.auth`. ``DispatchError`` is re-exported from this
-module because callers catch it at the dispatch boundary — keeping the
+module because callers catch it at the dispatch boundary, keeping the
 exception in one logical place with the function that raises it.
 """
 

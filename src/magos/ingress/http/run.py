@@ -87,7 +87,7 @@ async def run_endpoint(
     # thread-locked singleton during a cold-cache download (the lock is
     # held for the full HF download, easily 5-10s on first run).
     # Offload to a worker thread so the asyncio loop keeps servicing
-    # other requests — and, critically, so the embedded mitm proxy can
+    # other requests, and, critically, so the embedded mitm proxy can
     # flush bytes back to the client instead of stalling the TLS stream.
     decision_or_err = await asyncio.to_thread(
         route,
