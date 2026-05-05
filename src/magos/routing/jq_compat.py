@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 from typing import Any
 
 import jq
@@ -9,6 +10,12 @@ import jq
 
 class JqCompileError(ValueError):
     """Raised when a jq expression fails to parse."""
+
+
+# Compile-cache: avoids per-request jq.compile cost.
+@functools.lru_cache(maxsize=256)
+def _compile(expr: str) -> Any:
+    return jq.compile(expr)
 
 
 def check_program(expr: str) -> None:
@@ -21,12 +28,10 @@ def check_program(expr: str) -> None:
 
 def evaluate_predicate(expr: str, value: Any) -> bool:
     """Run ``expr`` against ``value``; return Python-truthy on the first result."""
-    program = jq.compile(expr)
-    result = program.input_value(value).first()
+    result = _compile(expr).input_value(value).first()
     return bool(result)
 
 
 def evaluate_patch(expr: str, value: Any) -> Any:
     """Run ``expr`` against ``value``; return the raw first result. Caller checks shape."""
-    program = jq.compile(expr)
-    return program.input_value(value).first()
+    return _compile(expr).input_value(value).first()

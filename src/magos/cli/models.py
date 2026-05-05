@@ -11,7 +11,6 @@ import typer
 
 from magos.cli import _helpers
 from magos.cli._helpers import ListFormat
-from magos.cli.admin_client import AdminClientError
 from magos.config.loader import load_full_config
 from magos.config.settings import MagosSettings
 from magos.registry.discovery import adapter_for
@@ -85,14 +84,11 @@ def models_refresh(
     """Trigger a refresh via the running server."""
     settings = MagosSettings()
     client = _helpers.admin_client(settings)
-    try:
-        result = client.post_refresh(provider=provider)
-    except AdminClientError as exc:
-        typer.echo(f"refresh failed: {exc}")
-        raise typer.Exit(2) from exc
-    typer.echo(json.dumps(result, indent=2))
-    if result.get("failed"):
-        raise typer.Exit(1)
+    _helpers.run_admin(
+        lambda: client.post_refresh(provider=provider),
+        error_label="refresh failed",
+        exit_on_error_key="failed",
+    )
 
 
 @models_app.command("prune")
@@ -100,12 +96,7 @@ def models_prune() -> None:
     """Trigger a deprecation sweep via refresh."""
     settings = MagosSettings()
     client = _helpers.admin_client(settings)
-    try:
-        result = client.post_prune()
-    except AdminClientError as exc:
-        typer.echo(f"prune failed: {exc}")
-        raise typer.Exit(2) from exc
-    typer.echo(json.dumps(result, indent=2))
+    _helpers.run_admin(client.post_prune, error_label="prune failed")
 
 
 @models_app.command("discover")

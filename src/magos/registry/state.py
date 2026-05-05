@@ -84,3 +84,24 @@ class RegistryState:
     def for_provider(self, provider: str) -> tuple[ModelEntry, ...]:
         keys = self.by_provider.get(provider, frozenset())
         return tuple(self.entries[k] for k in sorted(keys))
+
+    def resolve_for_dispatch(self, model: str, provider: str | None) -> str | None:
+        """Return the litellm id for ``model``, or ``None`` if unknown.
+
+        Lookup order:
+        1. Exact namespaced match (``model`` already is ``<provider>/<raw_id>``).
+        2. Provider-scoped raw-id match (``<provider>/<model>``), used when the
+           request body carries a bare ``raw_id`` and the rule supplies a provider.
+
+        Namespaced lookup is preferred over the raw scan so an explicit
+        ``provider/model`` reference in the request always wins over an accidental
+        raw-id collision under a different provider.
+        """
+        entry = self.get(model)
+        if entry is not None:
+            return entry.litellm_id
+        if provider is not None:
+            entry = self.get(f"{provider}/{model}")
+            if entry is not None:
+                return entry.litellm_id
+        return None

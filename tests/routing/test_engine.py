@@ -8,7 +8,8 @@ import pytest
 
 from magos.registry.state import ModelEntry
 from magos.routing import RoutingConfig
-from magos.routing.engine import RouteDecision, route
+from magos.routing.decision import RouteDecision
+from magos.routing.engine import route
 from magos.routing.errors import RouteError
 
 from ._helpers import make_registry

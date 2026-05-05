@@ -31,6 +31,11 @@ def _install_transport(
         "post",
         lambda url, *, params=None, **_kw: inner.post(url, params=params or {}),
     )
+    monkeypatch.setattr(
+        httpx,
+        "request",
+        lambda method, url, *, params=None, **_kw: inner.request(method, url, params=params or {}),
+    )
     return AdminClient(base_url)
 
 

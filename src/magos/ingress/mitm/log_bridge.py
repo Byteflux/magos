@@ -1,6 +1,6 @@
 """Forward mitmproxy 12's stdlib ``logging`` records into structlog so
 both servers share one line shape. Re-emits under ``magos.ingress.mitm``
-(not ``mitmproxy.*``) — load-bearing: structlog's stdlib ``LoggerFactory``
+(not ``mitmproxy.*``); structlog's stdlib ``LoggerFactory``
 writes back under the bound name, so reusing ``mitmproxy.*`` would feed
 records into this handler and recurse unboundedly on startup. Idempotent:
 re-installing replaces handlers."""

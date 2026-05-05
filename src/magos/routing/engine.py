@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
-from magos.registry.state import ModelEntry, RegistryState
+from magos.registry.state import RegistryState
 from magos.routing.auto_route import provider_cred_overrides, try_auto_route
+from magos.routing.decision import RouteDecision
 from magos.routing.errors import (
     RouteError,
     format_dispatch_error_message,
@@ -17,32 +17,6 @@ from magos.routing.matchers import matches
 from magos.routing.request import RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
 from magos.routing.schema import Action, GuardedRewrites, RoutingConfig, Rule
-
-
-@dataclass(frozen=True, slots=True)
-class RouteDecision:
-    """Successful route lookup. ``entry`` is set on auto-routed decisions only."""
-
-    rule: Rule
-    request: RoutedRequest
-    dispatch_model: str
-    entry: ModelEntry | None = None
-
-    @property
-    def action(self) -> Action:
-        return self.rule.action
-
-    @property
-    def auto_routed(self) -> bool:
-        return self.entry is not None
-
-    def rule_label(self, idx: int | None = None) -> str:
-        """Stable identifier for logs."""
-        if self.rule.name is not None:
-            return self.rule.name
-        if idx is not None:
-            return f"rule[{idx}]"
-        return "rule[?]"
 
 
 def apply_pre_rewrites(
@@ -150,13 +124,9 @@ def _compute_dispatch_model(
     if action.mode == "passthrough":
         return model
     if registry is not None and model:
-        entry = registry.get(model)
-        if entry is not None:
-            return entry.litellm_id
-        if action.provider:
-            entry = registry.get(f"{action.provider}/{model}")
-            if entry is not None:
-                return entry.litellm_id
+        resolved = registry.resolve_for_dispatch(model, action.provider)
+        if resolved is not None:
+            return resolved
     if "/" in model:
         return model
     return f"{action.provider}/{model}"

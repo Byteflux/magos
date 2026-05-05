@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from magos.routing.decision import RouteDecision
 from magos.routing.engine import (
-    RouteDecision,
     apply_post_rewrites,
     apply_pre_rewrites,
     route,

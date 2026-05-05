@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry, RegistryState
+from magos.routing.decision import RouteDecision
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import Action, Rule
-
-if TYPE_CHECKING:
-    from magos.routing.engine import RouteDecision
 
 _AUTO_ROUTE_RULE_NAME = "auto-route"
 
@@ -46,8 +43,6 @@ def _decision_from_entry(
     (e.g. ``OPENAI_API_KEY`` / ``api.openai.com``) and yields misleading
     401s for ``custom_openai``-style providers. See ``docs/routing/api-keys.md``.
     """
-    from magos.routing.engine import RouteDecision  # noqa: PLC0415
-
     action_payload: dict[str, str | None] = {
         "provider": entry.provider,
         "mode": "translate",
@@ -83,8 +78,6 @@ def provider_cred_overrides(cfg: ProviderConfig | None) -> dict[str, str]:
 
 def _decision_for_unknown_passthrough(req: RoutedRequest, model: str) -> RouteDecision:
     """Forward an unknown model to LiteLLM; its bundled router resolves or errors."""
-    from magos.routing.engine import RouteDecision  # noqa: PLC0415
-
     provider = model.split("/", 1)[0] if "/" in model else "auto"
     action = Action.model_validate({"provider": provider, "mode": "translate"})
     rule = Rule.model_validate(

@@ -18,15 +18,10 @@ from litellm.llms.anthropic.experimental_pass_through.adapters.transformation im
 )
 from litellm.types.utils import ModelResponse
 
-from magos.egress.translate.payload import (
-    CompletionFn,
-    build_payload,
-    coerce_to_dict,
-    resolve_client_model,
-)
-from magos.egress.translate.sse import rewrite_data_in_stream, sse_named_event
-from magos.egress.usage import log_usage_from_body, tap_stream
-from magos.telemetry import get_logger, traced
+from magos.egress.translate.payload import CompletionFn
+from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
+from magos.egress.translate.sse import sse_named_event
+from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.translate")
 
@@ -234,74 +229,14 @@ async def _via_acompletion(payload: dict[str, Any]) -> Any:
     )
 
 
-@traced("proxy.anthropic_messages")
-async def proxy_anthropic_messages(
-    anthropic_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> dict[str, Any]:
-    """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or _dispatch_anthropic_messages
-    client_model = resolve_client_model(
-        anthropic_request.get("model", ""), provider, dispatch_model
-    )
-    payload = build_payload(
-        _strip_anthropic_extras(anthropic_request, dispatch_model, client_model=client_model),
-        dispatch_model=dispatch_model,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
-    log.info("dispatch", shape="anthropic", model=client_model, dispatch_model=dispatch_model)
-    body = coerce_to_dict(await dispatch(**payload))
+def _anthropic_set_model_in_response(body: dict[str, Any], client_model: str) -> None:
     body["model"] = client_model
-    log_usage_from_body("anthropic", body, endpoint="/v1/messages")
-    return body
 
 
-def stream_anthropic_messages(
-    anthropic_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Stream an Anthropic Messages request as Anthropic SSE bytes.
-
-    Sync-returning so a malformed request surfaces as 400 before any
-    bytes are emitted (LiteLLM raises ``pydantic.ValidationError``).
-    """
-    dispatch: Callable[..., Awaitable[Any]] = completion or _dispatch_anthropic_messages
-    client_model = resolve_client_model(
-        anthropic_request.get("model", ""), provider, dispatch_model
-    )
-    payload = build_payload(
-        {
-            **_strip_anthropic_extras(anthropic_request, dispatch_model, client_model=client_model),
-            "stream": True,
-        },
-        dispatch_model=dispatch_model,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
-    log.info(
-        "dispatch",
-        shape="anthropic",
-        model=client_model,
-        dispatch_model=dispatch_model,
-        stream=True,
-    )
-
-    def _set_model(data: dict[str, Any]) -> bool:
+def _anthropic_set_model_in_stream_event(
+    _payload: dict[str, Any], client_model: str
+) -> Callable[[dict[str, Any]], bool]:
+    def _mutate(data: dict[str, Any]) -> bool:
         msg = data.get("message")
         if isinstance(msg, dict) and "model" in msg:
             msg["model"] = client_model
@@ -311,12 +246,7 @@ def stream_anthropic_messages(
             return True
         return False
 
-    return tap_stream(
-        rewrite_data_in_stream(_anthropic_bytes_iter(payload, dispatch), _set_model),
-        "anthropic",
-        endpoint="/v1/messages",
-        fallback_model=client_model,
-    )
+    return _mutate
 
 
 async def _anthropic_bytes_iter(
@@ -344,3 +274,72 @@ async def _anthropic_bytes_iter(
                 "error": {"type": "api_error", "message": f"{type(exc).__name__}: {exc}"},
             }
         )
+
+
+def _anthropic_preprocess_body(
+    body: dict[str, Any], dispatch_model: str, client_model: str
+) -> dict[str, Any]:
+    return _strip_anthropic_extras(body, dispatch_model, client_model=client_model)
+
+
+ADAPTER = TranslateAdapter(
+    shape="anthropic",
+    endpoint="/v1/messages",
+    default_dispatch=_dispatch_anthropic_messages,
+    set_model_in_response=_anthropic_set_model_in_response,
+    set_model_in_stream_event=_anthropic_set_model_in_stream_event,
+    stream_bytes_iter=_anthropic_bytes_iter,
+    traced_name="proxy.anthropic_messages",
+    log_shape="anthropic",
+    preprocess_body=_anthropic_preprocess_body,
+)
+
+
+async def proxy_anthropic_messages(
+    anthropic_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    provider: str | None = None,
+    completion: CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+    api_base: str | None = None,
+) -> dict[str, Any]:
+    """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``."""
+    return await proxy_translate(
+        ADAPTER,
+        anthropic_request,
+        dispatch_model=dispatch_model,
+        provider=provider,
+        completion=completion,
+        forward_headers=forward_headers,
+        api_key=api_key,
+        api_base=api_base,
+    )
+
+
+def stream_anthropic_messages(
+    anthropic_request: dict[str, Any],
+    *,
+    dispatch_model: str,
+    provider: str | None = None,
+    completion: CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+    api_base: str | None = None,
+) -> AsyncIterator[bytes]:
+    """Stream an Anthropic Messages request as Anthropic SSE bytes.
+
+    Sync-returning so a malformed request surfaces as 400 before any
+    bytes are emitted (LiteLLM raises ``pydantic.ValidationError``).
+    """
+    return stream_translate(
+        ADAPTER,
+        anthropic_request,
+        dispatch_model=dispatch_model,
+        provider=provider,
+        completion=completion,
+        forward_headers=forward_headers,
+        api_key=api_key,
+        api_base=api_base,
+    )

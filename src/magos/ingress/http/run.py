@@ -1,37 +1,27 @@
-"""Seam between FastAPI ``Request`` and the routing/egress pipeline.
-:func:`run_endpoint` is the single call site for endpoint handlers.
+"""FastAPI adapter: ``Request`` -> ``RoutedRequest`` -> ``process_routed_request`` -> ``Response``.
+
+Body parsing and JSON shape validation happen here (FastAPI-specific errors).
+All routing/dispatch logic lives in :mod:`magos.process`.
 See ``docs/architecture/request-flow.md`` for the full lifecycle and
-exception ladder."""
+exception ladder.
+"""
 
 from __future__ import annotations
 
-import asyncio
 import json
-from collections.abc import Awaitable, Callable
 from typing import Any, cast
 
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
-from magos.egress.dispatch import DispatchError, dispatch_decision
 from magos.ingress.http.headers import forwardable_headers
+from magos.process import CompletionFn, RoutedResponse, process_routed_request
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
-from magos.routing import (
-    Endpoint,
-    RoutedRequest,
-    RouteError,
-    RoutingConfig,
-    error_envelope,
-    format_dispatch_error_message,
-    route,
-)
-from magos.telemetry import get_logger
+from magos.routing import Endpoint, RoutedRequest, RoutingConfig
 
-log = get_logger("magos.ingress.http.run")
-
-CompletionFn = Callable[..., Awaitable[Any]]
+__all__ = ["CompletionFn", "run_endpoint"]
 
 
 async def run_endpoint(
@@ -42,6 +32,15 @@ async def run_endpoint(
     method: str = "POST",
     actual_path: str | None = None,
 ) -> Response | StreamingResponse | dict[str, Any]:
+    """Thin FastAPI adapter around :func:`~magos.process.process_routed_request`.
+
+    Steps:
+    1. Read raw body bytes.
+    2. Parse JSON; raise ``HTTPException(400)`` for parse / shape errors.
+    3. Build ``RoutedRequest``.
+    4. Delegate to ``process_routed_request``.
+    5. Adapt ``RoutedResponse`` to a FastAPI ``Response``.
+    """
     raw_body = await request.body()
     try:
         body: dict[str, Any] = json.loads(raw_body) if raw_body else {}
@@ -62,66 +61,32 @@ async def run_endpoint(
     cfg = cast(RoutingConfig, request.app.state.routing)
     refresher = cast("Refresher | None", request.app.state.refresher)
     registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
-    # Offload to a worker thread: routing is sync but can block on the
-    # Kompress thread-locked singleton during a cold HF download (5-10s),
-    # which would stall the asyncio loop and the embedded mitm TLS stream.
-    decision_or_err = await asyncio.to_thread(
-        route,
-        routed,
-        cfg,
-        registry=refresher.state if refresher is not None else None,
-        registry_settings=registry_cfg.registry if refresher is not None else None,
-        providers=registry_cfg.providers if refresher is not None else None,
-    )
-
-    if isinstance(decision_or_err, RouteError):
-        return _render_route_error(decision_or_err)
-
-    log.info(
-        "route.matched",
-        rule=decision_or_err.rule_label(),
-        endpoint=endpoint,
-        model=str(routed.body.get("model", "")),
-        mode=decision_or_err.action.mode,
-    )
 
     try:
-        return await dispatch_decision(decision_or_err, completion=completion)
-    except DispatchError as exc:
-        log.warning(
-            "route.dispatch_error",
-            rule=decision_or_err.rule_label(),
-            endpoint=endpoint,
-            error=str(exc),
+        result = await process_routed_request(
+            routed,
+            cfg=cfg,
+            refresher=refresher,
+            registry_cfg=registry_cfg,
+            completion=completion,
         )
-        err = RouteError(
-            status=503,
-            code="dispatch_error",
-            message=format_dispatch_error_message(str(exc)),
-            model=str(routed.body.get("model", "")),
-            endpoint=endpoint,
-        )
-        return _render_route_error(err)
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=exc.errors()) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        log.error(
-            "upstream_failure",
-            endpoint=endpoint,
-            error=str(exc),
-            error_type=type(exc).__name__,
+
+    return _adapt(result)
+
+
+def _adapt(result: RoutedResponse) -> Response | StreamingResponse | dict[str, Any]:
+    """Convert a ``RoutedResponse`` to a FastAPI response type."""
+    if result.stream is not None:
+        return StreamingResponse(result.stream, media_type=result.media_type or "text/event-stream")
+    if isinstance(result.body, dict):
+        return JSONResponse(status_code=result.status, content=result.body)
+    if isinstance(result.body, bytes):
+        return Response(
+            content=result.body,
+            status_code=result.status,
+            media_type=result.media_type,
         )
-        raise HTTPException(status_code=502, detail=f"upstream failure: {exc}") from exc
-
-
-def _render_route_error(err: RouteError) -> JSONResponse:
-    log.info(
-        "route." + ("unmatched" if err.code == "unmatched" else "dispatch_error"),
-        endpoint=err.endpoint,
-        model=err.model,
-        message=err.message,
-    )
-    body = error_envelope(endpoint=err.endpoint, code=err.code, message=err.message)
-    return JSONResponse(status_code=err.status, content=body)
+    # body is None — unexpected; raise a generic HTTPException as a backstop.
+    raise HTTPException(status_code=result.status, detail="upstream failure")

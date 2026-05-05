@@ -88,3 +88,51 @@ def test_registry_state_by_provider_is_idempotent() -> None:
     first = state.by_provider
     second = state.by_provider
     assert first == second
+
+
+# ---------------------------------------------------------------------------
+# resolve_for_dispatch
+# ---------------------------------------------------------------------------
+
+
+def _state_with(*entries: ModelEntry) -> RegistryState:
+    return RegistryState(entries={e.namespaced_id: e for e in entries})
+
+
+def test_resolve_for_dispatch_exact_namespaced_match() -> None:
+    """Namespaced id resolves to the entry's litellm_id."""
+    entry = _entry("openrouter", "anthropic/claude-sonnet-4-6")
+    state = _state_with(entry)
+    result = state.resolve_for_dispatch(entry.namespaced_id, provider=None)
+    assert result == entry.litellm_id
+
+
+def test_resolve_for_dispatch_raw_id_within_provider() -> None:
+    """Bare raw_id with a matching provider resolves via <provider>/<raw_id>."""
+    entry = _entry("openrouter", "anthropic/claude-sonnet-4-6")
+    state = _state_with(entry)
+    # model sent in request is just the raw_id; provider comes from the rule action
+    result = state.resolve_for_dispatch(entry.raw_id, provider="openrouter")
+    assert result == entry.litellm_id
+
+
+def test_resolve_for_dispatch_miss_returns_none() -> None:
+    """Unknown model with no matching entry returns None."""
+    state = _state_with(_entry("openrouter", "anthropic/claude-sonnet-4-6"))
+    assert state.resolve_for_dispatch("unknown/model", provider="openrouter") is None
+
+
+def test_resolve_for_dispatch_provider_none_skips_raw_scan() -> None:
+    """When provider is None, raw-id scan is skipped; returns None for bare raw_id."""
+    entry = _entry("openrouter", "anthropic/claude-sonnet-4-6")
+    state = _state_with(entry)
+    # Without a provider the raw_id alone cannot be resolved
+    assert state.resolve_for_dispatch(entry.raw_id, provider=None) is None
+
+
+def test_resolve_for_dispatch_namespaced_beats_raw_for_same_string() -> None:
+    """Exact namespaced match wins even when provider is also supplied."""
+    entry = _entry("openrouter", "anthropic/claude-sonnet-4-6")
+    state = _state_with(entry)
+    result = state.resolve_for_dispatch(entry.namespaced_id, provider="openrouter")
+    assert result == entry.litellm_id

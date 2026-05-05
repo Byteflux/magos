@@ -16,20 +16,14 @@ from fastapi.responses import StreamingResponse
 from magos.egress.auth import DispatchError, maybe_inject_api_key, resolve_api_key
 from magos.egress.passthrough import _HTTP_ERROR_THRESHOLD, call_passthrough, stream_passthrough
 from magos.egress.tokens import count_tokens
-from magos.egress.translate import (
-    proxy_anthropic_messages,
-    proxy_openai_chat_completions,
-    proxy_openai_responses,
-    stream_anthropic_messages,
-    stream_openai_chat_completions,
-    stream_openai_responses,
-)
+from magos.egress.translate import TRANSLATE_HANDLERS
+from magos.egress.translate.runner import proxy_translate, stream_translate
 from magos.egress.usage import (
     log_usage_from_body,
     shape_for_endpoint,
     tap_stream,
 )
-from magos.routing.engine import RouteDecision
+from magos.routing import RouteDecision
 from magos.telemetry import get_logger
 
 __all__ = ["DispatchError", "dispatch_decision"]
@@ -39,7 +33,7 @@ log = get_logger("magos.egress.dispatch")
 CompletionFn = Callable[..., Awaitable[Any]]
 
 
-async def dispatch_decision(  # noqa: PLR0911, PLR0912
+async def dispatch_decision(
     decision: RouteDecision,
     *,
     completion: CompletionFn,
@@ -107,71 +101,22 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
     api_key = resolve_api_key(action.api_key_env)
     api_base = action.base_url
 
-    if req.endpoint == "/v1/messages":
-        if is_streaming:
-            stream = stream_anthropic_messages(
-                dict(req.body),
-                dispatch_model=decision.dispatch_model,
-                provider=action.provider,
-                completion=completion,
-                forward_headers=forward_headers,
-                api_key=api_key,
-                api_base=api_base,
-            )
-            return StreamingResponse(stream, media_type="text/event-stream")
-        return await proxy_anthropic_messages(
-            dict(req.body),
-            dispatch_model=decision.dispatch_model,
-            provider=action.provider,
-            completion=completion,
-            forward_headers=forward_headers,
-            api_key=api_key,
-            api_base=api_base,
-        )
+    adapter = TRANSLATE_HANDLERS.get(req.endpoint)
+    if adapter is None:
+        raise DispatchError(f"no translate handler for endpoint {req.endpoint!r}")
 
-    if req.endpoint == "/v1/chat/completions":
-        if is_streaming:
-            stream = stream_openai_chat_completions(
-                dict(req.body),
-                dispatch_model=decision.dispatch_model,
-                provider=action.provider,
-                completion=completion,
-                forward_headers=forward_headers,
-                api_key=api_key,
-                api_base=api_base,
-            )
-            return StreamingResponse(stream, media_type="text/event-stream")
-        return await proxy_openai_chat_completions(
-            dict(req.body),
-            dispatch_model=decision.dispatch_model,
-            provider=action.provider,
-            completion=completion,
-            forward_headers=forward_headers,
-            api_key=api_key,
-            api_base=api_base,
-        )
-
-    # /v1/responses
+    common: dict[str, Any] = {
+        "dispatch_model": decision.dispatch_model,
+        "provider": action.provider,
+        "completion": completion,
+        "forward_headers": forward_headers,
+        "api_key": api_key,
+        "api_base": api_base,
+    }
     if is_streaming:
-        stream = stream_openai_responses(
-            dict(req.body),
-            dispatch_model=decision.dispatch_model,
-            provider=action.provider,
-            completion=completion,
-            forward_headers=forward_headers,
-            api_key=api_key,
-            api_base=api_base,
-        )
+        stream = stream_translate(adapter, dict(req.body), **common)
         return StreamingResponse(stream, media_type="text/event-stream")
-    return await proxy_openai_responses(
-        dict(req.body),
-        dispatch_model=decision.dispatch_model,
-        provider=action.provider,
-        completion=completion,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
+    return await proxy_translate(adapter, dict(req.body), **common)
 
 
 async def _dispatch_count_tokens(

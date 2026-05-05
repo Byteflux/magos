@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry
-from magos.routing.engine import RouteDecision, route
+from magos.routing.decision import RouteDecision
+from magos.routing.engine import route
 from magos.routing.errors import RouteError
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import RoutingConfig

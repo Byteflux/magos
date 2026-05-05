@@ -8,20 +8,49 @@ from typing import Any
 
 import litellm
 
-from magos.egress.translate.payload import (
-    CompletionFn,
-    build_payload,
-    coerce_to_dict,
-    resolve_client_model,
+from magos.egress.translate.payload import CompletionFn, coerce_to_dict
+from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
+from magos.egress.translate.sse import sse_event
+
+
+def _chat_set_model_in_response(body: dict[str, Any], client_model: str) -> None:
+    body["model"] = client_model
+
+
+def _chat_set_model_in_stream_event(
+    _payload: dict[str, Any], client_model: str
+) -> Callable[[dict[str, Any]], bool]:
+    def _mutate(data: dict[str, Any]) -> bool:
+        if "model" in data:
+            data["model"] = client_model
+            return True
+        return False
+
+    return _mutate
+
+
+async def _openai_chat_bytes_iter(
+    payload: dict[str, Any],
+    dispatch: Callable[..., Awaitable[Any]],
+) -> AsyncIterator[bytes]:
+    stream = await dispatch(**payload)
+    async for chunk in stream:
+        yield sse_event(json.dumps(coerce_to_dict(chunk)))
+    yield sse_event("[DONE]")
+
+
+ADAPTER = TranslateAdapter(
+    shape="openai-chat",
+    endpoint="/v1/chat/completions",
+    default_dispatch=litellm.acompletion,
+    set_model_in_response=_chat_set_model_in_response,
+    set_model_in_stream_event=_chat_set_model_in_stream_event,
+    stream_bytes_iter=_openai_chat_bytes_iter,
+    traced_name="proxy.openai_chat_completions",
+    log_shape="openai",
 )
-from magos.egress.translate.sse import rewrite_data_in_stream, sse_event
-from magos.egress.usage import log_usage_from_body, tap_stream
-from magos.telemetry import get_logger, traced
-
-log = get_logger("magos.egress.translate")
 
 
-@traced("proxy.openai_chat_completions")
 async def proxy_openai_chat_completions(
     openai_request: dict[str, Any],
     *,
@@ -33,20 +62,16 @@ async def proxy_openai_chat_completions(
     api_base: str | None = None,
 ) -> dict[str, Any]:
     """Pass an OpenAI Chat Completions request through litellm without translation."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    payload = build_payload(
+    return await proxy_translate(
+        ADAPTER,
         openai_request,
         dispatch_model=dispatch_model,
+        provider=provider,
+        completion=completion,
         forward_headers=forward_headers,
         api_key=api_key,
         api_base=api_base,
     )
-    client_model = resolve_client_model(openai_request.get("model", ""), provider, dispatch_model)
-    log.info("dispatch", shape="openai", model=client_model, dispatch_model=dispatch_model)
-    body = coerce_to_dict(await dispatch(**payload))
-    body["model"] = client_model
-    log_usage_from_body("openai-chat", body, endpoint="/v1/chat/completions")
-    return body
 
 
 def stream_openai_chat_completions(
@@ -60,42 +85,13 @@ def stream_openai_chat_completions(
     api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Stream OpenAI Chat Completions chunks as SSE bytes terminated by ``[DONE]``."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
-    request = build_payload(
-        {**openai_request, "stream": True},
+    return stream_translate(
+        ADAPTER,
+        openai_request,
         dispatch_model=dispatch_model,
+        provider=provider,
+        completion=completion,
         forward_headers=forward_headers,
         api_key=api_key,
         api_base=api_base,
     )
-    client_model = resolve_client_model(openai_request.get("model", ""), provider, dispatch_model)
-    log.info(
-        "dispatch",
-        shape="openai",
-        model=client_model,
-        dispatch_model=dispatch_model,
-        stream=True,
-    )
-
-    def _set_model(data: dict[str, Any]) -> bool:
-        if "model" in data:
-            data["model"] = client_model
-            return True
-        return False
-
-    return tap_stream(
-        rewrite_data_in_stream(_openai_chat_bytes_iter(request, dispatch), _set_model),
-        "openai-chat",
-        endpoint="/v1/chat/completions",
-        fallback_model=client_model,
-    )
-
-
-async def _openai_chat_bytes_iter(
-    request: dict[str, Any],
-    dispatch: Callable[..., Awaitable[Any]],
-) -> AsyncIterator[bytes]:
-    stream = await dispatch(**request)
-    async for chunk in stream:
-        yield sse_event(json.dumps(coerce_to_dict(chunk)))
-    yield sse_event("[DONE]")

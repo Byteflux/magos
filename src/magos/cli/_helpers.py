@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from enum import StrEnum
+from typing import Any
 
 import typer
 
@@ -75,3 +77,26 @@ def print_list(state: RegistryState, source: str, *, fmt: ListFormat) -> None:
         marker = " [deprecated]" if entry.is_deprecated else ""
         ctx = f" ctx={entry.context_size}" if entry.context_size else ""
         typer.echo(f"{entry.namespaced_id}{ctx}{marker}")
+
+
+def run_admin(
+    call: Callable[[], dict[str, Any]],
+    *,
+    error_label: str,
+    exit_on_error_key: str | None = None,
+) -> dict[str, Any]:
+    """Run an admin-client call, echo the JSON result, and exit non-zero on failure.
+
+    Exits with code 2 (and prints to stderr) if ``call`` raises ``AdminClientError``.
+    When ``exit_on_error_key`` is given, exits with code 1 if the response dict contains
+    a truthy value at that key (e.g. ``"failed"`` for partial-failure responses).
+    """
+    try:
+        result = call()
+    except AdminClientError as exc:
+        typer.echo(f"{error_label}: {exc}")
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(result, indent=2))
+    if exit_on_error_key and result.get(exit_on_error_key):
+        raise typer.Exit(1)
+    return result

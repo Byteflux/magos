@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import functools
 import re
 
 from magos.registry.state import ModelEntry, RegistryState
@@ -56,15 +57,27 @@ def matches(  # noqa: PLR0911
     raise TypeError(f"unhandled MatchExpr variant: {type(expr).__name__}")
 
 
+# Compile-cache: avoids per-request pattern compilation cost.
+@functools.lru_cache(maxsize=512)
+def _compile_regex(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern)
+
+
+@functools.lru_cache(maxsize=512)
+def _compile_glob(pattern: str) -> re.Pattern[str]:
+    # fnmatch.translate produces a regex; compile once and reuse.
+    return re.compile(fnmatch.translate(pattern))
+
+
 def _matcher_matches(matcher: Matcher, value: str) -> bool:
     if isinstance(matcher, LiteralMatcher):
         return value == matcher.literal
     if isinstance(matcher, GlobMatcher):
         # Case-sensitive; opt into case-insensitive via regex (?i).
-        return fnmatch.fnmatchcase(value, matcher.glob)
+        return _compile_glob(matcher.glob).match(value) is not None
     if isinstance(matcher, RegexMatcher):
         # fullmatch so partial matches don't sneak through.
-        return re.fullmatch(matcher.regex, value) is not None
+        return _compile_regex(matcher.regex).fullmatch(value) is not None
     raise TypeError(f"unhandled Matcher variant: {type(matcher).__name__}")
 
 

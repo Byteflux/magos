@@ -241,7 +241,7 @@ def test_responses_aux_endpoints_skip_compress() -> None:
 def test_resolve_model_limit_known_model(monkeypatch: pytest.MonkeyPatch) -> None:
     """Known model id (per LiteLLM's registry) returns the real limit."""
 
-    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {})
+    monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", {})
     # gpt-4o has been in LiteLLM's registry stably; if this assert ever
     # breaks it's because LiteLLM dropped the model, not magos.
     assert rw._resolve_model_limit("gpt-4o") == 128_000
@@ -250,7 +250,7 @@ def test_resolve_model_limit_known_model(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_resolve_model_limit_unknown_model_falls_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {})
+    monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", {})
     assert rw._resolve_model_limit("totally-made-up-model-zzz") == rw._DEFAULT_MODEL_LIMIT
 
 
@@ -258,7 +258,7 @@ def test_resolve_model_limit_caches_results(monkeypatch: pytest.MonkeyPatch) -> 
     """Repeat lookups for the same model don't re-call litellm."""
 
     cache: dict[str, int] = {}
-    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", cache)
+    monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", cache)
 
     calls: list[str] = []
 
@@ -294,7 +294,7 @@ def test_compress_uses_explicit_model_limit_override(
         called.append(_model)
         return 999_999  # should not be used
 
-    monkeypatch.setattr(rw, "_resolve_model_limit", spy_resolve)
+    monkeypatch.setattr(rw.token_mode, "_resolve_model_limit", spy_resolve)
 
     req = make_req(
         body={
@@ -319,7 +319,7 @@ def test_compress_model_limit_auto_detect_per_model(
 
     monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
 
-    monkeypatch.setattr(rw, "_MODEL_LIMIT_CACHE", {"gpt-4o": 128_000})
+    monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", {"gpt-4o": 128_000})
 
     req = make_req(body={"model": "gpt-4o", "messages": [{"role": "user", "content": "verbose"}]})
     apply_rewrites(req, [Compress(compress=CompressOptions())])
