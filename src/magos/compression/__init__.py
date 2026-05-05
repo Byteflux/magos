@@ -13,6 +13,7 @@ from .build import ProviderName, build_pipeline
 from .config import PipelineConfig
 from .pipeline import ApplyResult, apply
 from .registry import PipelineRegistry, get_registry
+from .warmup import eager_warmup
 
 __all__ = [
     "ApplyResult",
@@ -21,5 +22,6 @@ __all__ = [
     "ProviderName",
     "apply",
     "build_pipeline",
+    "eager_warmup",
     "get_registry",
 ]
