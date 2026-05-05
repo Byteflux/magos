@@ -9,6 +9,7 @@ See ``docs/superpowers/plans/2026-05-05-compression-pipeline-ownership.md``.
 
 from __future__ import annotations
 
+from .build import ProviderName, build_pipeline
 from .config import PipelineConfig
 
-__all__ = ["PipelineConfig"]
+__all__ = ["PipelineConfig", "ProviderName", "build_pipeline"]
