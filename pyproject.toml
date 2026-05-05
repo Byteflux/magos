@@ -113,7 +113,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S", "PLR2004"]
+"tests/**/*.py" = ["S", "PLR2004", "PLC0415"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["magos"]
