@@ -2,22 +2,24 @@
 
 Declarative LLM API routing proxy with provider-discovered model registry and context compression.
 
-Inbound requests (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses) hit a rule engine declared in `magos.yaml`. Rules decide per request: which upstream provider, byte-exact passthrough vs. [LiteLLM](https://github.com/BerriAI/litellm)-translated dispatch, what to rewrite (headers, body, [Headroom](https://github.com/headroom-ai/headroom) context compression). A provider-discovered model registry catches anything explicit rules miss. An optional embedded `mitmproxy` listener handles `HTTPS_PROXY`-style ingress for clients that change behaviour when their `BASE_URL` is overridden, notably Claude Code.
+Inbound requests (Anthropic Messages, OpenAI Chat Completions, OpenAI Responses) hit a rule engine declared in `magos.yaml`. Rules decide per request: which upstream provider, byte-exact passthrough vs. [LiteLLM](https://github.com/BerriAI/litellm)-translated dispatch, what to rewrite (headers, body, [Headroom](https://github.com/chopratejas/headroom) context compression). A provider-discovered model registry catches anything explicit rules miss. An optional embedded `mitmproxy` listener handles `HTTPS_PROXY`-style ingress for clients that change behaviour when their `BASE_URL` is overridden, notably Claude Code.
 
 ## Features
 
-- **Three endpoint shapes**: Anthropic Messages, OpenAI Chat Completions, OpenAI Responses (POST + retrieve / cancel / list-input-items), all with streaming.
-- **Cross-provider translation** delegated to LiteLLM: Anthropic-shape input can target OpenAI / Azure / Bedrock / Vertex / OpenRouter / etc., and vice versa.
-- **Byte-exact passthrough**: forward same-shape requests verbatim, preserving auth, beta flags, and prompt-cache hashes.
-- **Token counting** via `litellm.acount_tokens`, which auto-picks between local tokenizers and the upstream's native count-tokens endpoint per model.
-- **Declarative routing** in `magos.yaml`: match on model / header / endpoint / jq / registry-field expressions, rewrite headers and bodies, dispatch to translate or passthrough.
-- **Headroom compression** as a routing rewrite (`compress`) with token and cache-align modes; per-model token-budget resolution via the registry or LiteLLM.
-- **Model registry** with per-provider auto-discovery (OpenAI / Anthropic / OpenRouter / Vultr / manual via `noop`), field-precedence merge over operator overrides and LiteLLM's bundled metadata, soft-delete deprecation with grace period, atomic `models.json` persistence.
-- **Auto-routing fallback** for unmatched requests via exact `<provider>/<raw_id>` lookup against the registry.
-- **Operator CLI**: `magos serve`, `magos models {list, show, refresh, prune, discover}` against a running server with disk fallback for read paths.
-- **Optional `HTTPS_PROXY` ingress** via embedded mitmproxy on the same process; useful for clients whose behaviour changes when their base URL is rewritten.
-- **Observability**: `structlog` structured logging, OpenTelemetry tracing, OpenTelemetry metrics with optional Prometheus `/metrics` endpoint.
-- **Configuration** via `pydantic-settings` (env vars prefixed `MAGOS_`, or a local `.env`) plus `magos.yaml` for routing / registry / ingress blocks.
+| Feature | What it does |
+|---|---|
+| **Three endpoint shapes** | Anthropic Messages, OpenAI Chat Completions, OpenAI Responses (POST + retrieve / cancel / list-input-items), all with streaming. |
+| **Cross-provider translation** | Delegated to LiteLLM: Anthropic-shape input can target OpenAI / Azure / Bedrock / Vertex / OpenRouter / etc., and vice versa. |
+| **Byte-exact passthrough** | Forward same-shape requests verbatim, preserving auth, beta flags, and prompt-cache hashes. |
+| **Token counting** | `litellm.acount_tokens` auto-picks between local tokenizers and the upstream's native count-tokens endpoint per model. |
+| **Declarative routing** | `magos.yaml` matches on model / header / endpoint / jq / registry-field expressions; rewrites headers and bodies; dispatches to translate or passthrough. |
+| **Headroom compression** | Routing rewrite (`compress`) with token and cache-align modes; per-model token-budget resolution via the registry or LiteLLM. |
+| **Model registry** | Per-provider auto-discovery (OpenAI / Anthropic / OpenRouter / Vultr / manual via `noop`), field-precedence merge over operator overrides and LiteLLM's bundled metadata, soft-delete deprecation with grace period, atomic `models.json` persistence. |
+| **Auto-routing fallback** | Unmatched requests resolved via exact `<provider>/<raw_id>` lookup against the registry. |
+| **Operator CLI** | `magos serve`, `magos models {list, show, refresh, prune, discover}` against a running server with disk fallback for read paths. |
+| **Optional `HTTPS_PROXY` ingress** | Embedded mitmproxy on the same process; useful for clients whose behaviour changes when their base URL is rewritten. |
+| **Observability** | `structlog` structured logging, OpenTelemetry tracing, OpenTelemetry metrics with optional Prometheus `/metrics` endpoint. |
+| **Configuration** | `pydantic-settings` (env vars prefixed `MAGOS_`, or a local `.env`) plus `magos.yaml` for routing / registry / ingress blocks. |
 
 ## Requirements
 
