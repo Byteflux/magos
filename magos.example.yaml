@@ -12,7 +12,7 @@
 # Rewrite ops:
 #   - set_model / set_header / add_header / remove_header / jq_patch / compress
 # Action fields:
-#   - provider, mode (translate|passthrough), base_url, api_key_env
+#   - provider, mode (translate|passthrough), base_url, api_key_env, auth_header
 
 # ingress: how requests reach magos. Two channels feed the same routing
 # engine -- the always-on FastAPI HTTP listener (ingress.http) and the

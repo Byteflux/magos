@@ -282,7 +282,7 @@ When debugging "param X isn't reaching provider Y": this is the first
 suspect. Confirm by checking LiteLLM's per-provider supported-params
 list, not by reading magos's dispatch code.
 
-## Header forwarding is three-level
+## Header forwarding is multi-stage
 
 | Stage                         | What's blocked                                           | Why                                              |
 |-------------------------------|----------------------------------------------------------|--------------------------------------------------|

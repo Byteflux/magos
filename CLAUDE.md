@@ -64,7 +64,7 @@ src/magos/
   ingress/           # how requests enter
     http/            # FastAPI entry
       app.py        # create_app, app.state wiring
-      lifespan.py   # async context manager (Headroom warmup, refresher start, kompress)
+      lifespan.py   # async context manager (kompress backend, OTel meter, Headroom warmup, kompress preload, refresher start)
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
       headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
