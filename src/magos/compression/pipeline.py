@@ -71,7 +71,7 @@ def apply(
 
     if tokens_after > tokens_before > 0:
         log.warning(
-            "compression.inflation_reverted",
+            "compress.inflation_reverted",
             model=model,
             tokens_before=tokens_before,
             tokens_after=tokens_after,
