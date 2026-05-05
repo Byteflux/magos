@@ -1,9 +1,8 @@
 """Walk a ``PipelineRegistry`` and eagerly load each unique transform.
 
-Mirrors the proxy's startup behaviour (``proxy/server.py``): dedupe by
-``id()`` so two pipelines sharing a transform instance pay the cost
-once, swallow per-transform errors so a single failure cannot break
-process startup.
+Dedupes transforms by ``id()`` so instances shared across pipelines pay
+the load cost once. Per-transform errors are swallowed and logged so a
+single failure cannot break process startup.
 """
 
 from __future__ import annotations
