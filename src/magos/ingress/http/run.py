@@ -1,8 +1,7 @@
-"""Shared dispatch flow used by every FastAPI handler.
+"""Seam between FastAPI's ``Request`` and the routing/egress pipeline.
 
-Each endpoint registered in :mod:`magos.ingress.http.handlers` calls
-:func:`run_endpoint`, which is the seam between FastAPI's ``Request``
-and the routing/egress pipeline. Steps:
+:func:`run_endpoint` is the single entry point endpoint handlers call.
+Steps:
 
 1. Read body bytes; parse JSON to dict (400 on parse error or non-object).
 2. Filter inbound headers via
@@ -64,7 +63,6 @@ async def run_endpoint(
     method: str = "POST",
     actual_path: str | None = None,
 ) -> Response | StreamingResponse | dict[str, Any]:
-    """Shared routing + dispatch flow used by every handler."""
     raw_body = await request.body()
     try:
         body: dict[str, Any] = json.loads(raw_body) if raw_body else {}

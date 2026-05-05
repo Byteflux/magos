@@ -1,7 +1,7 @@
 """OpenAI-shape ``GET /v1/models`` adapter.
 
-Used by OpenAI proper, vLLM, SGLang, LM Studio, and any other server that
-implements the OpenAI models endpoint. The endpoint returns very little:
+Targets any server that implements the OpenAI models endpoint — OpenAI
+proper, vLLM, SGLang, LM Studio, etc. The endpoint returns very little:
 ``{id, created, owned_by, object}`` per model. We pass through ``id``;
 field-precedence merging in ``magos.registry.merge`` fills the rest from
 ``magos.yaml`` overrides or LiteLLM's bundled registry.

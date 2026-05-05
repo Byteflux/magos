@@ -210,7 +210,7 @@ def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> Rout
 
 
 def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any:
-    """Shared CacheAligner runner used by chat and Responses paths.
+    """Run CacheAligner.apply().
 
     Returns the ``TransformResult`` on success, or ``None`` if the deps
     couldn't load, the aligner declared no-op, or apply raised.

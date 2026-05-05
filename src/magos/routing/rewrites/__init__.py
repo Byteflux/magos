@@ -9,8 +9,8 @@ must re-serialise instead of forwarding ``raw_body`` verbatim under
 passthrough.
 
 Per-primitive logic lives in sibling modules (:mod:`headers`,
-:mod:`model`, :mod:`jq_patch`, :mod:`compress`). This package's
-``apply_rewrites`` is the single dispatch point used by the engine.
+:mod:`model`, :mod:`jq_patch`, :mod:`compress`). ``apply_rewrites`` is
+the public dispatch entry point.
 """
 
 from __future__ import annotations

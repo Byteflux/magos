@@ -1,4 +1,4 @@
-"""SSE frame helpers used by the translate paths."""
+"""SSE frame helpers."""
 
 from __future__ import annotations
 

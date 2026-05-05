@@ -1,9 +1,8 @@
-"""Shared LiteLLM payload builder + cross-shape behavior toggles.
+"""LiteLLM payload builder + cross-shape behavior toggles.
 
 Process-wide LiteLLM tweaks live here so they're applied once on import.
-The payload builder is reused by every translate path; per-endpoint
-shape massaging (Anthropic extras stripping, etc.) lives in the
-sibling endpoint modules.
+Per-endpoint shape massaging (Anthropic extras stripping, etc.) lives in
+the sibling endpoint modules.
 """
 
 from __future__ import annotations
