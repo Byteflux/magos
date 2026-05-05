@@ -1,16 +1,4 @@
-"""Registry-driven auto-routing fallback.
-
-When no explicit rule in ``cfg.rules`` matches, ``route()`` falls through
-to here. We do an exact ``<provider>/<raw_id>`` lookup against
-``RegistryState.entries`` and synthesize a ``RouteDecision`` from the
-matching ``ModelEntry``. The registry never overrides explicit rules; it
-only catches what they miss.
-
-``on_unknown_model`` controls what happens on registry miss:
-``"passthrough"`` hands the raw model string to LiteLLM (which has its
-own bundled provider router for names like ``openai/gpt-4o``);
-``"error"`` returns ``None`` so the caller emits the standard 404.
-"""
+"""Registry-driven auto-routing fallback. See ``docs/registry/auto-routing.md``."""
 
 from __future__ import annotations
 
@@ -34,14 +22,7 @@ def try_auto_route(
     settings: RegistrySettings | None,
     providers: Mapping[str, ProviderConfig] | None,
 ) -> RouteDecision | None:
-    """Look up ``req.body['model']`` in the registry by exact namespaced id.
-
-    Returns a synthesized ``RouteDecision`` on hit. On miss, consults
-    ``settings.on_unknown_model``: ``"passthrough"`` returns a best-effort
-    decision that hands the raw model string to LiteLLM (which resolves
-    via its bundled registry on names like ``openai/gpt-4o``); ``"error"``
-    returns ``None`` so the caller emits the standard 404.
-    """
+    """Synthesize a decision from a registry hit, or honour ``on_unknown_model`` on miss."""
     model = str(req.body.get("model", ""))
     if not model:
         return None
@@ -59,15 +40,11 @@ def _decision_from_entry(
     entry: ModelEntry,
     provider_cfg: ProviderConfig | None,
 ) -> RouteDecision:
-    """Build a synthetic Rule + RouteDecision around a registry entry.
+    """Build a synthetic Rule + RouteDecision; stamps provider creds onto the action.
 
-    Stamps the matching ``ProviderConfig``'s ``api_key_env`` and
-    ``base_url`` onto the synthesized translate-mode ``Action``. Without
-    this, LiteLLM is invoked with no api_key/api_base and silently falls
-    back to its per-provider defaults (e.g. ``OPENAI_API_KEY`` against
-    ``api.openai.com``), producing misleading 401s for openai-compatible
-    third parties (Vultr, hosted vLLM, etc.) that route through the
-    generic ``custom_openai`` provider.
+    Without the cred stamp, LiteLLM falls back to per-provider defaults
+    (e.g. ``OPENAI_API_KEY`` / ``api.openai.com``) and yields misleading
+    401s for ``custom_openai``-style providers. See ``docs/routing/api-keys.md``.
     """
     from magos.routing.engine import RouteDecision  # noqa: PLC0415
 
@@ -93,13 +70,7 @@ def _decision_from_entry(
 
 
 def provider_cred_overrides(cfg: ProviderConfig | None) -> dict[str, str]:
-    """Return the ``api_key_env`` / ``base_url`` subset declared on ``cfg``.
-
-    Shared by the auto-route synthesizer and the explicit-rule cred-fill
-    in ``magos.routing.engine`` so the precedence rule lives in one
-    place: an attribute is included only if the provider config sets it.
-    Empty dict when ``cfg`` is None or sets neither field.
-    """
+    """Return the ``api_key_env`` / ``base_url`` subset set on ``cfg`` (empty if None)."""
     if cfg is None:
         return {}
     out: dict[str, str] = {}
@@ -111,12 +82,7 @@ def provider_cred_overrides(cfg: ProviderConfig | None) -> dict[str, str]:
 
 
 def _decision_for_unknown_passthrough(req: RoutedRequest, model: str) -> RouteDecision:
-    """Build a synthetic decision that forwards an unknown model to LiteLLM.
-
-    Used when ``on_unknown_model: passthrough``. The dispatch model is
-    the raw inbound id; LiteLLM's bundled provider router resolves it
-    if it can, otherwise the provider replies with its own error.
-    """
+    """Forward an unknown model to LiteLLM; its bundled router resolves or errors."""
     from magos.routing.engine import RouteDecision  # noqa: PLC0415
 
     provider = model.split("/", 1)[0] if "/" in model else "auto"

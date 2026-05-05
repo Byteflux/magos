@@ -1,11 +1,6 @@
-"""Build the ``DumpMaster`` that runs alongside FastAPI in-process.
-
-mitmproxy's ``DumpMaster`` is the documented embedding entry point: it
-owns the proxy event loop, addon registry, and listener lifecycle.
-We construct one with terminal logging and flow-dump rendering both
-turned off, since :func:`magos.ingress.log_bridge.install_log_bridge`
-already routes mitmproxy log records through structlog.
-"""
+"""Build the embedded ``DumpMaster``. Termlog + dumper disabled because
+:func:`magos.ingress.mitm.log_bridge.install_log_bridge` already routes
+mitmproxy logs through structlog."""
 
 from __future__ import annotations
 
@@ -23,15 +18,10 @@ def build_ingress_master(
     target_host: str,
     target_port: int,
 ) -> DumpMaster:
-    """Construct an embedded ``DumpMaster`` configured for the ingress addon.
-
-    ``target_host`` / ``target_port`` are where intercepted requests are
-    rewritten to, i.e. the FastAPI bind address. The egress observer
-    addon (``MagosObserverAddon``) is also loaded so the same mitmproxy
-    process can log outbound LLM provider traffic when magos's own
-    requests transit it (which they don't by default; see
-    ``docs/ingress.md`` "Loop hazard").
-    """
+    """``target_host``/``target_port`` is the FastAPI bind address that
+    intercepted requests get rewritten to. ``MagosObserverAddon`` is also
+    loaded for outbound provider traffic if it transits this proxy
+    (it doesn't by default; see ``docs/ingress.md`` "Loop hazard")."""
     options = Options(
         listen_host=config.host,
         listen_port=config.port,

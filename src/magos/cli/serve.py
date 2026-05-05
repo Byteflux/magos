@@ -1,16 +1,7 @@
-"""``magos serve`` command and the entrypoint bootstrap.
+"""``magos serve`` command + entrypoint bootstrap (logging/tracing config + bootstrap log).
 
-The bootstrap stamps CLI ``--host`` / ``--port`` flags into env vars so
-the same env-over-yaml resolution used by the orchestrator picks them
-up, configures structlog + OTel from ``MagosSettings``, emits the
-``server.bootstrapping`` log event, then hands off to
-:func:`magos.serve.serve` (the sync wrapper around the async
-orchestrator).
-
-The bootstrap lives here rather than in :mod:`magos.serve` because
-logging/tracing configuration and the bootstrap log event are
-entrypoint concerns: a library caller of ``magos.serve.serve_async``
-should not be implicitly reconfiguring the root logger.
+Bootstrap lives here rather than in :mod:`magos.serve` so library callers
+of ``serve_async`` don't implicitly reconfigure the root logger.
 """
 
 from __future__ import annotations
@@ -32,16 +23,7 @@ def bootstrap_and_serve(
     mitm_host: str | None = None,
     mitm_port: int | None = None,
 ) -> None:
-    """Boot the FastAPI server (and optional mitm ingress) under one process.
-
-    ``host`` / ``port`` override the values resolved from the environment
-    (``MAGOS_HOST`` / ``MAGOS_PORT``); env in turn overrides
-    ``ingress.http.host`` / ``ingress.http.port`` from ``magos.yaml``.
-    ``enable_mitm`` / ``mitm_host`` / ``mitm_port`` follow the same
-    layering against ``MAGOS_MITM_ENABLED`` / ``MAGOS_MITM_HOST`` /
-    ``MAGOS_MITM_PORT`` and the ``ingress.mitm`` yaml block. See
-    ``docs/ingress.md`` for setup.
-    """
+    """Boot the FastAPI server (and optional mitm ingress); CLI > env > yaml. See ``docs/cli.md``."""
     if host is not None:
         os.environ["MAGOS_HOST"] = host
     if port is not None:
@@ -77,20 +59,11 @@ def bootstrap_and_serve(
 def _preload_native_load_order(settings: MagosSettings) -> None:
     """Force ``sentence_transformers`` import before any PyO3-bound module.
 
-    Wins the Windows native-load-order race documented in
-    ``docs/headroom.md``: importing ``pyarrow``'s ``.pyd`` (transitively
-    via ``sentence_transformers``) after a PyO3 Rust extension has
-    initialized in the process (typically ``cryptography._rust`` or
-    ``tokenizers`` pulled in by ``litellm``) segfaults during
-    ``create_module``. The compress rewrite already preloads on the
-    first request, but ``route()`` runs on a worker thread, and
-    importing pyarrow from a worker thread once PyO3 has initialized on
-    the main thread reproduces the crash. Doing it here, before we
-    touch ``magos.serve`` (which transitively imports ``litellm``),
-    keeps the import order deterministic.
-
-    Skipped when no compress rule is configured, since the import is
-    multi-second and operators not using compression should not pay it.
+    Wins the Windows native-load-order race (segfault in pyarrow's
+    ``.pyd`` after PyO3 init); see ``docs/headroom/pipeline.md``.
+    Doing it here, before ``magos.serve`` imports litellm, makes the
+    order deterministic. Skipped when no compress rule is configured,
+    since the import is multi-second.
     """
     from magos.config.loader import load_full_config  # noqa: PLC0415
     from magos.routing.schema import Compress  # noqa: PLC0415
@@ -114,7 +87,7 @@ def _preload_native_load_order(settings: MagosSettings) -> None:
 
 
 def register(app: typer.Typer) -> None:
-    """Attach the ``serve`` command to the root Typer app."""
+    """Attach ``serve`` to the root Typer app."""
 
     @app.command("serve")
     def serve_cmd(

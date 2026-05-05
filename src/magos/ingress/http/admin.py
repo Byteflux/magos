@@ -1,17 +1,6 @@
-"""``/admin/registry/*`` operator endpoints.
-
-Exposed only when a :class:`Refresher` is active (i.e.
-``providers:`` non-empty in ``magos.yaml``). The CLI reads from these
-to show server-state and trigger out-of-band refreshes:
-
-- ``GET /admin/registry``                : snapshot of in-memory state
-- ``POST /admin/registry/refresh``       : refresh one or all providers
-- ``POST /admin/registry/prune``         : sweep deprecation past grace
-
-``magos models list/show`` fall back to disk when the server is down,
-so these endpoints are convenience surfaces, not the only way to read
-the registry.
-"""
+"""``/admin/registry/*`` operator endpoints; mounted only when a
+:class:`Refresher` is active. CLI reads from these but falls back to
+disk when the server is down. See ``docs/registry.md``."""
 
 from __future__ import annotations
 
@@ -25,7 +14,8 @@ from magos.registry.schema import RegistryYaml
 
 
 def mount_admin_registry_endpoints(app: FastAPI) -> None:
-    """Register the three ``/admin/registry/*`` endpoints on ``app``."""
+    """Register ``GET /admin/registry``, ``POST /admin/registry/refresh``,
+    ``POST /admin/registry/prune``."""
     from magos.registry.discovery.base import DiscoveryError  # noqa: PLC0415
     from magos.registry.store import serialize  # noqa: PLC0415
 
@@ -56,13 +46,8 @@ def mount_admin_registry_endpoints(app: FastAPI) -> None:
 
     @app.post("/admin/registry/prune", include_in_schema=False)
     async def prune_registry(request: Request) -> Response:
-        """Trigger a prune by refreshing every provider.
-
-        The deprecation state machine drops past-grace entries on every
-        successful refresh, so a full refresh round is the simplest way
-        to surface the operator-visible "prune" action without adding
-        a separate code path.
-        """
+        """Prune by refreshing every provider; the deprecation state
+        machine drops past-grace entries on each successful refresh."""
         refresher = cast(Refresher, request.app.state.refresher)
         registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
         before = sum(1 for e in refresher.state.entries.values() if e.is_deprecated)
@@ -70,6 +55,6 @@ def mount_admin_registry_endpoints(app: FastAPI) -> None:
             try:
                 await refresher.refresh(name)
             except DiscoveryError:
-                continue  # other providers still get their chance
+                continue
         after = sum(1 for e in refresher.state.entries.values() if e.is_deprecated)
         return JSONResponse({"deprecated_before": before, "deprecated_after": after})

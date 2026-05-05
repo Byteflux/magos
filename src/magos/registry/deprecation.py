@@ -1,18 +1,7 @@
-"""Soft-delete state machine for the registry.
+"""Soft-delete state machine. Pure: prior + fresh + clock -> next entries.
 
-When a refresh succeeds and a previously-listed model is no longer
-returned by the provider, we don't remove the entry immediately: an
-upstream blip or partial outage shouldn't trigger churn. Instead we mark
-the entry ``deprecated_at = <refresh time>`` and keep serving it.
-
-If the model reappears in a later refresh, the deprecation mark is
-cleared. If the entry remains absent for ``grace_seconds`` past
-``deprecated_at``, it is hard-deleted on the next refresh.
-
-This module is deliberately pure: ``apply_deprecation`` takes the prior
-entries, the freshly-discovered entries, and a clock, and returns the
-next entry set. No I/O, no logging, no global state, easy to unit-test
-across the just-deprecated / re-appeared / past-grace boundaries.
+Missing-from-fresh marks ``deprecated_at``; reappearance clears it; past
+``grace_seconds`` hard-deletes. See ``docs/registry/overview.md``.
 """
 
 from __future__ import annotations

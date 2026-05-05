@@ -1,9 +1,4 @@
-"""``set_model`` rewrite: replace the body's ``model`` field.
-
-Flips ``body_dirty=True`` so the dispatcher re-serialises the body
-before forwarding. An edited body breaks passthrough's byte-exact
-path, so re-serialisation is the only safe option.
-"""
+"""``set_model`` rewrite: replace the body's ``model`` field. Flips ``body_dirty``."""
 
 from __future__ import annotations
 

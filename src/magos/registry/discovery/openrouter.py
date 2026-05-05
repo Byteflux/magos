@@ -1,13 +1,8 @@
 """OpenRouter ``GET /api/v1/models`` adapter.
 
-OpenRouter's catalog is unusually rich: each entry includes
-``context_length``, ``pricing.prompt`` / ``pricing.completion``,
-``architecture.modality``, and ``top_provider.max_completion_tokens``.
-We map all of those into a ``PartialEntry`` so downstream merge can
-inherit them when no operator override is set.
-
-Pricing on OpenRouter is per-token in USD; magos's registry tracks USD
-per million tokens, so we scale by 1e6 on ingest.
+Catalog includes context size, pricing, modalities, and max-output;
+all mapped into ``PartialEntry``. Pricing is per-token USD upstream;
+scaled to per-million on ingest.
 """
 
 from __future__ import annotations
@@ -31,8 +26,7 @@ _DEFAULT_LITELLM_PROVIDER = "openrouter"
 
 class OpenRouterAdapter:
     name = "openrouter"
-    # LiteLLM's openrouter provider already knows openrouter.ai; no need
-    # to override unless an alternate host is in play.
+    # LiteLLM's openrouter provider already knows the host.
     default_base_url: str | None = None
 
     async def discover(

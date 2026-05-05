@@ -1,34 +1,6 @@
 """API-key resolution and per-provider auth-header injection.
 
-Two seams the dispatcher relies on:
-
-- ``resolve_api_key(env)``: translate-mode helper. Reads the env var
-  named by ``action.api_key_env`` and hands the value off to LiteLLM
-  as ``api_key=``. Lets one provider host multiple keys (e.g. tier
-  routing) by declaring separate rules with different env vars.
-
-- ``maybe_inject_api_key(headers, action)``: passthrough-mode helper.
-  When the inbound request carries no ``Authorization`` or
-  ``x-api-key`` header and ``action.api_key_env`` is set, injects the
-  env value in the shape that provider expects:
-
-  - ``provider: anthropic`` → ``x-api-key: <env>`` (Anthropic's
-    convention).
-  - everything else → ``Authorization: Bearer <env>`` (the
-    openai-compatible convention used by openai, openrouter, vultr,
-    etc.).
-  - ``action.auth_header`` overrides the default.
-  - Anthropic OAuth tokens (``sk-ant-oat...``) override both: they
-    always go out as a Bearer plus an ``anthropic-beta:
-    oauth-2025-04-20`` opt-in header. api.anthropic.com 401s on
-    ``x-api-key`` for that credential class.
-
-Headers are not part of the prompt-cache hash, so injection here does
-not break Anthropic's byte-exact billing.
-
-``DispatchError`` is raised when the named env var is missing; the
-ingress layer turns it into the standard 503 ``dispatch_error``
-envelope.
+See ``docs/architecture/headers-and-auth.md``.
 """
 
 from __future__ import annotations

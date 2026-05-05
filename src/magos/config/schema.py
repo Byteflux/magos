@@ -1,13 +1,6 @@
 """Pydantic schemas for the ``ingress:`` block in ``magos.yaml``.
 
-Two ingress channels feed the same routing engine: the always-on FastAPI
-HTTP listener (``ingress.http``) and the optional in-process mitmproxy
-``HTTPS_PROXY`` listener (``ingress.mitm``). Both default to off-the-shelf
-safe values so a yaml without an ``ingress:`` block parses cleanly.
-
-``MAGOS_HOST`` / ``MAGOS_PORT`` env vars (via :class:`MagosSettings`)
-override ``ingress.http.host`` / ``ingress.http.port`` at runtime; this
-module only declares the yaml shape.
+See ``docs/ingress.md`` and ``docs/architecture/env-vars.md``.
 """
 
 from __future__ import annotations
@@ -27,19 +20,7 @@ class HttpIngressConfig(_Frozen):
 
 
 class MitmIngressConfig(_Frozen):
-    """In-process mitmproxy ingress proxy configuration.
-
-    When ``enabled`` is true, ``magos serve`` starts a ``DumpMaster`` task
-    alongside uvicorn. The addon terminates TLS for hosts in
-    ``intercept_hosts`` (and their subdomains) and rewrites the
-    decrypted request to the FastAPI loopback target. Requests for hosts
-    not on the allowlist flow through un-MITM'd via mitmproxy's
-    ``ignore_connection`` mechanism, so an ``HTTPS_PROXY`` pointed at us
-    only intercepts what's declared.
-
-    See ``docs/ingress.md`` for the operator-facing setup (CA trust,
-    ``HTTPS_PROXY`` configuration, loop-hazard caveat).
-    """
+    """In-process mitmproxy ingress proxy configuration."""
 
     enabled: bool = False
     host: str = Field(default="127.0.0.1", min_length=1)

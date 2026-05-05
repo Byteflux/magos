@@ -1,15 +1,7 @@
-"""Bridge from a ``RouteDecision`` to the translate / passthrough seams.
+"""Branch a ``RouteDecision`` into translate / passthrough / count_tokens.
 
-The dispatcher is the only egress module that knows about FastAPI
-response types. ``magos.ingress.http.run`` hands it a decision already
-produced by ``route()``; the dispatcher picks the right underlying call
-based on ``req.endpoint``, ``action.mode``, and the request's ``stream``
-flag.
-
-API-key resolution and per-provider auth-header injection live in
-:mod:`magos.egress.auth`. ``DispatchError`` is re-exported from this
-module because callers catch it at the dispatch boundary, keeping the
-exception in one logical place with the function that raises it.
+``DispatchError`` is re-exported for callers catching at this boundary.
+See ``docs/architecture/request-flow.md``.
 """
 
 from __future__ import annotations
@@ -52,11 +44,7 @@ async def dispatch_decision(  # noqa: PLR0911, PLR0912
     *,
     completion: CompletionFn,
 ) -> Response | StreamingResponse | dict[str, Any]:
-    """Hand ``decision`` off to the right downstream call site.
-
-    Branches: count_tokens, passthrough+stream, passthrough+non-stream,
-    translate x {messages, chat, responses} x {stream, non-stream}.
-    """
+    """Hand ``decision`` off to the right downstream call site."""
     req = decision.request
     action = decision.action
 

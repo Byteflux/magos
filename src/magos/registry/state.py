@@ -1,14 +1,6 @@
-"""Core registry data shapes.
+"""Core registry data shapes (``ModelEntry`` + immutable ``RegistryState``).
 
-``ModelEntry`` is the canonical record for a single model under a single
-magos provider. ``RegistryState`` is the immutable snapshot the refresher
-swaps in atomically; routing and compress consume it read-only.
-
-Source provenance is tracked on ``ModelEntry.sources`` as the ordered
-chain of contributors that supplied at least one field, e.g.
-``("override", "discovery", "litellm")``. ``deprecated_at`` is the
-soft-delete timestamp; entries past the grace window are pruned by the
-deprecation state machine before persistence.
+See ``docs/registry/overview.md``.
 """
 
 from __future__ import annotations
@@ -28,23 +20,14 @@ class ModelEntry:
     litellm_id: str
     context_size: int | None = None
     max_output: int | None = None
-    # Pricing is in USD per million tokens. Adapters that get per-token
-    # values from upstream (LiteLLM, OpenRouter) scale by 1e6 on ingest.
+    # USD per million tokens; adapters scale per-token upstream values.
     input_cost: float | None = None
     output_cost: float | None = None
-    # Anthropic charges a discounted rate for prompt-cache reads and a
-    # premium for cache writes (5min: 1.25x input, 1h: 2x). OpenAI's
-    # cached prompt tokens are billed at 50% of input; OpenAI has no
-    # cache-write notion. Sources that don't expose these fields leave
-    # them ``None``; consumers should fall back to ``input_cost``.
+    # Anthropic prompt-cache rates (read/write). OpenAI exposes only
+    # cache reads. Sources without cache pricing leave these ``None`` and
+    # consumers should fall back to ``input_cost``.
     cache_read_cost: float | None = None
     cache_write_cost: float | None = None
-    # Modalities the model accepts on the input side and emits on output.
-    # Most chat models are ``("text",) → ("text",)``; vision models add
-    # ``image`` on the input side; image-gen / TTS models add it on the
-    # output side. Sources that don't distinguish the two (e.g. raw
-    # LiteLLM capability flags) populate input from ``supports_*`` and
-    # default output to ``("text",)``.
     input_modalities: tuple[str, ...] = ()
     output_modalities: tuple[str, ...] = ()
     deprecated_at: datetime | None = None

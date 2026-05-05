@@ -1,9 +1,4 @@
-"""``/v1/chat/completions`` translate path via ``litellm.acompletion``.
-
-OpenAI Chat Completions in, OpenAI Chat Completions out. LiteLLM
-handles the per-provider translation when the dispatch model points
-elsewhere.
-"""
+"""``/v1/chat/completions`` translate path via ``litellm.acompletion``."""
 
 from __future__ import annotations
 
@@ -64,12 +59,7 @@ def stream_openai_chat_completions(
     api_key: str | None = None,
     api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream OpenAI Chat Completions chunks as SSE bytes.
-
-    Forces ``stream=True`` on the upstream call. Each chunk is JSON-encoded into
-    a ``data: ...`` SSE event; the stream terminates with ``data: [DONE]``,
-    matching OpenAI's wire format so existing OpenAI clients work unchanged.
-    """
+    """Stream OpenAI Chat Completions chunks as SSE bytes terminated by ``[DONE]``."""
     dispatch: Callable[..., Awaitable[Any]] = completion or litellm.acompletion
     request = build_payload(
         {**openai_request, "stream": True},

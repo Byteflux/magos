@@ -1,16 +1,4 @@
-"""Combined config loader: routing rules + registry blocks from one YAML.
-
-``magos.yaml`` carries three concerns under separate top-level keys:
-``rules`` / ``pre_rewrites`` (routing), ``providers`` / ``provider_order``
-/ ``registry`` (the model registry), and ``ingress`` (HTTP bind + the
-optional mitmproxy proxy). Each maps to its own pydantic schema; this
-module parses the same file once per schema and returns a single
-``MagosConfig`` container so callers don't see the split.
-
-The narrow ``load_routing_config`` (in ``routing.loader``) is for
-callers that only need the routing rules. Server lifespan and CLI use
-``load_full_config`` to get all three halves.
-"""
+"""Combined config loader: routing rules + registry + ingress from one YAML."""
 
 from __future__ import annotations
 
@@ -36,32 +24,15 @@ class MagosConfig:
     routing: RoutingConfig
     registry: RegistryYaml
     ingress: MagosIngressConfig = field(default_factory=MagosIngressConfig)
-    source: Path = Path()  # the yaml file the config was loaded from
+    source: Path = Path()
 
 
 def resolve_models_path(registry: RegistryYaml, *, override: str | None = None) -> Path:
     """Resolve the registry's ``models.json`` location to an absolute Path.
 
-    Precedence of which raw string is resolved:
-
-    1. ``override`` (the ``MAGOS_MODELS_PATH`` env var, threaded through
-       by callers as ``MagosSettings.models_path``).
-    2. ``registry.registry.models_path`` from ``magos.yaml`` when set.
-    3. The literal default ``"models.json"``, which after step 4 lands
-       at ``$MAGOS_HOME/models.json``.
-
-    Path-string semantics (applied to whichever string wins):
-
-    - ``~``-prefixed → expand against the OS user home directory.
-    - Absolute → pass through unchanged.
-    - Relative → anchor to ``$MAGOS_HOME`` (default ``~/.magos``), not
-      CWD and not the yaml file's parent. ``MAGOS_HOME`` is the magos
-      data directory; relative ``models_path`` values are deliberately
-      decoupled from where the yaml happens to live.
-
-    ``models.json`` is server-owned: out-of-process readers are fine,
-    but the only writer is the running magos server (via the
-    Refresher).
+    Precedence: ``override`` (``MAGOS_MODELS_PATH``) > yaml ``registry.models_path`` >
+    ``"models.json"``. ``~`` expands against OS home; absolute passes through;
+    relative anchors to ``$MAGOS_HOME`` (decoupled from yaml parent and CWD).
     """
     raw_str = override or registry.registry.models_path or "models.json"
     if raw_str.startswith("~"):
@@ -73,13 +44,7 @@ def resolve_models_path(registry: RegistryYaml, *, override: str | None = None) 
 
 
 def load_full_config(path: str | Path) -> MagosConfig:
-    """Parse ``path`` into both routing and registry config.
-
-    The routing half goes through the existing ``load_config`` path
-    (post-load validation, regex/jq compilation, passthrough warnings).
-    The registry half is purely structural: ``RegistryYaml`` validates
-    schema; live discovery and adapter wiring happen in ``Refresher``.
-    """
+    """Parse ``path`` into routing + registry + ingress config."""
     routing = load_routing_config(path)
     registry = _parse_registry_block(path)
     registry = _normalize_provider_base_urls(registry)
@@ -88,17 +53,7 @@ def load_full_config(path: str | Path) -> MagosConfig:
 
 
 def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
-    """Fill ``ProviderConfig.base_url`` from the adapter's canonical URL.
-
-    Operators shouldn't have to repeat a vendor's well-known URL in
-    ``providers.<name>.base_url`` -- the discovery adapter already knows
-    it (Vultr, future custom_openai-routed providers). When operators
-    omit ``base_url``, stamp the adapter's ``default_base_url`` so both
-    discovery and dispatch see the same URL without per-provider yaml
-    boilerplate. Adapters with no canonical host (openai, anthropic,
-    openrouter, noop) leave the field None and rely on LiteLLM's
-    built-in provider defaults at dispatch time.
-    """
+    """Fill ``ProviderConfig.base_url`` from the adapter's canonical URL when omitted."""
     if not registry.providers:
         return registry
     updated: dict[str, ProviderConfig] = {}
@@ -120,8 +75,7 @@ def _parse_registry_block(path: str | Path) -> RegistryYaml:
         raise RoutingConfigError(
             f"{p}: top-level YAML must be a mapping, got {type(data).__name__}"
         )
-    # Pull only the registry-related keys so ``extra="forbid"`` on
-    # RegistryYaml doesn't reject the routing rules.
+    # ``extra="forbid"`` on RegistryYaml would reject routing rules; subset first.
     subset = {k: data[k] for k in ("providers", "provider_order", "registry") if k in data}
     try:
         return RegistryYaml.model_validate(subset)

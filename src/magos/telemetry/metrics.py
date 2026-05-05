@@ -1,16 +1,9 @@
 """Prometheus exporter wiring for OTel meters.
 
-Two seams:
-
-- :func:`configure_meter_provider` installs a global OTel ``MeterProvider``
-  with the Prometheus exporter as its reader. Called once at startup
-  when ``MAGOS_METRICS_ENABLED=1``.
-- :func:`mount_metrics_endpoint` exposes the resulting metrics under
-  ``GET /metrics`` on a FastAPI app.
-
-``prometheus_client.start_http_server`` is intentionally avoided;
-exposing through the FastAPI mount keeps the server bound to one port
-for everything (HTTP API + admin + metrics).
+``configure_meter_provider`` installs the global ``MeterProvider`` with
+the Prometheus reader; ``mount_metrics_endpoint`` exposes the result at
+``GET /metrics``. Mounting (rather than ``start_http_server``) keeps
+HTTP API + admin + metrics on one port.
 """
 
 from __future__ import annotations
@@ -25,9 +18,7 @@ log = get_logger("magos.telemetry.metrics")
 def configure_meter_provider() -> None:
     """Install a global OTel MeterProvider with the Prometheus exporter.
 
-    Idempotent in practice: ``set_meter_provider`` only honors the first
-    real provider per process, so re-invocation logs a warning and is a
-    no-op.
+    Idempotent: ``set_meter_provider`` only honors the first real provider per process.
     """
     try:
         from opentelemetry import metrics  # noqa: PLC0415
@@ -47,12 +38,7 @@ def configure_meter_provider() -> None:
 
 
 def mount_metrics_endpoint(app: FastAPI) -> None:
-    """Expose Prometheus-format metrics at ``GET /metrics``.
-
-    ``prometheus_client``'s default ``REGISTRY`` is what the OTel
-    ``PrometheusMetricReader`` writes into, so generating the text export
-    here returns whatever the OTel meters have produced.
-    """
+    """Expose Prometheus-format metrics at ``GET /metrics``."""
     try:
         from prometheus_client import (  # noqa: PLC0415
             CONTENT_TYPE_LATEST,

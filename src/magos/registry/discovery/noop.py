@@ -1,11 +1,7 @@
-"""No-op adapter: provider has no live discovery.
+"""No-op adapter: empty ``DiscoveryResult``.
 
-Used when ``discovery`` is unset or explicitly ``noop``. Returns an empty
-``DiscoveryResult``. Manual entries from the provider's ``models`` block
-are combined with discovery and override entries by the precedence merge
-in ``magos.registry.merge``; with no live contribution there is no
-deprecation cycle, so manual entries are permanent until removed from
-yaml.
+Manual ``models:`` entries are permanent (no deprecation cycle without
+live discovery contribution). See ``docs/registry/config.md``.
 """
 
 from __future__ import annotations

@@ -1,16 +1,8 @@
-"""Pure mutators for the routing pipeline.
+"""Pure mutators for the routing pipeline. See ``docs/routing/grammar.md``.
 
-Each rewrite consumes a ``RoutedRequest`` and returns a new one. The frozen
-dataclass forbids in-place mutation, so per-primitive applicators copy
-``headers`` and ``body`` defensively and use ``dataclasses.replace`` to
-produce successors. Body-touching ops (``set_model``, ``jq_patch``, the
-output of ``compress``) flip ``body_dirty`` so the dispatcher knows it
-must re-serialise instead of forwarding ``raw_body`` verbatim under
-passthrough.
-
-Per-primitive logic lives in sibling modules (:mod:`headers`,
-:mod:`model`, :mod:`jq_patch`, :mod:`compress`). ``apply_rewrites`` is
-the public dispatch entry point.
+Each rewrite returns a new ``RoutedRequest``; body-touching ops flip
+``body_dirty`` so passthrough re-serialises. Per-primitive logic lives in
+sibling modules; ``apply_rewrites`` is the dispatch entry point.
 """
 
 from __future__ import annotations
@@ -46,11 +38,10 @@ def apply_rewrites(
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Apply ``rewrites`` in list order; return a new RoutedRequest.
+    """Apply ``rewrites`` in list order; return a new ``RoutedRequest``.
 
-    Empty list returns ``req`` unchanged (same identity). Original headers
-    and body are never mutated. ``registry`` is plumbed through to the
-    compress rewrite so context_size resolution can prefer the registry.
+    Empty list returns ``req`` unchanged. ``registry`` is forwarded to the
+    compress rewrite for context-size resolution.
     """
     if not rewrites:
         return req

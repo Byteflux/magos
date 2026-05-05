@@ -1,14 +1,8 @@
-"""Adapter Protocol and shared types for discovery.
+"""Discovery adapter Protocol + shared types.
 
-Adapters are async, stateless objects taking a ``ProviderConfig`` plus an
-``httpx.AsyncClient`` and producing a ``DiscoveryResult``. They are
-expected to raise ``DiscoveryError`` on transport failures, auth failures,
-and malformed responses; the refresher catches these and applies retry
-policy.
-
-A successful empty list is *not* a failure: some providers legitimately
-serve zero models, and the refresher treats that as "this provider is
-known to have nothing right now" rather than "this provider is broken".
+Adapters are async/stateless: ``(ProviderConfig, httpx.AsyncClient) ->
+DiscoveryResult``. Raise ``DiscoveryError`` on transport/auth/parse
+failures; an empty result is success (provider serves zero models).
 """
 
 from __future__ import annotations
@@ -28,12 +22,8 @@ class DiscoveryError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class DiscoveredModel:
-    """One model returned by an adapter, pre-merge.
-
-    ``raw_id`` is the provider-native identifier (e.g.
-    ``anthropic/claude-sonnet-4-6`` for OpenRouter, or ``gpt-4o`` for
-    OpenAI). ``litellm_id`` is the adapter-default dispatch id; the
-    override layer can replace it during merge.
+    """One adapter-discovered model pre-merge; ``raw_id`` is provider-native,
+    ``litellm_id`` is the adapter-default dispatch id (override can replace).
     """
 
     raw_id: str
@@ -54,14 +44,10 @@ class DiscoveryAdapter(Protocol):
 
     name: str
 
-    # Adapter-canonical base URL used for both discovery and LiteLLM
-    # dispatch when the operator hasn't set ``base_url`` in providers
-    # config. ``None`` means: the adapter has no opinion (either the
-    # provider has no fixed host, e.g. self-hosted vLLM, or the host is
-    # already covered by a LiteLLM-native provider that knows its own
-    # default URL). For openai-compatible third parties routed through
-    # ``custom_openai`` (e.g. Vultr), this value is the only place the
-    # dispatch URL comes from when operators omit ``base_url``.
+    # Adapter-canonical fallback URL when the operator omits ``base_url``.
+    # ``None`` means the adapter has no opinion (provider has no fixed host,
+    # or LiteLLM already knows the default). Required for ``custom_openai``
+    # third parties (e.g. Vultr) since LiteLLM has no built-in host.
     default_base_url: str | None
 
     async def discover(

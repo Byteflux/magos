@@ -1,17 +1,6 @@
-"""``GET /v1/models``: list registry entries in OpenAI or Anthropic shape.
-
-The response shape is selected by sniffing inbound headers:
-
-- ``anthropic-version`` or ``x-api-key`` → Anthropic shape
-- otherwise → OpenAI shape (the default; Anthropic clients always send
-  one of those two headers, so the heuristic is unambiguous in practice)
-
-Source of truth is ``app.state.refresher.state.entries``: the same
-registry that drives auto-routing. Deprecated entries are omitted; the
-list is sorted by ``namespaced_id`` for stable output. When no
-refresher is active (registry feature dormant), the list is empty
-rather than 404 so clients can probe the endpoint unconditionally.
-"""
+"""``GET /v1/models``: list live registry entries in OpenAI or Anthropic
+shape (selected by ``anthropic-version`` / ``x-api-key`` header). Empty
+list when registry is dormant. See ``docs/registry.md``."""
 
 from __future__ import annotations
 
@@ -80,7 +69,6 @@ def _anthropic_payload(entries: list[ModelEntry], refresher: Refresher | None) -
 
 
 def register_models_endpoint(app: FastAPI) -> None:
-    """Register ``GET /v1/models`` on ``app``."""
 
     @app.get("/v1/models")
     async def list_models(request: Request) -> JSONResponse:  # type: ignore[unused-ignore]

@@ -1,8 +1,6 @@
 """``/v1/responses`` translate path via ``litellm.aresponses``.
 
-OpenAI Responses in, OpenAI Responses out. Streaming uses named SSE
-events (``event: <type>\\ndata: <json>\\n\\n``) per the Responses wire
-format.
+Streaming uses named SSE events (``event:`` + ``data:`` per chunk).
 """
 
 from __future__ import annotations

@@ -1,28 +1,7 @@
-"""Seam between FastAPI's ``Request`` and the routing/egress pipeline.
-
-:func:`run_endpoint` is the single entry point endpoint handlers call.
-Steps:
-
-1. Read body bytes; parse JSON to dict (400 on parse error or non-object).
-2. Filter inbound headers via
-   :func:`magos.ingress.http.headers.forwardable_headers`.
-3. Build :class:`magos.routing.RoutedRequest` (frozen dataclass; carries
-   ``raw_body``, parsed ``body``, ``method``, ``actual_path``, etc.).
-4. Call :func:`magos.routing.route` with the registry config available
-   on ``app.state``.
-5. On :class:`RouteError` → render the per-endpoint error envelope.
-6. On :class:`RouteDecision` → ``await dispatch_decision(...)`` from
-   :mod:`magos.egress.dispatch`.
-
-Exception ladder around the dispatch call:
-
-- :class:`DispatchError` → 503 envelope (rule-time failures, e.g.
-  missing env var for ``api_key_env``)
-- :class:`pydantic.ValidationError` → 400 (translation-layer schema
-  rejection from inside LiteLLM)
-- :class:`HTTPException` re-raised as-is
-- everything else → 502 ``upstream_failure``
-"""
+"""Seam between FastAPI ``Request`` and the routing/egress pipeline.
+:func:`run_endpoint` is the single call site for endpoint handlers.
+See ``docs/architecture/request-flow.md`` for the full lifecycle and
+exception ladder."""
 
 from __future__ import annotations
 
@@ -83,12 +62,9 @@ async def run_endpoint(
     cfg = cast(RoutingConfig, request.app.state.routing)
     refresher = cast("Refresher | None", request.app.state.refresher)
     registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
-    # Routing is sync by design but can block on Headroom's Kompress
-    # thread-locked singleton during a cold-cache download (the lock is
-    # held for the full HF download, easily 5-10s on first run).
-    # Offload to a worker thread so the asyncio loop keeps servicing
-    # other requests, and, critically, so the embedded mitm proxy can
-    # flush bytes back to the client instead of stalling the TLS stream.
+    # Offload to a worker thread: routing is sync but can block on the
+    # Kompress thread-locked singleton during a cold HF download (5-10s),
+    # which would stall the asyncio loop and the embedded mitm TLS stream.
     decision_or_err = await asyncio.to_thread(
         route,
         routed,
@@ -127,7 +103,6 @@ async def run_endpoint(
         )
         return _render_route_error(err)
     except ValidationError as exc:
-        # Translation-layer schema check rejected the body; surface as 400.
         raise HTTPException(status_code=400, detail=exc.errors()) from exc
     except HTTPException:
         raise

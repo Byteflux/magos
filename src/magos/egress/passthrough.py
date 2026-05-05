@@ -1,19 +1,6 @@
-"""HTTP-level passthrough for same-shape requests.
+"""Byte-exact same-shape forwarding via httpx.
 
-When a client and the resolved upstream speak the same wire shape, no
-translation is needed: forwarding the request bytes and headers verbatim
-preserves auth (``Authorization`` bearer or ``x-api-key``), version pins,
-beta feature flags, and the provider's billing surface exactly. For
-Anthropic specifically it preserves prompt-cache hashes (any body re-
-serialisation breaks them) and forwards Claude-Code-style OAuth + beta
-header sets unchanged.
-
-The functions here are shape-agnostic: the caller passes ``path``
-(``/v1/messages``, ``/v1/responses``, ...) and the dispatcher in
-``magos.egress.dispatch`` chooses based on the matched rule's endpoint.
-LiteLLM is intentionally NOT involved on this path: any SDK round-trip
-would re-build the request from a parsed body, defeating byte-exactness
-even when the upstream wire shape happens to match.
+See ``docs/architecture/request-flow.md`` for the byte-exactness contract.
 """
 
 from __future__ import annotations
@@ -49,17 +36,8 @@ async def stream_passthrough(
 ) -> AsyncIterator[bytes]:
     """Stream-forward a same-shape request to ``upstream_base_url + path``.
 
-    Forwards raw request bytes verbatim (no JSON parse + re-serialise) so
-    the upstream sees a byte-identical body. For Anthropic this is
-    required for prompt caching: cache hashes are computed between
-    ``cache_control`` breakpoints, and any whitespace shift breaks the
-    lookup, billing the request as fresh long-context input.
-
-    Yields raw chunks from the upstream response so the client receives
-    the SSE framing exactly as the upstream emitted it.
-
-    ``transport`` is for tests (httpx.MockTransport); production leaves
-    it unset so the real network is used.
+    Body bytes are forwarded verbatim; any re-serialise breaks Anthropic
+    prompt-cache lookup. ``transport`` is a test seam (httpx.MockTransport).
     """
     url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info(
@@ -97,16 +75,9 @@ async def call_passthrough(
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[int, bytes, str]:
-    """Non-streaming same-shape passthrough.
-
-    Forwards raw bytes verbatim so prompt caching (Anthropic) is
-    preserved. Returns ``(status_code, body_bytes, content_type)`` so
-    the server endpoint can mirror the upstream's status and
-    content-type back to the client.
-    """
+    """Non-streaming same-shape passthrough; returns ``(status, body, content_type)``."""
     url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info("passthrough.call", url=url, method=method, model=model_hint, body_size=len(raw_body))
-    # GET/DELETE typically have no body; httpx accepts empty content cleanly.
     async with _make_client(transport) as client:
         resp = await client.request(method, url, content=raw_body, headers=forward_headers)
     return (
@@ -117,7 +88,7 @@ async def call_passthrough(
 
 
 def httpx_text_to_json(raw: bytes) -> str:
-    """Tiny helper: best-effort JSON-string-encode an upstream error body."""
+    """Best-effort JSON-string-encode an upstream error body."""
     try:
         return json.dumps(raw.decode("utf-8", errors="replace"))
     except Exception:

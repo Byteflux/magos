@@ -1,20 +1,6 @@
-"""Declarative process-level configuration for magos.
+"""Process-level env settings (``MagosSettings``) and ``MAGOS_HOME`` anchor.
 
-``MagosSettings`` covers the small set of knobs that belong in the process
-environment: bind address, log/trace setup, and the path to ``magos.yaml``.
-Routing-shape decisions (passthrough toggling, count_tokens mode, provider
-lookup) live in ``magos.yaml`` and reach the app via ``app.state.routing``;
-this module owns only what an operator sets via env or ``.env``.
-
-``MAGOS_HOME`` is a bootstrap-only env var (no settings field): it anchors
-the defaults for ``MAGOS_CONFIG_PATH`` and the registry's ``models.json``
-path, and is the directory that relative ``registry.models_path`` values
-resolve against. Defaults to ``~/.magos`` when unset.
-
-Example::
-
-    MAGOS_PORT=9000 MAGOS_LOG_JSON=1 MAGOS_HOME=/srv/magos \\
-      python -m magos
+See ``docs/architecture/env-vars.md``.
 """
 
 from __future__ import annotations
@@ -30,13 +16,7 @@ KompressBackend = Literal["auto", "pytorch"]
 
 
 def magos_home() -> Path:
-    """Return the magos data directory (``MAGOS_HOME`` or ``~/.magos``).
-
-    Bootstrap-only env var: not a ``MagosSettings`` field. Read directly
-    from the environment so the result is consistent across the
-    ``config_path`` default factory, ``resolve_models_path`` defaults,
-    and any future caller that needs the data directory anchor.
-    """
+    """Return the magos data directory (``MAGOS_HOME`` or ``~/.magos``)."""
     raw = os.environ.get("MAGOS_HOME")
     if raw:
         return Path(raw).expanduser()
@@ -108,7 +88,7 @@ class MagosSettings(BaseSettings):
     @field_validator("mitm_intercept_hosts", mode="before")
     @classmethod
     def _split_intercept_hosts(cls, v: object) -> object:
-        """Allow comma-separated env strings (``MAGOS_MITM_INTERCEPT_HOSTS=a.com,b.com``)."""
+        # MAGOS_MITM_INTERCEPT_HOSTS=a.com,b.com -> ("a.com", "b.com").
         if isinstance(v, str):
             return tuple(host.strip() for host in v.split(",") if host.strip())
         return v
@@ -188,5 +168,4 @@ class MagosSettings(BaseSettings):
 
 
 def get_settings() -> MagosSettings:
-    """Construct fresh settings from the current environment."""
     return MagosSettings()

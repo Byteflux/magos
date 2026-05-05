@@ -1,21 +1,4 @@
-"""FastAPI app factory.
-
-:func:`create_app` is the canonical entry to build the ASGI app.
-Tests pass ``routing`` (and optionally ``registry``) directly to skip
-the YAML round-trip; production calls
-:func:`magos.config.loader.load_full_config` via the no-arg path.
-
-App-state slots (read by handlers, lifespan, and admin endpoints):
-
-- ``app.state.routing``         : :class:`magos.routing.RoutingConfig`
-- ``app.state.registry_config`` : :class:`magos.registry.schema.RegistryYaml`
-- ``app.state.refresher``       : :class:`Refresher` or ``None`` when
-                                  ``providers:`` is empty
-
-A ``Refresher`` is constructed when the registry block declares any
-providers; otherwise the registry feature is dormant and routing
-rules behave exactly as before.
-"""
+"""FastAPI app factory. See ``docs/architecture/startup.md``."""
 
 from __future__ import annotations
 
@@ -37,15 +20,6 @@ from magos.telemetry.metrics import mount_metrics_endpoint
 
 
 def _resolve_models_path(registry_cfg: RegistryYaml, override: str | None) -> Path:
-    """Resolve the registry block's ``models_path`` against precedence rules.
-
-    Delegates to :func:`magos.config.loader.resolve_models_path` so server
-    boot, CLI ``list --from-disk``, and CLI ``show`` all agree on the
-    same file regardless of CWD. ``override`` carries
-    ``MAGOS_MODELS_PATH`` (via ``MagosSettings.models_path``) and wins
-    over the yaml value. ``models.json`` is server-owned: out-of-
-    process readers are fine; the only writer is the Refresher.
-    """
     from magos.config.loader import resolve_models_path  # noqa: PLC0415
 
     return resolve_models_path(registry_cfg, override=override)
@@ -56,13 +30,7 @@ def create_app(
     *,
     registry: RegistryYaml | None = None,
 ) -> FastAPI:
-    """Build the FastAPI app, loading routing + registry config from disk.
-
-    Tests can pass ``routing`` (and optionally ``registry``) directly to
-    skip the YAML round-trip; in that case ``MAGOS_CONFIG_PATH`` is
-    ignored. When ``routing`` is omitted, both halves are parsed from
-    ``MAGOS_CONFIG_PATH`` via :func:`magos.config.loader.load_full_config`.
-    """
+    """Build the FastAPI app. ``routing`` passed in skips the yaml load (test seam)."""
     settings = MagosSettings()
     if routing is None:
         full = load_full_config(settings.config_path)

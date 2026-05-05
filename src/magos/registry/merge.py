@@ -1,18 +1,8 @@
-"""Field-precedence merge across override / discovery / litellm sources.
+"""Field-precedence merge: override > discovery > litellm.
 
-Precedence (highest first):
-
-    1. override   - operator-authored values in ``magos.yaml``
-    2. discovery  - live values from the provider's discovery adapter
-    3. litellm    - bundled-registry fallback via ``litellm.get_model_info``
-
-For each field we walk the chain in order and take the first non-``None``
-value. ``sources`` on the final ``ModelEntry`` records the contributors
-that supplied at least one field, in priority order, as audit trail.
-
-The merge is pure: it only consumes ``PartialEntry`` values plus the
-identifiers (``provider``, ``raw_id``, ``litellm_id`` adapter default)
-the caller already resolved upstream.
+Pure function over ``PartialEntry`` plus pre-resolved identifiers.
+``sources`` records contributors in priority order. See
+``docs/registry/overview.md``.
 """
 
 from __future__ import annotations
@@ -42,10 +32,8 @@ def merge(
     discovered: PartialEntry | None = None,
     litellm_fallback: PartialEntry | None = None,
 ) -> ModelEntry:
-    """Combine partials into a ``ModelEntry`` honoring precedence.
-
-    ``default_litellm_id`` is the adapter-computed dispatch id used when
-    no source supplies a ``litellm_id``. The override layer can replace it.
+    """Combine partials into a ``ModelEntry``; ``default_litellm_id`` is
+    the dispatch id used when no source supplies one.
     """
     chain_named: tuple[tuple[str, PartialEntry | None], ...] = (
         ("override", override),

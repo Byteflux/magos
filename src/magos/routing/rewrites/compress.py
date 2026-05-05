@@ -1,29 +1,8 @@
 """Headroom-driven context compression as a routing rewrite.
 
-Two modes:
-
-- ``mode: token``: full compression pipeline (IntelligentContext etc.)
-  against ``messages``. Uses LiteLLM's ``get_model_info`` (or the
-  registry's ``context_size``) to size the token budget so transforms
-  fire at the right thresholds. Bails to no-op if Headroom or its
-  optional deps don't import.
-- ``mode: cache``: CacheAligner only. Replaces high-entropy tokens
-  (UUIDs, timestamps, request ids) with stable placeholders so the
-  Anthropic prompt-cache prefix doesn't drift across requests.
-
-Endpoint dispatch:
-
-- ``/v1/messages``, ``/v1/messages/count_tokens``, ``/v1/chat/completions``
-  → operate on ``body['messages']``.
-- ``/v1/responses`` → ``mode: cache`` only, operates on
-  ``body['instructions']``. Token-mode against Responses ``input`` is
-  unsupported (different shape, no upstream Headroom path).
-- Other endpoints → no-op.
-
-Headroom's ``compress()`` already wraps its pipeline in try/except and
-emits failure metrics; we don't double-wrap. Import errors on the
-heavy optional deps (kompress weights, sentence_transformers) are
-swallowed with a log so a missing extra cannot take the proxy down.
+Two modes (``token`` / ``cache``) and per-endpoint scoping; see
+``docs/headroom/pipeline.md`` for the dispatch matrix and failure modes.
+Heavy optional deps (kompress, sentence_transformers) are import-guarded.
 """
 
 from __future__ import annotations
@@ -41,9 +20,8 @@ from magos.telemetry import get_logger
 
 log = get_logger("magos.routing.rewrites")
 
-# /v1/responses uses ``input`` (string or list of items), not ``messages``.
-# Headroom's compress() expects ``messages``-shaped input; until an adapter
-# exists we skip token-mode compression on the responses endpoint family.
+# Endpoints whose body has a ``messages`` array compatible with Headroom's
+# pipeline. /v1/responses uses ``input`` instead and is handled separately.
 _COMPRESS_SUPPORTED_ENDPOINTS: frozenset[str] = frozenset(
     {"/v1/messages", "/v1/messages/count_tokens", "/v1/chat/completions"}
 )
@@ -63,7 +41,7 @@ _MODEL_LIMIT_CACHE: dict[str, int] = {}
 def apply_compress(
     req: RoutedRequest, rw: Compress, *, registry: RegistryState | None = None
 ) -> RoutedRequest:
-    """Top-level entry; dispatches by endpoint and mode."""
+    """Dispatch by endpoint and mode."""
     return _apply_compress(req, rw.compress, registry=registry)
 
 
@@ -84,10 +62,9 @@ def _apply_compress(  # noqa: PLR0911
     if not isinstance(messages, list) or not messages:
         return req
 
-    # Lazy import: headroom transitively pulls heavy deps (tokenizers,
-    # optional sklearn/sentence-transformers); only pay that cost on rules
-    # that actually use compress. Preload sentence_transformers first to
-    # win the native-load order race on Windows.
+    # Lazy import: headroom pulls heavy deps; only pay the cost when used.
+    # Preload sentence_transformers first to win the Windows native-load race
+    # (see ``docs/headroom/pipeline.md``).
     _preload_sentence_transformers()
     try:
         from headroom import compress as _hr_compress  # noqa: PLC0415
@@ -101,9 +78,8 @@ def _apply_compress(  # noqa: PLR0911
     if opts.mode == "cache":
         return _apply_cache_aligner(req, messages, model)
 
-    # Per-rule override wins; otherwise auto-detect via LiteLLM's registry
-    # so IntelligentContext fires at the right threshold and ContentRouter
-    # scales pressure correctly for the actual destination model.
+    # Per-rule override wins; else auto-detect so transforms fire at the
+    # right threshold for the destination model.
     model_limit = (
         opts.model_limit
         if opts.model_limit is not None
@@ -145,7 +121,7 @@ def _apply_compress(  # noqa: PLR0911
 
 
 def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) -> RoutedRequest:
-    """Run CacheAligner on chat-shape ``messages``."""
+    """CacheAligner on chat-shape ``messages``."""
     result = _run_cache_aligner(messages, model, endpoint=req.endpoint)
     if result is None:
         return req
@@ -162,15 +138,7 @@ def _apply_cache_aligner(req: RoutedRequest, messages: list[Any], model: str) ->
 
 
 def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> RoutedRequest:
-    """Cache-align the ``/v1/responses`` ``instructions`` field.
-
-    Only ``mode: cache`` is supported on Responses, and only against the
-    top-level ``instructions`` string (the OpenAI analogue of the chat
-    ``system`` prompt). Token-mode compression of ``input`` is not
-    supported: its shape (string-or-list-of-typed-items) doesn't round-
-    trip cleanly through Headroom's ``messages``-shaped pipeline, and
-    Headroom has no upstream Responses path of its own.
-    """
+    """Cache-align the ``/v1/responses`` ``instructions`` field; token mode unsupported."""
     if opts.mode != "cache":
         log.debug(
             "compress.responses_token_mode_unsupported",
@@ -184,10 +152,8 @@ def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> Rout
         return req
 
     model = str(req.body.get("model", "")) or "gpt-4o"
-    # Wrap the instructions string as a synthetic system message so the
-    # CacheAligner's system-prompt branch fires. The aligner mutates the
-    # message's ``content`` in place; we read it back and write it to the
-    # ``instructions`` field. No new messages are introduced.
+    # Wrap as a synthetic system message so the aligner's system-prompt
+    # branch fires; we read the mutated content back into ``instructions``.
     synthetic = [{"role": "system", "content": instructions}]
     result = _run_cache_aligner(synthetic, model, endpoint=req.endpoint)
     if result is None:
@@ -210,11 +176,7 @@ def _apply_compress_responses(req: RoutedRequest, opts: CompressOptions) -> Rout
 
 
 def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any:
-    """Run CacheAligner.apply().
-
-    Returns the ``TransformResult`` on success, or ``None`` if the deps
-    couldn't load, the aligner declared no-op, or apply raised.
-    """
+    """Return the ``TransformResult``, or ``None`` on import / no-op / apply failure."""
     _preload_sentence_transformers()
     try:
         from headroom.config import CacheAlignerConfig  # noqa: PLC0415
@@ -230,8 +192,7 @@ def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any
         )
         return None
 
-    # Headroom defaults ``CacheAlignerConfig.enabled=False`` (the transform is
-    # opt-in); ``mode: cache`` is exactly that opt-in, so flip it on here.
+    # Headroom defaults ``CacheAlignerConfig.enabled=False``; flip on for ``mode: cache``.
     aligner = CacheAligner(CacheAlignerConfig(enabled=True))
     tokenizer = Tokenizer(EstimatingTokenCounter(), model=model)
     if not aligner.should_apply(messages, tokenizer, model=model):
@@ -256,13 +217,7 @@ def _resolve_model_limit(
     registry: RegistryState | None = None,
     default: int = _DEFAULT_MODEL_LIMIT,
 ) -> int:
-    """Look up the max input-token window for ``dispatch_model``.
-
-    Resolution order: registry context_size, then ``litellm.get_model_info``
-    (max_input_tokens / max_tokens), then ``default``. Result is cached
-    per ``dispatch_model`` (registry hits skip the cache so refreshes
-    flow through immediately).
-    """
+    """Resolve the max input-token window. See ``docs/headroom/model-limit.md``."""
     registry_limit = _registry_context_size(dispatch_model, registry)
     if registry_limit is not None:
         return registry_limit
@@ -272,8 +227,7 @@ def _resolve_model_limit(
 
     limit = default
     try:
-        # LiteLLM prints a multi-line provider list to stderr on unknown
-        # models. Suppress it; the routing log already captures the model.
+        # Suppress LiteLLM's noisy stderr provider list on unknown models.
         with contextlib.redirect_stderr(io.StringIO()):
             import litellm  # noqa: PLC0415
 
@@ -297,7 +251,7 @@ def _resolve_model_limit(
 
 
 def _registry_context_size(model: str, registry: RegistryState | None) -> int | None:
-    """Return the registry's ``context_size`` for ``model`` if known."""
+    """Registry ``context_size`` for ``model`` if known."""
     if registry is None:
         return None
     direct = registry.get(model)
@@ -310,12 +264,11 @@ def _registry_context_size(model: str, registry: RegistryState | None) -> int | 
 
 
 def _preload_sentence_transformers() -> None:
-    """Force-import ``sentence_transformers`` before any headroom import.
+    """Force-import ``sentence_transformers`` to win the Windows native-load race.
 
-    Workaround for a Windows native-load order interaction: importing
-    ``cryptography.hazmat.bindings._rust`` before ``sentence_transformers``
-    causes pyarrow's ``.pyd`` to segfault during ``create_module``. See
-    ``docs/headroom.md`` for the full bisection.
+    Importing ``cryptography.hazmat.bindings._rust`` before
+    ``sentence_transformers`` segfaults pyarrow's ``.pyd`` on Windows. See
+    ``docs/headroom/pipeline.md`` for the full bisection.
     """
     with contextlib.suppress(Exception):
         import sentence_transformers  # noqa: F401, PLC0415

@@ -1,13 +1,7 @@
-"""OTel metrics and structlog helpers for the registry.
+"""OTel metrics + structlog helpers for the registry.
 
-Module-level instruments bind to the OTel global meter at import time.
-The ``MeterProvider`` is configured by the server lifespan when
-``MAGOS_METRICS_ENABLED=1``; without it, OTel's no-op default catches
-the calls. Tests install an ``InMemoryMetricReader`` against a local
-provider before importing this module.
-
-Naming follows ``magos.registry.<noun>.<verb>`` to match the rest of
-the codebase. Units are explicit on histograms.
+Instruments bind to the OTel global meter at import time. See
+``docs/registry/observability.md``.
 """
 
 from __future__ import annotations

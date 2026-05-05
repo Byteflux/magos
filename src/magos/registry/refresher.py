@@ -1,17 +1,8 @@
-"""Async lifecycle controller for the registry.
+"""Async lifecycle owner for the registry.
 
-Owns the in-memory ``RegistryState`` and persists to disk after every
-successful refresh. Per-provider refresh tasks run on each provider's
-interval (default from ``RegistrySettings.refresh_interval``, overridable
-per provider). Boot discovery uses tighter timeouts and fewer attempts
-than background refresh, matching the design that boot should give up
-fast (so unrelated providers can come up) while background can be patient
-(prior state is preserved on failure).
-
-The Refresher is the only writer to ``models.json``; every replacement
-goes through ``_apply`` under a single ``asyncio.Lock`` so on-disk and
-in-memory state never disagree. Adapters and HTTP-client factory are
-injectable so tests can pass synthetic implementations.
+Per-provider refresh tasks; boot discovery has tighter timeouts and
+fewer attempts than background. Sole writer to ``models.json`` (under
+one ``asyncio.Lock``). See ``docs/registry/overview.md``.
 """
 
 from __future__ import annotations
@@ -130,15 +121,10 @@ class Refresher:
         return cfg.refresh_interval or self._registry_settings.refresh_interval
 
     async def _boot_discover_missing_providers(self) -> None:
-        """Aggressive parallel discovery for providers absent from disk state.
+        """One-shot tight-timeout discovery for providers absent from disk.
 
-        On boot, providers that already have entries in ``models.json``
-        (i.e. survived a prior run) skip discovery; they will be
-        refreshed on their normal interval. Providers with zero entries
-        get a one-shot discovery attempt with tight timeouts; failure
-        just leaves the provider empty until the background loop catches
-        up, per the "boot with empty registry for failing providers"
-        decision.
+        Providers already present skip; failure leaves the provider empty
+        until the background loop catches up.
         """
         boot_timeout = self._registry_settings.boot_discovery_timeout_seconds
         boot_attempts = self._registry_settings.boot_discovery_max_attempts
@@ -165,14 +151,11 @@ class Refresher:
     ) -> None:
         """Run one refresh, swallowing every exception so the loop survives.
 
-        ``_refresh_loop`` calls this on every interval; if anything escapes,
-        the asyncio Task dies and the strong reference held in
-        ``self._tasks`` prevents the "Task exception was never retrieved"
-        warning from ever firing; periodic refresh would silently stop
-        forever. ``DiscoveryError`` is the expected failure (transport,
-        auth, malformed catalog) and gets a structured warning;
-        anything else is a bug we want to see in the logs but must not
-        let take the loop down.
+        Unhandled exceptions kill the asyncio Task silently because
+        ``self._tasks`` holds a strong reference; that suppresses the
+        "Task exception was never retrieved" warning and refresh stops
+        forever. ``DiscoveryError`` is expected (transport/auth/parse);
+        anything else is a bug we surface via ``log.exception``.
         """
         try:
             await self._refresh_one(
@@ -197,9 +180,7 @@ class Refresher:
         interval = self._interval_for(provider_name)
         cfg = self._config.providers[provider_name]
         if cfg.discovery == "noop" or cfg.discovery is None:
-            # No-op providers don't refresh; their manual entries are
-            # already merged by start() during boot discovery (or, if the
-            # disk state had them, by the load).
+            # noop providers process their manual entries once, then idle.
             await self._merge_manual_only(provider_name)
             return
         while not self._stopped.is_set():
@@ -279,16 +260,9 @@ class Refresher:
         cfg: ProviderConfig,
         result: DiscoveryResult,
     ) -> dict[str, ModelEntry]:
-        """Build the fresh entry set for ``provider_name`` from a discovery.
-
-        Discovery models contribute via the discovery slot; for each model
-        we layer the matching ``models[raw_id]`` override on top and pull
-        a litellm fallback for any field both layers leave unset.
-
-        Manual-only entries (override keys not seen in discovery) are
-        synthesized as if discovery had returned an empty PartialEntry
-        for them; the override layer supplies the dispatch id and any
-        fields the operator declared.
+        """Build fresh entries for ``provider_name``: discovered models +
+        their overrides + litellm fallback, plus override-only entries
+        (those not seen in discovery) synthesised manually.
         """
         fresh: dict[str, ModelEntry] = {}
         seen_raw_ids: set[str] = set()
@@ -342,11 +316,7 @@ class Refresher:
     async def _apply(
         self, provider_name: str, fresh_entries: Mapping[str, ModelEntry]
     ) -> _RefreshDiff:
-        """Atomic state swap + disk persistence for one provider's slice.
-
-        Returns a ``_RefreshDiff`` with the per-provider counts the
-        observability layer needs (added / deprecated / pruned / total).
-        """
+        """Atomic state swap + persist; returns per-provider delta counts."""
         async with self._lock:
             now = self._clock()
             grace = self._registry_settings.deprecation_grace_seconds
@@ -389,11 +359,7 @@ def _effective_litellm_id(default: str, override: ModelOverride | None) -> str:
 
 
 def _default_manual_litellm_id(provider_name: str, cfg: ProviderConfig, raw_id: str) -> str:
-    """Construct a dispatch id for a manual-only entry.
-
-    Mirrors how each adapter would have prefixed it: ``litellm_provider``
-    if set, otherwise the magos provider name.
-    """
+    """``<litellm_provider or provider_name>/<raw_id>`` for manual-only entries."""
     prefix = cfg.litellm_provider or provider_name
     return f"{prefix}/{raw_id}"
 
@@ -413,13 +379,8 @@ def _diff_provider(
     prev_entries: Mapping[str, ModelEntry],
     next_entries: Mapping[str, ModelEntry],
 ) -> _RefreshDiff:
-    """Compute per-provider deltas across one refresh cycle.
-
-    ``added`` counts namespaced ids that were absent in ``prev_entries``;
-    ``deprecated`` counts entries whose ``deprecated_at`` flipped from
-    None to a timestamp this cycle; ``pruned`` counts entries removed
-    entirely. ``total`` is the post-refresh active count, including
-    still-marked deprecated entries that haven't aged out.
+    """Per-provider deltas: added/deprecated/pruned plus post-refresh total
+    (including still-marked deprecated entries within the grace window).
     """
     prev_for_provider = {k: e for k, e in prev_entries.items() if e.provider == provider}
     next_for_provider = {k: e for k, e in next_entries.items() if e.provider == provider}

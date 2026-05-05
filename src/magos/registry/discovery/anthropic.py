@@ -1,17 +1,9 @@
 """Anthropic ``GET /v1/models`` adapter.
 
-Anthropic's models endpoint returns ``{data: [{id, display_name, type,
-created_at}, ...]}``. No context window, no pricing, no modality flags.
-We pass through ``id``; field-precedence merging in
-``magos.registry.merge`` fills the rest from LiteLLM's bundled registry
-or operator overrides.
-
-Auth uses the ``x-api-key`` header (Anthropic's convention) plus the
-``anthropic-version`` header, both required by the API. Claude-Code-
-style OAuth tokens (``sk-ant-oat...``) are detected and sent as
-``Authorization: Bearer ...`` with the ``anthropic-beta: oauth-2025-04-20``
-opt-in header instead, which is what api.anthropic.com expects for that
-credential class.
+Endpoint returns just ``id``; merge fills the rest. ``sk-ant-oat...``
+OAuth tokens use ``Authorization: Bearer`` + ``anthropic-beta:
+oauth-2025-04-20``; everything else uses ``x-api-key``. All requests
+require ``anthropic-version: 2023-06-01``.
 """
 
 from __future__ import annotations
@@ -37,9 +29,7 @@ _OAUTH_BETA = "oauth-2025-04-20"
 
 class AnthropicAdapter:
     name = "anthropic"
-    # LiteLLM's anthropic provider already knows api.anthropic.com; no
-    # need to override unless a future deployment uses an alternate host
-    # (Bedrock, Vertex, internal proxy).
+    # LiteLLM's anthropic provider already knows the host.
     default_base_url: str | None = None
 
     async def discover(
@@ -79,9 +69,8 @@ class AnthropicAdapter:
                 DiscoveredModel(
                     raw_id=raw_id,
                     litellm_id=litellm_id,
-                    # Stamp litellm_id on the partial so merge records
-                    # 'discovery' in sources even though Anthropic's models
-                    # endpoint returns no enrichable fields.
+                    # Stamp ``litellm_id`` so merge records ``discovery``
+                    # in sources; endpoint returns no other enrichable fields.
                     partial=PartialEntry(litellm_id=litellm_id),
                 )
             )

@@ -1,16 +1,4 @@
-"""Load and validate ``magos.yaml`` routing config.
-
-Validation splits across pydantic (structural: types, single-key unions,
-required fields) and post-load checks here:
-
-- regex patterns compile via ``re.compile``
-- glob patterns translate via ``fnmatch.translate``
-- jq programs compile via ``jq.compile``
-- ``mode: passthrough`` requires ``base_url``
-- a structlog warning fires per rule whose ``mode`` is ``passthrough`` and
-  whose body-touching rewrites (post or pre) would force re-serialisation,
-  breaking prompt-cache byte-exactness.
-"""
+"""Load and validate ``magos.yaml`` routing config. See ``docs/routing/errors.md``."""
 
 from __future__ import annotations
 
@@ -53,10 +41,8 @@ class RoutingConfigError(ValueError):
     """Raised on post-load validation failures (semantic, not structural)."""
 
 
-# Keys ``RoutingConfig`` knows about. Extra top-level keys are tolerated
-# at the loader level so the same YAML can carry registry blocks
-# (``providers:``, ``provider_order:``, ``registry:``); ``RoutingConfig``
-# itself stays strict (``extra="forbid"``) for direct callers.
+# Top-level extras tolerated so the same YAML can carry registry blocks
+# (``providers:`` etc.); ``RoutingConfig`` itself stays ``extra="forbid"``.
 _ROUTING_KEYS: frozenset[str] = frozenset({"pre_rewrites", "rules"})
 
 
@@ -117,11 +103,7 @@ def _iter_jq_atoms(expr: MatchExpr) -> Iterator[JqAtom]:
 
 
 def _validate_compiled(cfg: RoutingConfig, *, source: str) -> None:
-    """Compile every regex, glob, and jq program; raise on first failure.
-
-    Errors include the rule label and the offending pattern so the operator
-    can fix the YAML without grepping the stack trace.
-    """
+    """Compile every regex, glob, and jq program; raise on first failure with rule label."""
     for idx, rule in enumerate(cfg.rules):
         label = _rule_label(rule, idx)
         for matcher in _iter_matchers(rule.match):
@@ -156,8 +138,7 @@ def _check_matcher(matcher: Matcher, *, where: str) -> None:
         except re.error as exc:
             raise RoutingConfigError(f"{where}: invalid regex {matcher.regex!r}: {exc}") from exc
     elif isinstance(matcher, GlobMatcher):
-        # ``fnmatch.translate`` returns a regex string; compile it to surface
-        # any glob-syntax error as a real exception. Stable across CPython.
+        # Translate to regex and compile to surface glob-syntax errors.
         try:
             re.compile(fnmatch.translate(matcher.glob))
         except re.error as exc:
@@ -173,12 +154,7 @@ def _check_rewrite(rw: Rewrite, *, where: str) -> None:
 
 
 def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
-    """Reject ``mode: passthrough`` rules that omit ``base_url``.
-
-    Passthrough forwards raw bytes to ``action.base_url``; without one we
-    have no upstream to send to. Translate mode goes through litellm which
-    knows the upstream from the provider, so it does not need ``base_url``.
-    """
+    """Reject ``mode: passthrough`` rules that omit ``base_url`` (no upstream to forward to)."""
     for idx, rule in enumerate(cfg.rules):
         if rule.action.mode == "passthrough" and not rule.action.base_url:
             label = _rule_label(rule, idx)
@@ -192,24 +168,13 @@ def _rewrites_touch_body(rewrites: Iterable[Rewrite]) -> bool:
 
 
 def _pre_rewrites_unconditionally_touch_body(entries: Iterable[PreRewrite]) -> bool:
-    """True iff a bare body-touching rewrite sits in pre_rewrites.
-
-    ``GuardedRewrites`` entries are excluded: the operator is opting in to
-    selective application, and we trust their match expression. The warning
-    only fires for rewrites that run on every request regardless of route.
-    """
+    """True iff a bare (non-guarded) body-touching rewrite sits in pre_rewrites."""
     bare = [e for e in entries if not isinstance(e, GuardedRewrites)]
     return _rewrites_touch_body(bare)
 
 
 def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:
-    """Debug-log per rule that combines body-touching rewrites with passthrough.
-
-    Body-touching pre_rewrites (e.g. ``compress``) reach passthrough rules
-    too, modifying what the upstream sees. That is often intentional, so
-    the signal sits at debug level; raise log_level to DEBUG to surface it
-    when investigating cache behavior. ``GuardedRewrites`` are skipped.
-    """
+    """Debug-log passthrough rules that body-touching rewrites would re-serialise."""
     pre_touches = _pre_rewrites_unconditionally_touch_body(cfg.pre_rewrites)
     for idx, rule in enumerate(cfg.rules):
         if rule.action.mode != "passthrough":

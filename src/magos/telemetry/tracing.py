@@ -1,9 +1,8 @@
 """OpenTelemetry tracer setup and the ``traced`` decorator.
 
-Tracing only ships spans when ``MAGOS_OTEL_ENABLED=1`` (or when the
-caller passes ``enabled=True`` explicitly). Until ``configure_tracing``
-runs, ``traced`` wraps calls in OTel's no-op tracer: safe to import
-and decorate with at module load time.
+Spans only ship when ``MAGOS_OTEL_ENABLED=1`` (or ``enabled=True``);
+until ``configure_tracing`` runs, ``traced`` wraps calls in OTel's
+no-op tracer.
 """
 
 from __future__ import annotations
@@ -33,9 +32,7 @@ def configure_tracing(
 ) -> None:
     """Wire OTel TracerProvider + OTLP exporter.
 
-    When ``enabled`` is ``None``, falls back to ``MAGOS_OTEL_ENABLED=1`` for
-    backward compatibility. Pass ``enabled`` explicitly from a settings object
-    to keep configuration declarative.
+    When ``enabled`` is ``None``, falls back to ``MAGOS_OTEL_ENABLED=1``.
     """
     if enabled is None:
         enabled = os.environ.get("MAGOS_OTEL_ENABLED", "0") == "1"

@@ -1,19 +1,8 @@
-"""Adapter factory: map provider config to a concrete adapter instance.
+"""Adapter factory: map ``ProviderConfig`` to a concrete adapter.
 
-Kept separate from ``__init__`` so adapters can be added without touching
-the package init, and so the factory can be replaced wholesale in tests
-when adapter selection logic itself is under test.
-
-Inference rules when ``discovery`` is unset:
-
-- ``base_url`` matches openrouter.ai     → ``openrouter``
-- ``base_url`` matches api.anthropic.com → ``anthropic``
-- ``base_url`` matches vultrinference.com → ``vultr``
-- ``base_url`` is set (anything else)    → ``openai``
-- ``base_url`` is unset                  → ``noop`` (manual-only)
-
-Operators can always force an adapter explicitly via ``discovery:``;
-inference only fires when the field is omitted.
+When ``discovery`` is unset, the host of ``base_url`` picks a default;
+unset ``base_url`` falls back to ``noop`` (manual-only). See
+``docs/registry/config.md``.
 """
 
 from __future__ import annotations

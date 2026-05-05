@@ -1,20 +1,7 @@
-"""Pydantic schemas for declarative routing config.
+"""Pydantic schemas for declarative routing config. See ``docs/routing/grammar.md``.
 
-Mirrors the YAML grammar in ``magos.yaml``:
-
-- ``RoutingConfig`` has optional global ``pre_rewrites`` and an ordered list
-  of ``rules``.
-- ``Rule`` has a ``match`` expression, optional per-rule ``rewrites``
-  (post-match), and an ``action``.
-- ``MatchExpr`` is a recursive logical expression: combinators
-  (``all_of`` / ``any_of`` / ``not``) plus atoms (``model`` / ``header`` /
-  ``endpoint`` / ``jq``).
-- Atoms use a tagged ``Matcher`` (``literal`` / ``glob`` / ``regex``)
-  except ``jq`` which is a free-form expression.
-
-Variants of the unions ``Matcher``, ``MatchExpr``, ``Rewrite`` are single-key
-+ ``extra="forbid"``; pydantic's smart-mode union dispatches on the present
-key without an explicit discriminator field.
+Union variants (``Matcher``, ``MatchExpr``, ``Rewrite``) use single-key +
+``extra="forbid"`` so pydantic's smart-mode union dispatches by present key.
 """
 
 from __future__ import annotations
@@ -25,10 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class _Frozen(BaseModel):
-    """Frozen + extra-forbidding base, shared by every routing schema."""
+    """Frozen + extra-forbidding base for every routing schema."""
 
-    # ``populate_by_name`` lets Python callers write ``Not(not_=...)`` since
-    # the alias ``"not"`` is a reserved keyword and can't be a kwarg.
+    # populate_by_name lets callers use ``Not(not_=...)`` since ``not`` is reserved.
     model_config = ConfigDict(frozen=True, extra="forbid", populate_by_name=True)
 
 
@@ -72,18 +58,7 @@ ModelFieldOp = Literal["eq", "gt", "gte", "lt", "lte", "contains", "in"]
 
 
 class ModelFieldExpr(_Frozen):
-    """Test a registry-resolved model field with one operator.
-
-    ``field`` names a ``ModelEntry`` attribute (``context_size``,
-    ``max_output``, ``input_cost``, ``output_cost``,
-    ``cache_read_cost``, ``cache_write_cost``, ``input_modalities``,
-    ``output_modalities``). ``op`` is the comparator. ``value`` is
-    whatever the operator expects: scalars for
-    ``eq``/``gt``/``gte``/``lt``/``lte``, a single string for
-    ``contains`` (membership in a tuple field like
-    ``input_modalities``), or a list for ``in`` (membership of the
-    field's scalar value in a list).
-    """
+    """Registry model-field comparison. See ``docs/registry/matchers.md``."""
 
     field: Literal[
         "context_size",
@@ -115,7 +90,6 @@ class Not(_Frozen):
     not_: MatchExpr = Field(alias="not")
 
 
-# Single-key + extra="forbid" lets pydantic dispatch by which key is present.
 MatchExpr = ModelAtom | HeaderAtom | EndpointAtom | JqAtom | ModelFieldAtom | AllOf | AnyOf | Not
 
 
@@ -153,18 +127,7 @@ CompressMode = Literal["token", "cache"]
 
 
 class CompressOptions(_Frozen):
-    """User-facing compression knobs, mirrors ``headroom.compress.CompressConfig``.
-
-    ``mode``:
-      - ``token``: run the full pipeline (CacheAligner + ContentRouter +
-        IntelligentContext) for maximum token savings; messages may be
-        rewritten or dropped.
-      - ``cache``: run only CacheAligner: extract dynamic content from the
-        system prompt and normalize whitespace so the prefix is byte-stable
-        across requests. Does not touch user/assistant messages.
-
-    All other fields pass through verbatim to ``CompressConfig``.
-    """
+    """Compression knobs; see ``docs/headroom/pipeline.md``."""
 
     mode: CompressMode = "token"
     compress_user_messages: bool = False
@@ -175,12 +138,7 @@ class CompressOptions(_Frozen):
     min_tokens_to_compress: int = Field(default=250, ge=0)
     kompress_model: str | None = None
     model_limit: int | None = Field(default=None, ge=1024)
-    """Override the model's context window in tokens. ``None`` (default)
-    looks up ``max_input_tokens`` via ``litellm.get_model_info(model)`` and
-    falls back to 200000 if the model isn't in LiteLLM's registry. Set
-    explicitly to leave headroom for tool/output budgets, force earlier
-    compression for cost reasons, or pin a value for custom models that
-    LiteLLM doesn't know about."""
+    """Context-window override; ``None`` auto-detects. See ``docs/headroom/model-limit.md``."""
 
 
 class Compress(_Frozen):
@@ -200,14 +158,7 @@ class Action(_Frozen):
     base_url: str | None = None
     api_key_env: str | None = None
     auth_header: AuthHeaderShape | None = None
-    """Override the auth-header shape used when ``api_key_env`` is injected
-    in passthrough mode. Defaults to ``x-api-key`` for ``provider:
-    anthropic`` (matching the official Anthropic API header) and to
-    ``bearer`` for every other provider (the openai-compatible
-    convention used by openai, openrouter, vultr, etc.). Only consulted
-    when no ``Authorization`` / ``x-api-key`` is already present
-    inbound; explicit client headers are always passed through verbatim.
-    """
+    """Auth-header shape override. See ``docs/routing/api-keys.md``."""
 
 
 class Rule(_Frozen):
@@ -218,15 +169,7 @@ class Rule(_Frozen):
 
 
 class GuardedRewrites(_Frozen):
-    """A pre-rewrite group gated by a match expression.
-
-    Used inside ``pre_rewrites`` to restrict body-touching primitives like
-    ``compress`` to a subset of requests (e.g. only ``mode: translate``
-    routes) while still applying them globally without per-rule duplication.
-    A bare ``Rewrite`` entry in ``pre_rewrites`` runs unconditionally; a
-    ``GuardedRewrites`` entry runs only when its ``match`` evaluates true
-    against the request as it stands at that point in the pre-rewrite chain.
-    """
+    """Pre-rewrite group gated by a match expression. See ``docs/routing/grammar.md``."""
 
     match: MatchExpr
     rewrites: list[Rewrite] = Field(min_length=1)

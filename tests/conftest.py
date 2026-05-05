@@ -23,7 +23,7 @@ from __future__ import annotations
 # ``magos.routing.rewrites.compress`` that fires before any request
 # reaches ``compress``; the test suite needs this earlier hook because
 # the mitm addon tests load cryptography unconditionally during
-# collection. See ``docs/headroom.md``.
+# collection. See ``docs/headroom/pipeline.md``.
 import contextlib
 
 with contextlib.suppress(Exception):

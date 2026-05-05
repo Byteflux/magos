@@ -1,15 +1,8 @@
-"""OpenAI-shape ``GET /v1/models`` adapter.
+"""OpenAI-shape ``GET /v1/models`` adapter (OpenAI, vLLM, SGLang, LM Studio).
 
-Targets any server that implements the OpenAI models endpoint: OpenAI
-proper, vLLM, SGLang, LM Studio, etc. The endpoint returns very little:
-``{id, created, owned_by, object}`` per model. We pass through ``id``;
-field-precedence merging in ``magos.registry.merge`` fills the rest from
-``magos.yaml`` overrides or LiteLLM's bundled registry.
-
-``litellm_provider`` on the provider config controls the LiteLLM dispatch
-prefix; if unset, the adapter uses its own default of ``openai``. Local
-inference servers (vLLM, SGLang) typically want this set to ``hosted_vllm``
-or similar so LiteLLM points at the right driver.
+Endpoint returns just ``id``; merge fills the rest. ``litellm_provider``
+defaults to ``openai``; local inference backends typically set
+``hosted_vllm`` or similar.
 """
 
 from __future__ import annotations
@@ -34,11 +27,6 @@ class OpenAIAdapter:
     """Calls ``GET {base_url}/v1/models`` and maps ``data[*].id`` to entries."""
 
     name = "openai"
-    # OpenAI proper is the overwhelming default for ``discovery: openai``;
-    # self-hosted OpenAI-shape backends (vLLM, SGLang, LM Studio) explicitly
-    # set their own ``base_url`` because they're not on api.openai.com, so
-    # defaulting here is a footgun-free way to remove yaml boilerplate for
-    # the common case.
     default_base_url: str | None = _DEFAULT_BASE_URL
 
     async def discover(
@@ -78,10 +66,8 @@ class OpenAIAdapter:
                 DiscoveredModel(
                     raw_id=raw_id,
                     litellm_id=litellm_id,
-                    # Stamp litellm_id on the partial so merge records
-                    # 'discovery' in sources. The endpoint returns no other
-                    # enrichable fields; everything else comes from the
-                    # litellm fallback or operator overrides.
+                    # Stamp ``litellm_id`` so merge records ``discovery``
+                    # in sources; endpoint returns no other enrichable fields.
                     partial=PartialEntry(litellm_id=litellm_id),
                 )
             )

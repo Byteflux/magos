@@ -1,21 +1,7 @@
-"""mitmproxy addon: terminate TLS for allowlisted hosts, rewrite to FastAPI.
-
-Two hooks:
-
-- ``tls_clienthello`` reads the SNI and sets
-  ``data.ignore_connection = True`` for any host outside the allowlist.
-  mitmproxy then forwards the original CONNECT verbatim and never sees
-  the decrypted bytes, so a client pointed at ``HTTPS_PROXY`` can keep
-  using unrelated services without breakage.
-- ``request`` (fired only for intercepted, decrypted flows) rewrites
-  ``host`` / ``port`` / ``scheme`` so the next hop is magos's local
-  FastAPI server. Body, headers, method, and path pass through
-  untouched, which is what the existing routing rules and byte-exact
-  passthrough invariant rely on.
-
-Subdomain matching mirrors :func:`magos.egress.observer._is_llm_host`: any host
-whose suffix is ``.<allowed_host>`` matches.
-"""
+"""mitmproxy addon: TLS-terminate allowlisted hosts, rewrite to FastAPI.
+Non-allowlisted CONNECTs are passed through opaque (``ignore_connection``).
+Subdomain match mirrors :func:`magos.egress.observer._is_llm_host`. See
+``docs/ingress.md``."""
 
 from __future__ import annotations
 
@@ -40,12 +26,8 @@ class MagosIngressAddon:
         self._target_port = target_port
 
     def tls_clienthello(self, data: tls.ClientHelloData) -> None:
-        """Skip TLS interception for hosts not on the allowlist.
-
-        Setting ``ignore_connection`` here makes mitmproxy treat the
-        CONNECT as opaque: the original TLS handshake passes through
-        to the real upstream and we never see the inner bytes.
-        """
+        """Skip TLS interception for non-allowlisted SNIs (sets
+        ``ignore_connection`` so the original handshake passes through)."""
         sni = data.client_hello.sni
         if sni is None or not self._is_intercepted(sni):
             data.ignore_connection = True
@@ -55,9 +37,9 @@ class MagosIngressAddon:
         original_host = flow.request.pretty_host
         if not self._is_intercepted(original_host):
             return
-        # Already at the FastAPI target: likely a re-entrant request from
-        # magos's own outbound httpx if HTTPS_PROXY is set globally. Leave
-        # it alone so the loop is at least visible (not silently swallowed).
+        # Already at the FastAPI target: likely a re-entrant outbound
+        # httpx request if HTTPS_PROXY is set globally. Leave alone so
+        # the loop stays visible rather than silently swallowed.
         if flow.request.host == self._target_host and flow.request.port == self._target_port:
             return
         flow.request.host = self._target_host

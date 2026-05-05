@@ -1,18 +1,4 @@
-"""Routing pipeline: pre-rewrites, match, post-rewrites, decision.
-
-``route()`` is the single public entry point. It returns either a
-``RouteDecision`` describing how the dispatcher should handle the request,
-or a ``RouteError`` carrying the status code and message the server should
-serialise into the per-endpoint error envelope.
-
-The engine is deliberately stateless: every call recompiles regex/jq
-artifacts via the matcher and rewrite layers. The stdlib's ``re`` cache
-covers regex; ``jq.compile`` is fast enough at the current rule counts
-that adding our own cache would be premature.
-
-When a registry is wired in, requests that no explicit rule matches fall
-through to registry-driven auto-routing (see :mod:`magos.routing.auto_route`).
-"""
+"""Routing pipeline: pre-rewrites, match, post-rewrites, decision. See ``docs/routing/pipeline.md``."""
 
 from __future__ import annotations
 
@@ -35,13 +21,7 @@ from magos.routing.schema import Action, GuardedRewrites, RoutingConfig, Rule
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
-    """Outcome of a successful route lookup, consumed by the dispatcher.
-
-    ``entry`` is the registry record that produced an auto-routed
-    decision (None for explicit-rule decisions). Downstream code can
-    use it to read context_size, input/output_modalities, etc. without
-    re-querying the registry.
-    """
+    """Successful route lookup. ``entry`` is set on auto-routed decisions only."""
 
     rule: Rule
     request: RoutedRequest
@@ -57,7 +37,7 @@ class RouteDecision:
         return self.entry is not None
 
     def rule_label(self, idx: int | None = None) -> str:
-        """Stable human-readable identifier for logs."""
+        """Stable identifier for logs."""
         if self.rule.name is not None:
             return self.rule.name
         if idx is not None:
@@ -71,14 +51,7 @@ def apply_pre_rewrites(
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Run the global pre-match rewrites against ``req``.
-
-    Each entry is either a bare ``Rewrite`` (always applied) or a
-    ``GuardedRewrites`` group whose inner rewrites apply only when its
-    ``match`` evaluates true against the request as it stands at that
-    point in the chain. Earlier guarded entries see the original
-    request; later entries see the cumulative effect of the prior ones.
-    """
+    """Run global pre-match rewrites; guarded entries see prior rewrites' effects."""
     out = req
     for entry in cfg.pre_rewrites:
         if isinstance(entry, GuardedRewrites):
@@ -96,7 +69,7 @@ def apply_post_rewrites(
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Run the matched rule's per-rule rewrites against ``req``."""
+    """Run the matched rule's rewrites against ``req``."""
     return apply_rewrites(req, rule.rewrites, registry=registry)
 
 
@@ -108,17 +81,9 @@ def route(
     registry_settings: RegistrySettings | None = None,
     providers: Mapping[str, ProviderConfig] | None = None,
 ) -> RouteDecision | RouteError:
-    """Resolve ``req`` against ``cfg``; first matching rule wins.
+    """Resolve ``req`` against ``cfg``; first matching rule wins, else auto-route.
 
-    On rules-loop fall-through, attempt registry auto-routing if a
-    ``RegistryState`` is supplied. ``registry_settings`` controls the
-    miss behavior (``on_unknown_model`` field); when omitted, defaults
-    to error-on-unknown. ``providers`` carries the per-provider config
-    block (``api_key_env``, ``base_url``); auto-routed decisions need
-    it because the synthesized translate-mode action has no rule-level
-    creds to fall back on. Without it, the dispatcher hands LiteLLM no
-    api_key/api_base and the call lands on whatever provider default
-    LiteLLM picks (usually ``OPENAI_API_KEY`` against api.openai.com).
+    See ``docs/routing/pipeline.md`` and ``docs/registry/auto-routing.md``.
     """
     pre_applied = apply_pre_rewrites(req, cfg, registry=registry)
     for rule in cfg.rules:
@@ -162,15 +127,10 @@ def _fill_action_from_provider_config(
 ) -> Rule:
     """Backfill missing ``api_key_env`` / ``base_url`` from ``providers``.
 
-    Symmetric to ``auto_route``: a rule whose action declares only
-    ``provider:`` (and omits ``api_key_env`` / ``base_url``) inherits those
-    from ``providers[action.provider]`` if present. Without this, LiteLLM
-    is invoked with no api_key/api_base and silently falls back to its
-    per-provider defaults, e.g. ``OPENAI_API_KEY`` against ``api.openai.com``
-    for the generic ``custom_openai`` provider used by Vultr / hosted vLLM,
-    producing a misleading 401 against a totally unrelated upstream.
-
-    Explicit values on the action win; only ``None`` fields are filled.
+    Without this fill, LiteLLM falls back to its per-provider defaults
+    (e.g. ``OPENAI_API_KEY`` / ``api.openai.com`` for ``custom_openai``-style
+    providers like Vultr or hosted vLLM), producing misleading 401s.
+    See ``docs/routing/api-keys.md``.
     """
     if providers is None or not rule.action.provider:
         return rule
@@ -185,24 +145,7 @@ def _fill_action_from_provider_config(
 def _compute_dispatch_model(
     req: RoutedRequest, action: Action, registry: RegistryState | None
 ) -> str:
-    """Return the model identifier the dispatcher should hand to litellm.
-
-    Passthrough does not go through LiteLLM, so the bare model is preserved
-    for logging only. For translate mode the resolution order is:
-
-    1. Literal registry hit on the body model (``vultr/Qwen/Qwen3.5-...``):
-       substitute ``entry.litellm_id``.
-    2. Registry hit on ``<action.provider>/<model>`` (``Qwen/Qwen3.5-...``
-       with ``provider: vultr``): substitute ``entry.litellm_id``.
-    3. Already namespaced (contains ``/``): return as-is. LiteLLM's bundled
-       provider router resolves names like ``openai/gpt-4o`` natively.
-    4. Bare name: prepend ``<action.provider>/``.
-
-    Steps 1-2 fix the ``custom_openai``-style providers where the magos
-    namespace (``vultr/``) and LiteLLM's dispatch id (``custom_openai/``)
-    diverge: without registry consultation a ``set_model: vultr/...``
-    rewrite would land at LiteLLM with an unknown provider prefix.
-    """
+    """Return the model id to hand LiteLLM. See ``docs/registry/auto-routing.md``."""
     model = str(req.body.get("model", ""))
     if action.mode == "passthrough":
         return model

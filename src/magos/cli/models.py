@@ -1,16 +1,4 @@
-"""``magos models`` Typer subapp: inspect and manage the model registry.
-
-Read commands (``list`` / ``show``) try the running server's admin
-endpoints first and fall back to the on-disk ``models.json`` if the
-server isn't reachable. Mutating commands (``refresh`` / ``prune``)
-require the server. ``discover`` is the odd one out: it bypasses the
-server entirely and queries the discovery adapter directly, useful for
-debugging a provider before wiring it into ``magos.yaml``.
-
-Per-state-loading and print helpers live in :mod:`magos.cli._helpers`
-so future subapps can reuse them without re-implementing the
-env-over-yaml bind layering.
-"""
+"""``magos models`` subapp: inspect and manage the model registry. See ``docs/cli.md``."""
 
 from __future__ import annotations
 

@@ -1,15 +1,9 @@
 """Capture the full HTTP request the Claude CLI sends to ANTHROPIC_BASE_URL.
 
-Spins up a pure echo server that records the first incoming request, points
-the agent SDK at it via ANTHROPIC_BASE_URL, runs a tiny query, and prints
-method + path + headers + body of what Claude CLI actually sent.
+Spins up an echo server, points the agent SDK at it via ANTHROPIC_BASE_URL,
+runs a tiny query, and prints the captured request (auth partially redacted).
 
-Auth is partially redacted so the prefix structure is visible without
-leaking the full bearer token.
-
-Run with::
-
-    uv run python scripts/capture_agent_sdk_request.py
+Run with ``uv run python scripts/capture_agent_sdk_request.py``.
 """
 
 from __future__ import annotations

@@ -1,33 +1,4 @@
-"""Root Typer app: top-level options and subcommands.
-
-Subcommands::
-
-    magos serve                    # run the FastAPI server
-    magos serve --config x.yaml    # with a non-default config
-    magos models list
-    magos models show <id>
-    magos models refresh [--provider X]
-    magos models prune
-    magos models discover --provider X [--dry-run / --no-dry-run]
-
-Invoking ``magos`` with no subcommand prints help; ``serve`` is required
-to start the server.
-
-The ``magos`` script is installed by the ``[project.scripts]`` entry in
-``pyproject.toml``. Inside a uv-managed venv use ``uv run magos …``;
-``python -m magos`` works as an alternative invocation.
-
-Config resolution order (highest first):
-
-1. CLI flags ``--home`` / ``--config`` / ``--models`` (top-level
-   options, before the subcommand)
-2. ``MAGOS_HOME`` / ``MAGOS_CONFIG_PATH`` / ``MAGOS_MODELS_PATH`` env vars
-3. ``~/.magos`` for ``MAGOS_HOME``; ``$MAGOS_HOME/magos.yaml`` and
-   ``$MAGOS_HOME/models.json`` for the other two
-
-All other knobs live in ``MagosSettings`` (see :mod:`magos.config`); set
-them via environment variables prefixed ``MAGOS_`` or a local ``.env``.
-"""
+"""Root Typer app: top-level options and subcommands. See ``docs/cli.md``."""
 
 from __future__ import annotations
 
@@ -101,5 +72,4 @@ def _root(
 
 
 def main() -> None:
-    """Console-script entrypoint."""
     app()

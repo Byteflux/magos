@@ -1,12 +1,6 @@
-"""In-process mitmproxy ingress proxy.
-
-Run alongside FastAPI in a single process so a client pointed at
-``HTTPS_PROXY`` (e.g. Claude Code, which changes behavior when
-``ANTHROPIC_BASE_URL`` is set) can reach magos transparently. The
-ingress addon terminates TLS for configured hosts and rewrites the
-decrypted request to the FastAPI loopback target; everything else
-flows through un-MITM'd. See ``docs/ingress.md`` for setup.
-"""
+"""In-process mitmproxy ingress: terminates TLS for allowlisted hosts
+and rewrites to the FastAPI loopback target so ``HTTPS_PROXY`` clients
+(e.g. Claude Code) reach magos transparently. See ``docs/ingress.md``."""
 
 from __future__ import annotations
 

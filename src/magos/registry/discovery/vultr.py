@@ -1,19 +1,8 @@
 """Vultr Cloud Inference ``GET /v1/models/lookup`` adapter.
 
-Vultr's openai-compatible inference API also exposes a richer per-model
-metadata endpoint. ``/v1/models/lookup`` returns ``context_length`` and
-``cost_input`` / ``cost_output`` for each entry, which the standard
-``/v1/models`` endpoint does not. We hit the lookup endpoint and map the
-extra fields into a ``PartialEntry``.
-
-LiteLLM has no vultr-specific provider, so the adapter defaults
-``litellm_provider`` to ``custom_openai``: LiteLLM's generic
-openai-compatible shape, which requires an explicit ``api_base`` and
-won't silently fall back to ``api.openai.com`` + ``OPENAI_API_KEY``
-the way bare ``openai`` does. Operators must still supply ``base_url``
-and ``api_key_env`` so the dispatcher hands both to LiteLLM. Override
-``litellm_provider`` in the provider config if a future LiteLLM
-release adds vendor-specific support.
+Richer than the bare ``/v1/models`` endpoint: includes context size and
+pricing. Defaults to ``litellm_provider: custom_openai`` (LiteLLM has no
+vultr-native provider); operators must supply ``base_url`` + ``api_key_env``.
 """
 
 from __future__ import annotations

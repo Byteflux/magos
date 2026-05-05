@@ -1,12 +1,7 @@
-"""LiteLLM bundled-registry fallback lookup.
+"""LiteLLM bundled-registry fallback (lowest-precedence source in merge).
 
-LiteLLM ships a JSON registry of known models with context windows, costs,
-and modality/capability flags. We use it as the lowest-precedence source
-in the merge chain: when a provider's discovery omits desired fields and
-no operator override is set, we fall back to whatever LiteLLM knows.
-
-``PartialEntry`` is the normalized shape every source produces; merge then
-layers them by precedence into a final ``ModelEntry``.
+``PartialEntry`` is the normalised shape produced by every source; merge
+layers them by precedence into a ``ModelEntry``.
 """
 
 from __future__ import annotations
@@ -23,12 +18,7 @@ log = get_logger("magos.registry.litellm_lookup")
 
 @dataclass(frozen=True, slots=True)
 class PartialEntry:
-    """Source-agnostic partial fields for a model.
-
-    Every discovery adapter, the litellm fallback, and the override layer
-    all produce ``PartialEntry`` values; the merge function combines them
-    by precedence into a fully-formed ``ModelEntry``.
-    """
+    """Source-agnostic partial fields for a model; merge layers them by precedence."""
 
     litellm_id: str | None = None
     context_size: int | None = None
@@ -49,14 +39,7 @@ class GetModelInfoFn(Protocol):
 
 
 def _coerce_input_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
-    """Derive the input modality tuple from LiteLLM's capability flags.
-
-    LiteLLM doesn't expose modalities as lists; it exposes booleans like
-    ``supports_vision``, ``supports_audio_input``. We translate to a
-    small fixed vocabulary so registry consumers can rely on string
-    membership. Every chat model accepts text; vision/audio flags add
-    ``image`` / ``audio``.
-    """
+    """Translate LiteLLM ``supports_*`` booleans to a fixed modality tuple."""
     modalities: list[str] = ["text"]
     if info.get("supports_vision"):
         modalities.append("image")
@@ -66,13 +49,6 @@ def _coerce_input_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
 
 
 def _coerce_output_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
-    """Derive the output modality tuple from LiteLLM's capability flags.
-
-    LiteLLM has fewer output flags than input ones; we recognise
-    ``supports_audio_output`` (TTS-capable models) and treat everything
-    else as text. Image-generation models would set
-    ``supports_image_output`` if LiteLLM ever exposes it.
-    """
     modalities: list[str] = ["text"]
     if info.get("supports_audio_output"):
         modalities.append("audio")

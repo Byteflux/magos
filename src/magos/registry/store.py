@@ -1,12 +1,7 @@
-"""On-disk persistence for ``RegistryState``.
+"""On-disk persistence for ``RegistryState`` (unversioned JSON).
 
-The store is a simple JSON file with no schema versioning: when the format
-changes we let the next refresh rebuild from live discovery. Parse failures
-are treated as a missing file (per design: "new registry replaces old").
-
-Atomic writes use ``write_temp -> fsync -> os.replace``; ``os.replace`` is
-atomic on POSIX and Windows when source and destination are on the same
-filesystem, so the temp file lives next to the target.
+Parse failure is treated as missing (next refresh rebuilds). Atomic
+writes use ``write_temp -> fsync -> os.replace`` on the same filesystem.
 """
 
 from __future__ import annotations
@@ -88,12 +83,7 @@ def deserialize(raw: bytes) -> RegistryState:
 
 
 def load(path: Path) -> RegistryState:
-    """Load the persisted registry; return empty state on missing/corrupt file.
-
-    The empty-state-on-failure contract matches the design decision that
-    ``models.json`` is a regenerable cache: a corrupt file is logged and
-    discarded so the next refresh repopulates from live discovery.
-    """
+    """Load persisted registry; missing/corrupt yields empty state (regenerable)."""
     if not path.exists():
         return RegistryState()
     try:
@@ -109,19 +99,12 @@ def load(path: Path) -> RegistryState:
 
 
 def save(state: RegistryState, path: Path) -> None:
-    """Write ``state`` atomically to ``path``.
-
-    Sequence: write to a sibling temp file, ``fsync`` the temp file's
-    descriptor, ``os.replace`` over the target. Both POSIX and Windows
-    treat ``os.replace`` as atomic on the same filesystem, which is why
-    the temp file lives in the target's parent directory.
-    """
+    """Write ``state`` atomically to ``path`` (write_temp -> fsync -> replace)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = serialize(state)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    # ``os.open`` + ``os.fsync`` is intentional: ``Path.write_bytes`` does not
-    # expose a file descriptor for ``fsync``, and we need the durability
-    # guarantee before the atomic rename so the new contents survive crashes.
+    # ``os.open`` (rather than ``Path.write_bytes``) so we can ``fsync``
+    # the descriptor before the rename; needed for durability across crashes.
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     try:
         os.write(fd, payload)

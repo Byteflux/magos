@@ -1,10 +1,4 @@
-"""Tiny HTTP client for the server's ``/admin/registry`` endpoints.
-
-Wrapped in a thin Protocol so CLI tests can stub the network surface
-without spinning up uvicorn. Read calls return ``None`` if the server
-isn't reachable so the CLI can transparently fall back to the on-disk
-state for ``list`` / ``show``.
-"""
+"""Tiny HTTP client for ``/admin/registry``. Reads return ``None`` if unreachable for disk fallback."""
 
 from __future__ import annotations
 
@@ -25,12 +19,7 @@ class AdminClient:
         self._timeout = timeout
 
     def get_registry(self) -> bytes | None:
-        """Return raw JSON bytes from ``GET /admin/registry``, or ``None``.
-
-        ``None`` indicates the server is unreachable; non-2xx responses
-        raise ``AdminClientError`` so the caller can distinguish "no
-        server" from "server rejected the request".
-        """
+        """Raw JSON bytes from ``GET /admin/registry``; ``None`` when unreachable."""
         try:
             response = httpx.get(f"{self._base_url}/admin/registry", timeout=self._timeout)
         except httpx.ConnectError:

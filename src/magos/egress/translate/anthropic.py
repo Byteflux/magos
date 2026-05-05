@@ -1,15 +1,9 @@
 """``/v1/messages`` translate path via ``litellm.anthropic_messages``.
 
-LiteLLM's Anthropic-unified endpoint accepts Anthropic-shape input and
-emits Anthropic-shape output regardless of upstream provider. For
-Anthropic-bound traffic, the body passes through verbatim. For
-non-Anthropic dispatch models, we pre-translate Anthropic-only fields
-(``output_config`` → OpenAI ``reasoning_effort`` / ``response_format``)
-and drop fields the LiteLLM translator doesn't recognize, otherwise
-they leak into the destination SDK's ``**kwargs`` and produce
-``unexpected keyword argument`` errors. ``litellm.drop_params=True``
-only catches params LiteLLM *recognizes* but the destination doesn't
-support; unknown fields slip past it.
+Anthropic-shape in, Anthropic-shape out across upstreams. Non-Anthropic
+dispatch pre-translates ``output_config`` to OpenAI extras and drops
+unknown Anthropic-only fields (``litellm.drop_params`` doesn't catch
+fields LiteLLM doesn't recognize). See ``docs/architecture/translation.md``.
 """
 
 from __future__ import annotations
@@ -36,10 +30,8 @@ from magos.telemetry import get_logger, traced
 
 log = get_logger("magos.egress.translate")
 
-# Canonical Anthropic Messages body fields that LiteLLM's
-# ``anthropic_messages`` translator knows how to map to non-Anthropic
-# providers. Anything outside this set falls into ``**kwargs`` and leaks
-# straight into the destination SDK on cross-provider routes.
+# Fields LiteLLM's ``anthropic_messages`` translator maps to non-Anthropic
+# providers; anything else leaks via ``**kwargs`` into the destination SDK.
 _ANTHROPIC_MESSAGES_CANONICAL_FIELDS: frozenset[str] = frozenset(
     {
         "model",
@@ -55,18 +47,15 @@ _ANTHROPIC_MESSAGES_CANONICAL_FIELDS: frozenset[str] = frozenset(
         "tools",
         "tool_choice",
         "thinking",
-        # OpenAI-shape fields produced by ``_translate_output_config``. They
-        # ride through LiteLLM's ``anthropic_messages`` ``**kwargs`` to the
-        # destination translator, which knows them.
+        # OpenAI-shape extras produced by ``_translate_output_config``;
+        # ride ``**kwargs`` to the destination translator.
         "reasoning_effort",
         "response_format",
     }
 )
 
-# Anthropic's ``output_config.effort`` accepts levels OpenAI's
-# ``reasoning_effort`` does not (``xhigh`` and ``max``); clamp the high end so
-# the destination doesn't reject the value. ``minimal`` is OpenAI-only and not
-# emitted by Anthropic, so no inbound mapping is needed.
+# Anthropic accepts ``xhigh``/``max``; OpenAI's ``reasoning_effort`` tops
+# out at ``high``. ``minimal`` is OpenAI-only and never inbound.
 _ANTHROPIC_EFFORT_TO_OPENAI: dict[str, str] = {
     "low": "low",
     "medium": "medium",
@@ -77,15 +66,10 @@ _ANTHROPIC_EFFORT_TO_OPENAI: dict[str, str] = {
 
 
 def _translate_output_config(body: dict[str, Any]) -> dict[str, Any]:
-    """Map Anthropic ``output_config`` onto OpenAI-shape equivalents.
-
-    Carries two operationally important fields:
-
-    - ``effort`` -> OpenAI ``reasoning_effort`` (``xhigh``/``max`` clamp to ``high``)
-    - ``format`` (json_schema) -> OpenAI ``response_format``
+    """Map Anthropic ``output_config`` to OpenAI ``reasoning_effort`` / ``response_format``.
 
     Caller-supplied ``reasoning_effort`` / ``response_format`` win over
-    the derived values.
+    the derived values. ``xhigh``/``max`` effort clamps to ``high``.
     """
     cfg = body.get("output_config")
     if not isinstance(cfg, dict):
@@ -113,28 +97,17 @@ def _translate_output_config(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-# Fields where JSON Schema legitimately appears in an Anthropic Messages
-# body. ``messages`` content is plain text / tool_use / tool_result blocks
-# and never carries schemas, so scoping the walk avoids touching the bulk
-# of the body on every translate-mode request.
+# Top-level fields that legitimately carry JSON Schema; ``messages``
+# never does, so excluding it avoids scanning the bulk of every body.
 _SCHEMA_BEARING_FIELDS: tuple[str, ...] = ("tools", "tool_choice", "response_format")
 
 
 def _coerce_empty_additional_properties(body: dict[str, Any]) -> dict[str, Any]:
-    """Replace ``additionalProperties: {}`` with ``additionalProperties: true``.
+    """Replace ``additionalProperties: {}`` with ``true`` in schema-bearing fields.
 
-    JSON Schema treats both as semantically identical ("any extra property
-    allowed, with no constraints"), but some openai-compatible upstreams
-    (notably Vultr) misvalidate the empty-object form -- their metaschema
-    validator reports it as ``[]`` and rejects the request with
-    ``[] is not of type 'object', 'boolean'``. ``true`` flows through every
-    validator we've tested and carries the same semantics.
-
-    Only ``tools``, ``tool_choice``, and ``response_format`` are walked --
-    the only top-level fields that legitimately carry JSON Schema. Skipping
-    ``messages`` keeps this off the per-character cost of long conversations.
-    Unchanged subtrees are returned by reference so a body with no offending
-    schema costs one shallow scan, not a full rebuild.
+    Semantically identical per JSON Schema, but some openai-compatible
+    upstreams (Vultr) reject the empty-object form. Walks only schema-
+    bearing top-level fields and shares storage on unchanged subtrees.
     """
     updates: dict[str, Any] = {}
     for field in _SCHEMA_BEARING_FIELDS:
@@ -181,14 +154,8 @@ def _coerce_empty_ap(value: Any) -> Any:
 def _strip_anthropic_extras(
     body: dict[str, Any], dispatch_model: str, *, client_model: str
 ) -> dict[str, Any]:
-    """Drop Anthropic-only body fields when dispatching to a non-Anthropic upstream.
-
-    ``output_config`` is translated to OpenAI equivalents first so
-    structured-output / reasoning-effort behavior carries over; tool
-    ``input_schema`` blocks have ``additionalProperties: {}`` coerced to
-    ``true`` (semantically identical, sidesteps a Vultr metaschema-validator
-    bug); remaining Anthropic-only fields (``context_management``, future
-    additions) are dropped. Anthropic-bound traffic is left untouched.
+    """Translate ``output_config``, coerce empty ``additionalProperties``,
+    drop unknown Anthropic-only fields. No-op for Anthropic-bound traffic.
     """
     if dispatch_model.startswith("anthropic/"):
         return body
@@ -207,19 +174,10 @@ def _strip_anthropic_extras(
 
 
 async def _dispatch_anthropic_messages(**payload: Any) -> Any:
-    """Wrap ``litellm.anthropic_messages`` to work around an upstream bug.
-
-    LiteLLM's ``anthropic_messages`` adapter chain leaks the LiteLLM
-    provider prefix into the outbound request body when dispatching to
-    non-Anthropic providers (OpenRouter and other custom-OpenAI-shape
-    upstreams). E.g. ``model="openrouter/qwen/qwen3-coder"`` gets sent
-    to OpenRouter as ``"openrouter/qwen/qwen3-coder"`` (with the
-    prefix), which OpenRouter rejects with 400 *not a valid model ID*.
-    ``litellm.acompletion`` strips the prefix correctly.
-
-    Detect non-Anthropic dispatch and route through ``acompletion`` +
-    manual Anthropic↔OpenAI body translation; keep Anthropic-bound
-    traffic on the fast pass-through.
+    """Anthropic upstream uses ``litellm.anthropic_messages`` directly;
+    everything else goes via ``acompletion`` + Anthropic<->OpenAI translation
+    because ``anthropic_messages`` leaks the LiteLLM provider prefix into
+    the outbound model id and gets rejected by non-Anthropic upstreams.
     """
     model = payload.get("model", "")
     try:
@@ -235,13 +193,9 @@ _OPENAI_EXTRA_FIELDS = ("reasoning_effort", "response_format")
 
 
 async def _via_acompletion(payload: dict[str, Any]) -> Any:
-    """Manual Anthropic→OpenAI translation + ``litellm.acompletion`` dispatch.
-
-    Used when ``litellm.anthropic_messages`` would mishandle the model
-    name (see ``_dispatch_anthropic_messages``). Preserves the OpenAI-
-    shape extras magos injects via ``output_config`` translation
-    (``reasoning_effort``, ``response_format``) which the upstream
-    LiteLLM adapter would otherwise drop.
+    """Anthropic->OpenAI translation + ``litellm.acompletion``; preserves
+    the OpenAI extras (``reasoning_effort``, ``response_format``) the
+    upstream adapter would otherwise drop.
     """
     request_adapter = LiteLLMAnthropicMessagesAdapter()  # type: ignore[no-untyped-call]
     response_adapter = AnthropicAdapter()
@@ -320,15 +274,10 @@ def stream_anthropic_messages(
     api_key: str | None = None,
     api_base: str | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream an Anthropic Messages request via ``_dispatch_anthropic_messages``.
+    """Stream an Anthropic Messages request as Anthropic SSE bytes.
 
-    Returned as a regular function (not an async generator) so request
-    validation runs synchronously: a malformed request raises
-    ``pydantic.ValidationError`` (inside LiteLLM) before any response bytes
-    are emitted, and the server can surface it as 400 rather than mid-stream.
-
-    LiteLLM yields raw Anthropic SSE bytes (``event: message_start``,
-    ``content_block_delta``, etc.); we forward them verbatim.
+    Sync-returning so a malformed request surfaces as 400 before any
+    bytes are emitted (LiteLLM raises ``pydantic.ValidationError``).
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or _dispatch_anthropic_messages
     client_model = resolve_client_model(

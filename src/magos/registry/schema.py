@@ -1,18 +1,7 @@
-"""Pydantic schemas for the registry-related YAML grammar.
+"""Pydantic schemas for ``providers`` / ``provider_order`` / ``registry``
+yaml blocks. Frozen + ``extra="forbid"`` so typos fail at load time.
 
-Mirrors the top-level ``providers`` / ``provider_order`` / ``registry``
-blocks in ``magos.yaml``:
-
-- ``providers:``        per-provider declaration (creds, base_url, discovery
-                        adapter override, refresh interval override, optional
-                        per-model overrides + manual registration).
-- ``provider_order:``   tie-break order when multiple providers serve the
-                        same logical model and no explicit pin is set.
-- ``registry:``         registry-wide knobs: default refresh interval,
-                        on_unknown_model behavior, models.json path.
-
-Variants are frozen + ``extra="forbid"`` so typos surface at config load
-time rather than silently ignoring fields.
+See ``docs/registry/config.md``.
 """
 
 from __future__ import annotations
@@ -43,12 +32,7 @@ _UNIT_SECONDS: dict[str, int] = {
 
 
 def _parse_duration(value: object) -> int:
-    """Coerce ``"30s"`` / ``"2h"`` style duration strings into seconds.
-
-    Accepts bare ``int`` for seconds. Negative or zero values are rejected
-    by the field constraint, not here, so callers can distinguish "missing"
-    from "invalid format" cleanly.
-    """
+    """Coerce ``"30s"`` / ``"2h"`` strings (or bare int seconds) to seconds."""
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     if not isinstance(value, str):
@@ -76,10 +60,7 @@ class _Frozen(BaseModel):
 class ModelOverride(_Frozen):
     """Per-model override layered on top of discovery + litellm fallback.
 
-    All fields optional. Unset fields fall through to lower-precedence
-    sources during merge. ``litellm_id`` overrides the adapter-default
-    dispatch id when a provider's namespacing differs from the adapter's
-    expectation.
+    All fields optional; unset fields fall through during merge.
     """
 
     context_size: int | None = Field(default=None, ge=1)
@@ -95,13 +76,7 @@ class ModelOverride(_Frozen):
 
 
 class ProviderConfig(_Frozen):
-    """One provider entry under the top-level ``providers:`` block.
-
-    ``discovery`` unset or set to ``noop`` means manual-only: no network
-    calls, manual entries from ``models`` are permanent until removed
-    from yaml. ``litellm_provider`` overrides the adapter default for
-    constructing dispatch ids.
-    """
+    """One ``providers:`` entry. ``discovery: noop`` (or unset) is manual-only."""
 
     api_key_env: str | None = Field(default=None, min_length=1)
     base_url: str | None = Field(default=None, min_length=1)
@@ -125,11 +100,8 @@ class RegistrySettings(_Frozen):
 
 
 class RegistryYaml(_Frozen):
-    """Top-level registry-related blocks parsed from ``magos.yaml``.
-
-    The loader composes this with ``RoutingConfig`` into ``MagosConfig``.
-    All fields default to empty so a yaml without any registry blocks
-    parses cleanly and the server runs in routing-only mode.
+    """Top-level registry blocks; defaults are empty so registry-less
+    configs parse cleanly and the server runs in routing-only mode.
     """
 
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)

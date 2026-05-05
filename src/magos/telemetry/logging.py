@@ -3,10 +3,6 @@
 ``configure_logging`` is called once at startup; until it runs,
 ``get_logger`` falls back to structlog defaults. ``MAGOS_LOG_JSON=1``
 flips the renderer from console to JSON.
-
-The stdlib ``logging`` import is unambiguous here despite the module
-name match: Python 3 uses absolute imports, so ``import logging`` from
-inside this file resolves to the stdlib package, not back to itself.
 """
 
 from __future__ import annotations
@@ -21,12 +17,7 @@ import structlog
 
 
 def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
-    """Configure structlog and bridge stdlib logging through it.
-
-    Anything emitted via ``logging`` (uvicorn startup, access logs, third-party
-    libraries) is rendered with the same processors as native structlog calls,
-    so the operator sees one consistent stream.
-    """
+    """Configure structlog and bridge stdlib logging through it."""
     use_json = json if json is not None else os.environ.get("MAGOS_LOG_JSON", "0") == "1"
     if use_json:
         renderer: Any = structlog.processors.JSONRenderer()
@@ -103,7 +94,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    """Return a structlog logger; safe before configure_logging runs."""
+    """Return a structlog logger; safe to call before ``configure_logging``."""
     return cast(
         structlog.stdlib.BoundLogger,
         structlog.get_logger(name) if name else structlog.get_logger(),

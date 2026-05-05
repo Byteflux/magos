@@ -1,9 +1,7 @@
 """Header mutators: ``set_header``, ``add_header``, ``remove_header``.
 
-All three operate on a case-folded copy of ``req.headers``; magos
-normalises inbound header keys to lowercase before they reach this
-layer, so storing as lowercase keeps the dict consistent. Body is
-untouched, so ``body_dirty`` does not flip.
+Operates on lowercased keys (inbound headers are pre-normalised). Body
+untouched, so ``body_dirty`` stays False.
 """
 
 from __future__ import annotations

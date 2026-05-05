@@ -1,10 +1,4 @@
-"""Declarative rule-based routing.
-
-Public surface: load a ``RoutingConfig`` from YAML, then call ``route()`` on
-a ``RoutedRequest`` to obtain a ``RouteDecision`` or ``RouteError``.
-``magos.egress.dispatch`` consumes the decision and bridges to the
-``magos.egress.translate`` and ``magos.egress.passthrough`` modules.
-"""
+"""Declarative rule-based routing. See ``docs/routing/pipeline.md``."""
 
 from __future__ import annotations
 

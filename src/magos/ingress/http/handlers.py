@@ -1,28 +1,8 @@
-"""DI seam factories and the seven endpoint handlers.
-
-The completion callable is injected via FastAPI's dependency system so
-tests can swap it out with ``app.dependency_overrides[get_completion]``
-(and similarly for the per-shape siblings). Each handler is a thin
-wrapper that calls :func:`magos.ingress.http.run.run_endpoint`.
-
-Endpoints:
-
-POST handlers
-    /v1/messages                  Anthropic Messages shape
-    /v1/messages/count_tokens     Anthropic count_tokens shape
-    /v1/chat/completions          OpenAI Chat Completions shape
-    /v1/responses                 OpenAI Responses shape
-
-Auxiliary OpenAI Responses handlers (passthrough only; translate mode
-rejects non-POST):
-    GET    /v1/responses/{id}                   retrieve
-    DELETE /v1/responses/{id}                   cancel
-    GET    /v1/responses/{id}/input_items       list input items
-
-Match expressions see the **templated** path so rules stay stable across
-response IDs; the dispatcher forwards the **concrete** path via
-``RoutedRequest.actual_path``.
-"""
+"""DI seams + endpoint handlers; thin wrappers around
+:func:`magos.ingress.http.run.run_endpoint`. The upstream completion
+callable is injected via ``Depends`` so tests can override it. Match
+expressions see the templated path; concrete path goes via
+``RoutedRequest.actual_path``."""
 
 from __future__ import annotations
 
@@ -40,37 +20,22 @@ CompletionFn = Callable[..., Awaitable[Any]]
 
 
 def get_completion() -> CompletionFn:
-    """Upstream completion for /v1/chat/completions (OpenAI Chat shape)."""
     return cast(CompletionFn, litellm.acompletion)
 
 
 def get_anthropic_messages_completion() -> CompletionFn:
-    """Upstream completion for /v1/messages (Anthropic-unified shape).
-
-    Returns ``_dispatch_anthropic_messages`` rather than ``litellm.
-    anthropic_messages`` directly: the LiteLLM helper leaks the
-    provider prefix into the outbound body when dispatched to non-
-    Anthropic upstreams (OpenRouter rejects ``model: 'openrouter/qwen/
-    ...'`` with 400 *not a valid model ID*). The dispatcher detects
-    non-Anthropic dispatch and re-routes through ``litellm.acompletion``
-    + manual Anthropic↔OpenAI body translation, which strips the
-    prefix correctly. Anthropic-bound traffic stays on the fast pass-
-    through.
-    """
+    """Upstream for /v1/messages. ``litellm.anthropic_messages`` leaks
+    the provider prefix into the outbound body for non-Anthropic upstreams
+    (OpenRouter rejects ``model: 'openrouter/qwen/...'``); the dispatcher
+    re-routes those through ``litellm.acompletion`` + body translation."""
     return cast(CompletionFn, _dispatch_anthropic_messages)
 
 
 def get_responses_completion() -> CompletionFn:
-    """Upstream completion for /v1/responses (litellm's Responses API)."""
     return cast(CompletionFn, litellm.aresponses)
 
 
 def get_count_tokens_completion() -> CompletionFn:
-    """Upstream count-tokens call for /v1/messages/count_tokens.
-
-    LiteLLM's ``acount_tokens`` auto-selects between local tokenizers and
-    the provider's native count-tokens endpoint based on the model id.
-    """
     return cast(CompletionFn, litellm.acount_tokens)
 
 
@@ -82,7 +47,6 @@ SettingsDep = Annotated[MagosSettings, Depends(get_settings)]
 
 
 def register_handlers(app: FastAPI) -> None:
-    """Register the seven endpoint handlers on ``app``."""
 
     @app.post("/v1/messages")
     async def anthropic_messages(  # type: ignore[unused-ignore]

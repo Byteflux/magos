@@ -1,27 +1,9 @@
-"""mitmproxy addon: structured observability for outbound LLM provider traffic.
+"""mitmproxy addon: passive structured logging of outbound LLM traffic.
 
-Loaded by the in-process ``DumpMaster`` alongside ``MagosIngressAddon``
-(see ``magos.ingress.mitm.master``) so the same mitmproxy listener can
-log egress when magos's own outbound transits it. Can also be run
-out-of-process::
-
-    mitmdump -s src/magos/egress/observer.py --listen-port 8080
-
-Then point magos's outbound calls at it::
-
-    HTTPS_PROXY=http://localhost:8080 python -m magos serve
-
-LiteLLM uses ``httpx`` under the hood and ``httpx`` honours ``HTTPS_PROXY``
-automatically. mitmproxy must be trusted as a CA in the runtime environment
-for TLS interception to succeed (``mitmdump`` prints the cert path on first
-run).
-
-The addon does not modify traffic. It only logs structured request/response
-events for any flow whose host matches a known LLM provider, which feeds the
-"strong observability" goal without adding latency or coupling. Translation
-and routing live in the FastAPI server (``magos.ingress.http`` →
-``magos.routing`` → ``magos.egress``); mitmproxy's job here is purely
-passive observation of outbound LLM calls.
+Loaded in-process alongside ``MagosIngressAddon``; can also run out-of-
+process via ``mitmdump -s ... --listen-port 8080`` with magos pointed at
+it via ``HTTPS_PROXY``. Modifies nothing; logs flows whose host matches a
+known LLM provider. See ``docs/ingress.md``.
 """
 
 from __future__ import annotations

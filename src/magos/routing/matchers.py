@@ -1,10 +1,4 @@
-"""Pure evaluator for routing match expressions.
-
-Stateless: every call recompiles regex/jq programs. The stdlib's ``re``
-cache covers regex; ``jq.compile`` cost is small at current rule counts.
-The matcher module exposes only ``matches``; everything else is private
-dispatch helpers.
-"""
+"""Match-expression evaluator. See ``docs/routing/grammar.md``."""
 
 from __future__ import annotations
 
@@ -38,13 +32,7 @@ def matches(  # noqa: PLR0911
     *,
     registry: RegistryState | None = None,
 ) -> bool:
-    """True iff ``expr`` matches ``req``.
-
-    Exhaustive isinstance dispatch over the closed ``MatchExpr`` union; one
-    branch per variant is the readable shape, so the per-function return cap
-    is suppressed. ``registry`` is required for ``model_field`` atoms;
-    when absent, those atoms evaluate to ``False`` (the field is unknown).
-    """
+    """True iff ``expr`` matches ``req``. ``model_field`` atoms need ``registry``; absent → False."""
     if isinstance(expr, AllOf):
         return all(matches(child, req, registry=registry) for child in expr.all_of)
     if isinstance(expr, AnyOf):
@@ -72,11 +60,10 @@ def _matcher_matches(matcher: Matcher, value: str) -> bool:
     if isinstance(matcher, LiteralMatcher):
         return value == matcher.literal
     if isinstance(matcher, GlobMatcher):
-        # Case-sensitive glob; users opt into case-insensitive via regex (?i).
+        # Case-sensitive; opt into case-insensitive via regex (?i).
         return fnmatch.fnmatchcase(value, matcher.glob)
     if isinstance(matcher, RegexMatcher):
-        # fullmatch (not search) so partial matches don't sneak through; users
-        # who want substring matching write ``.*foo.*`` explicitly.
+        # fullmatch so partial matches don't sneak through.
         return re.fullmatch(matcher.regex, value) is not None
     raise TypeError(f"unhandled Matcher variant: {type(matcher).__name__}")
 
@@ -86,12 +73,9 @@ def _model_field_matches(
     req: RoutedRequest,
     registry: RegistryState | None,
 ) -> bool:
-    """Evaluate ``model_field`` against the request's resolved registry entry.
+    """Evaluate ``model_field`` against the resolved registry entry.
 
-    Lookup is by exact namespaced id first, then by raw_id scan if the
-    inbound model is bare (single-match wins; ambiguous matches yield
-    False to avoid silently picking one). Missing field on the entry,
-    missing entry, or missing registry all evaluate to False.
+    Lookup: exact namespaced id then raw_id scan (single-match wins).
     """
     if registry is None:
         return False
@@ -122,9 +106,7 @@ def _apply_op(  # noqa: PLR0911
     if field_value is None:
         return False
     if op == "contains":
-        # ``contains`` only makes sense on sequence-typed fields (e.g.
-        # ``input_modalities`` / ``output_modalities``). String fields
-        # use ``eq`` for membership.
+        # Sequence-only; string fields use ``eq`` for membership.
         if not isinstance(field_value, (tuple, list)):
             return False
         return value in field_value

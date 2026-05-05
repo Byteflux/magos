@@ -1,18 +1,8 @@
-"""Per-response token-usage logging.
+"""Per-response token-usage logging across Anthropic / OpenAI shapes.
 
-Pulls the canonical (input, output, cache_read, cache_write) tuple
-out of each provider's response shape and emits a structured
-``egress.usage`` log event. Covers Anthropic ``/v1/messages``, OpenAI
-Chat Completions, and OpenAI Responses, on streaming and non-
-streaming paths.
-
-OpenAI never reports a cache-write count (only Anthropic does);
-``cache_write`` is always 0 for OpenAI shapes.
-
-Streaming paths use a ``UsageAccumulator`` populated by a tiny SSE
-parser that runs alongside the byte stream. The parser tolerates
-event boundaries that fall mid-chunk and ignores events it doesn't
-care about; the byte stream is forwarded verbatim regardless.
+Streaming uses a ``UsageAccumulator`` fed by an in-line SSE parser; the
+byte stream is forwarded verbatim regardless. ``cache_write`` is
+Anthropic-only; OpenAI shapes leave it 0.
 """
 
 from __future__ import annotations
@@ -151,12 +141,7 @@ def log_usage_from_body(shape: Shape, body: Any, *, endpoint: str, stream: bool 
 
 
 class UsageAccumulator:
-    """Stateful accumulator fed parsed SSE events as they stream past.
-
-    Each shape collects usage from different events; the accumulator
-    keeps a running ``Usage`` and merges in each new tidbit. ``snapshot()``
-    returns the current best estimate, called once at end-of-stream.
-    """
+    """Stateful usage accumulator fed parsed SSE events as the stream passes."""
 
     def __init__(self, shape: Shape) -> None:
         self._shape = shape
@@ -187,9 +172,8 @@ class UsageAccumulator:
             self._feed_openai_responses(event_name, data)
 
     def _feed_anthropic(self, event_name: str | None, data: dict[str, Any]) -> None:
-        # Anthropic streaming: input + cache counts arrive in the
-        # ``message_start`` event's nested ``message.usage`` block; the
-        # final ``output_tokens`` arrives in ``message_delta.usage``.
+        # Input + cache arrive on ``message_start.message.usage``; final
+        # output arrives on ``message_delta.usage``.
         if event_name == "message_start":
             message = data.get("message")
             if isinstance(message, dict):
@@ -209,8 +193,8 @@ class UsageAccumulator:
                     self._output = output
 
     def _feed_openai_chat(self, data: dict[str, Any]) -> None:
-        # Chat streaming: usage only present on the terminal chunk when
-        # the client opted in via ``stream_options: { include_usage: true }``.
+        # Usage only on the terminal chunk, gated on
+        # ``stream_options.include_usage: true``.
         u = data.get("usage")
         if isinstance(u, dict):
             self._input = _safe_int(u.get("prompt_tokens"))
@@ -223,8 +207,7 @@ class UsageAccumulator:
             self._model = model
 
     def _feed_openai_responses(self, event_name: str | None, data: dict[str, Any]) -> None:
-        # Responses streaming: usage arrives on ``response.completed`` as
-        # ``response.usage`` (the embedded snapshot of the final response).
+        # Usage arrives on ``response.completed.response.usage``.
         if event_name == "response.completed":
             response = data.get("response")
             if isinstance(response, dict):
@@ -254,12 +237,10 @@ def _iter_complete_events(buf: bytes) -> tuple[list[bytes], bytes]:
 
 
 def _parse_event(raw: bytes) -> tuple[str | None, dict[str, Any] | None]:
-    """Parse one SSE event into (event_name, data_object).
+    """Parse one SSE event into ``(event_name, data_object)``.
 
-    Per the SSE spec, multiple ``data:`` lines within one event are
-    joined with newlines; we reconstruct that and try to JSON-decode.
-    A non-JSON ``data:`` payload (e.g. OpenAI's terminal ``[DONE]``)
-    yields ``None`` for the data dict.
+    Multiple ``data:`` lines per event are joined with newlines (SSE spec).
+    Non-JSON payloads (e.g. ``[DONE]``) yield ``None`` for the data dict.
     """
     name: str | None = None
     data_lines: list[str] = []
@@ -288,11 +269,8 @@ async def tap_stream(
 ) -> AsyncIterator[bytes]:
     """Forward ``upstream`` byte-for-byte while accumulating usage stats.
 
-    The wrapped stream is the source of truth for the client; usage
-    parsing happens in parallel and is best-effort: malformed SSE,
-    truncated streams, or providers that don't emit a final usage
-    block all degrade silently to no log. ``fallback_model`` is used
-    only when the stream itself doesn't carry a model id (rare).
+    Usage parsing is best-effort: malformed/truncated streams or upstreams
+    that omit a final usage block degrade silently to no log.
     """
     accumulator = UsageAccumulator(shape)
     buf = b""
