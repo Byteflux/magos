@@ -88,4 +88,4 @@ End-to-end tests against real upstream providers gate on `MAGOS_E2E=1`.
 
 Apache License 2.0; see [`LICENSE`](LICENSE).
 
-Copyright 2026 Matthew Harris
+Copyright 2026 Matthew Harris and the Magos contributors
