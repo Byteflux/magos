@@ -10,6 +10,9 @@ name = "magos"
 version = "0.0.1"
 description = "Declarative LLM API routing proxy with provider-discovered model registry and context compression."
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Matthew Harris" }]
 requires-python = ">=3.12,<=3.14"
 dependencies = [
     "fastapi[standard]>=0.136.1",
