@@ -2,8 +2,9 @@
 
 Anthropic's models endpoint returns ``{data: [{id, display_name, type,
 created_at}, ...]}``. No context window, no pricing, no modality flags.
-We pass through ``id`` and rely on the merge layer to fill the rest from
-LiteLLM's bundled registry or operator overrides.
+We pass through ``id``; field-precedence merging in
+``magos.registry.merge`` fills the rest from LiteLLM's bundled registry
+or operator overrides.
 
 Auth uses the ``x-api-key`` header (Anthropic's convention) plus the
 ``anthropic-version`` header — both required by the API. Claude-Code-

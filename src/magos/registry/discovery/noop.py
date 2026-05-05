@@ -2,9 +2,10 @@
 
 Used when ``discovery`` is unset or explicitly ``noop``. Returns an empty
 ``DiscoveryResult``. Manual entries from the provider's ``models`` block
-flow into the registry through the merge layer alone, with no live
-contribution and no deprecation cycle (per the design: manual entries
-are permanent until removed from yaml).
+are combined with discovery and override entries by the precedence merge
+in ``magos.registry.merge``; with no live contribution there is no
+deprecation cycle, so manual entries are permanent until removed from
+yaml.
 """
 
 from __future__ import annotations
