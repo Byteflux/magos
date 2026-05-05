@@ -51,6 +51,7 @@ Three layers, in flow order:
 src/magos/
   __main__.py        # entrypoint (`magos [serve|models …]`)
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
+  process.py         # transport-agnostic request processing core (process_routed_request)
 
   config/            # process + yaml configuration
     settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
@@ -78,6 +79,7 @@ src/magos/
   routing/           # the rule engine (the product)
     schema.py        # pydantic schemas for magos.yaml rules (incl. GuardedRewrites)
     request.py       # RoutedRequest dataclass
+    decision.py      # RouteDecision frozen value (engine output, dispatch input)
     matchers.py      # match-expression evaluator (registry-aware)
     engine.py        # route(req, cfg, registry=...) -> RouteDecision | RouteError
     auto_route.py    # registry-driven fallback
@@ -88,10 +90,16 @@ src/magos/
       headers.py     # SetHeader / AddHeader / RemoveHeader
       model.py       # SetModel
       jq_patch.py    # JqPatch
-      compress.py    # Compress + model_limit resolution + sentence_transformers preload
+      compress/      # Compress primitive (Headroom integration)
+        __init__.py  # _apply_compress dispatch + Compress schema
+        token_mode.py    # token-mode compression
+        cache_mode.py    # cache-aligner mode (chat shapes + Responses)
+        model_limit.py   # registry/litellm-driven context-window resolution
+        _preload.py      # sentence_transformers native-load preload
 
   egress/            # how requests leave
-    dispatch.py      # RouteDecision -> execution branch (re-exports DispatchError)
+    dispatch.py      # RouteDecision -> execution branch
+    errors.py        # DispatchError shared across egress branches
     auth.py          # provider-aware API-key + header injection
     passthrough.py   # byte-exact same-shape forwarding
     tokens.py        # async count_tokens via litellm.acount_tokens
@@ -117,6 +125,8 @@ src/magos/
     discovery/       # adapters
       base.py        # DiscoveryAdapter Protocol + types
       factory.py     # adapter_for(ProviderConfig) -> DiscoveryAdapter
+      _auth.py       # shared auth-header builders
+      _coerce.py     # type-coercion helpers shared across adapters
       openai.py
       anthropic.py
       openrouter.py
@@ -157,8 +167,8 @@ tests/
   fixtures/              # test routing yaml
   cli/, config/, egress/{translate/}, ingress/{http,mitm}/,
   registry/, routing/{rewrites/}/, telemetry/
-  test_main_module.py, test_serve.py, test_smoke.py,
-  test_e2e.py, test_e2e_agent_sdk.py
+  e2e/                   # MAGOS_E2E=1-gated full-stack tests (FastAPI -> egress -> real provider, plus agent-sdk)
+  test_main_module.py, test_serve.py, test_smoke.py
 ```
 
 Plain helper functions (request builders, sample payloads, TestClient
@@ -189,6 +199,7 @@ wire-shape translation across providers.
 | FastAPI | HTTP-level entry routing | `magos.ingress.http` |
 | mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.ingress.mitm` |
 | (none) | rule-based router (the product) | `magos.routing` |
+| (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 

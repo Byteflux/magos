@@ -9,7 +9,7 @@ API key in the test environment.
 
 Skipped by default. To run::
 
-    MAGOS_E2E=1 uv run pytest -m e2e tests/test_e2e_agent_sdk.py
+    MAGOS_E2E=1 uv run pytest -m e2e tests/e2e/test_e2e_agent_sdk.py
 
 Requires:
 

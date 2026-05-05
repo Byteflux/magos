@@ -20,9 +20,10 @@ The LiteLLM provider implementation
 reads `max_input_tokens`.
 
 The simple `headroom.compress()` API skips all of this and trusts the
-caller. Magos's `_apply_compress` (`rewrites/compress.py`) resolves
-`model_limit` itself via `_resolve_model_limit(dispatch_model,
-registry=...)`, walking three sources in order:
+caller. Magos's `_apply_compress` (`rewrites/compress/__init__.py`)
+resolves `model_limit` via `_resolve_model_limit(dispatch_model,
+registry=...)` from `rewrites/compress/model_limit.py`, walking three
+sources in order:
 
 1. The model registry, if loaded: picks `context_size` off the
    matching `ModelEntry`. Bypasses the LiteLLM call entirely.

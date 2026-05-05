@@ -78,12 +78,20 @@ Per request, the FastAPI app does this:
 | `count_tokens`| `/v1/messages/count_tokens`    | n/a       | `egress.tokens.count_tokens` (litellm) |
 | `passthrough` | any of the six (incl. auxiliary GET/DELETE) | non-stream | `egress.passthrough.call_passthrough` |
 | `passthrough` | any of the six (incl. auxiliary GET/DELETE) | stream     | `egress.passthrough.stream_passthrough` |
-| `translate`   | `/v1/messages`                 | non-stream| `egress.translate.proxy_anthropic_messages`        |
-| `translate`   | `/v1/messages`                 | stream    | `egress.translate.stream_anthropic_messages`       |
-| `translate`   | `/v1/chat/completions`         | non-stream| `egress.translate.proxy_openai_chat_completions`   |
-| `translate`   | `/v1/chat/completions`         | stream    | `egress.translate.stream_openai_chat_completions`  |
-| `translate`   | `/v1/responses`                | non-stream| `egress.translate.proxy_openai_responses`          |
-| `translate`   | `/v1/responses`                | stream    | `egress.translate.stream_openai_responses`         |
+| `translate`   | `/v1/messages`                 | non-stream| `proxy_translate` + `anthropic.ADAPTER`         |
+| `translate`   | `/v1/messages`                 | stream    | `stream_translate` + `anthropic.ADAPTER`        |
+| `translate`   | `/v1/chat/completions`         | non-stream| `proxy_translate` + `openai_chat.ADAPTER`       |
+| `translate`   | `/v1/chat/completions`         | stream    | `stream_translate` + `openai_chat.ADAPTER`      |
+| `translate`   | `/v1/responses`                | non-stream| `proxy_translate` + `openai_responses.ADAPTER` |
+| `translate`   | `/v1/responses`                | stream    | `stream_translate` + `openai_responses.ADAPTER` |
+
+All six translate cells delegate to the generic `proxy_translate` /
+`stream_translate` runners in `egress/translate/runner.py`. The
+per-shape `TranslateAdapter` constant (`ADAPTER` in `anthropic.py`,
+`openai_chat.py`, `openai_responses.py`) supplies the LiteLLM SDK
+callable, SSE framer, and payload coercion for that shape. The
+adapters are wired into `TRANSLATE_HANDLERS` in
+`egress/translate/__init__.py`, keyed by endpoint.
 
 The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
@@ -126,7 +134,7 @@ body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).
 **Any rewrite primitive that mutates `body` MUST set
 `body_dirty=True`.** Today: `SetModel` (`routing/rewrites/model.py`),
 `JqPatch` (`routing/rewrites/jq_patch.py`), `Compress`
-(`routing/rewrites/compress.py`, both token+cache modes) all do this.
+(`routing/rewrites/compress/`, both token+cache modes) all do this.
 Header-only rewrites (`routing/rewrites/headers.py`) leave it
 untouched.
 

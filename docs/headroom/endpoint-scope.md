@@ -13,7 +13,7 @@ The Responses `instructions` string is wrapped as a synthetic
 `[{"role": "system", "content": instructions}]` and fed to CacheAligner.
 The aligner mutates the message's `content` in place; we read it back
 and write it to `instructions`. No new messages are introduced. See
-`_apply_compress_responses` in `rewrites/compress.py`.
+`_apply_compress_responses` in `rewrites/compress/cache_mode.py`.
 
 Compressing `input` is not implemented. It would require a round-trip
 converter for `input_text` / `message` / `function_call` / etc. items,

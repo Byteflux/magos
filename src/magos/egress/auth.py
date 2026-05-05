@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import os
 
+from magos.egress.errors import DispatchError
 from magos.routing.schema import Action
+
+__all__ = ["maybe_inject_api_key", "resolve_api_key"]
 
 _ANTHROPIC_OAUTH_TOKEN_PREFIX = "sk-ant-oat"  # noqa: S105
 _ANTHROPIC_OAUTH_BETA = "oauth-2025-04-20"
-
-
-class DispatchError(Exception):
-    """Raised when a runtime config invariant fails (e.g., missing env var)."""
 
 
 def maybe_inject_api_key(headers: dict[str, str], action: Action) -> dict[str, str]:

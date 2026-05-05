@@ -1,7 +1,7 @@
 # Headroom integration notes
 
 Reference for how Headroom works under magos and the non-obvious findings
-behind the integration in `src/magos/routing/rewrites/compress.py`.
+behind the integration in `src/magos/routing/rewrites/compress/`.
 Verified against `headroom-ai==0.10.16`.
 
 | Topic | Contents |

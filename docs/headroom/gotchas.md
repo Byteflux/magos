@@ -10,15 +10,20 @@
   `AnthropicHandlerMixin._sort_tools_deterministically` exists for this
   reason. We don't reorder tools; magos forwards them verbatim.
 - Headroom emits OTel metrics out of the box
-  (`headroom.observability.get_otel_metrics`). If we ever wire OTel
-  collection in magos, these flow for free.
+  (`headroom.observability.get_otel_metrics`). Magos already ships an
+  OTel pipeline (`MAGOS_OTEL_ENABLED=1`, see `docs/cli.md`); these
+  meters flow into the same exporter without extra wiring.
 
 ## Where this lives in magos
 
 | File                                            | Purpose                                              |
 |--------------------------------------------------|------------------------------------------------------|
 | `src/magos/routing/schema.py`                    | `Compress`, `CompressOptions`, `CompressMode` schema |
-| `src/magos/routing/rewrites/compress.py`         | `_apply_compress`, `_apply_cache_aligner`, model_limit resolution |
+| `src/magos/routing/rewrites/compress/__init__.py` | `_apply_compress` dispatch entry point               |
+| `src/magos/routing/rewrites/compress/token_mode.py` | Token-mode compression                              |
+| `src/magos/routing/rewrites/compress/cache_mode.py` | `_apply_cache_aligner`, `_apply_compress_responses` |
+| `src/magos/routing/rewrites/compress/model_limit.py` | `_resolve_model_limit` (registry + LiteLLM)        |
+| `src/magos/routing/rewrites/compress/_preload.py` | `_preload_sentence_transformers` workaround          |
 | `src/magos/routing/loader.py`                    | `Compress` listed in `_rewrites_touch_body`          |
 | `src/magos/ingress/http/lifespan.py`             | Lifespan warmup hook + kompress backend override     |
 | `tests/routing/rewrites/test_compress.py`        | Unit tests for both modes + endpoint scoping         |

@@ -58,7 +58,7 @@ CacheAligner -> ContentRouter -> IntelligentContext
     `.pyd` (transitively via sentence_transformers) crashes during
     `create_module`, on **either** the main thread or a worker thread.
     Doing the preload before that import wins the race.
-  - `_preload_sentence_transformers()` in `rewrites/compress.py` runs
+  - `_preload_sentence_transformers()` in `rewrites/compress/_preload.py` runs
     immediately before any headroom import inside `_apply_compress`
     and `_apply_cache_aligner`. Belt-and-suspenders for callers that
     don't go through `cli/serve.py` (e.g. tests, embedded use).
@@ -67,25 +67,20 @@ CacheAligner -> ContentRouter -> IntelligentContext
     cryptography Rust before the cache-align test gets a chance to
     preload.
 
-  **Why the request-time preload alone isn't sufficient** since the
-  `route()`-on-worker-thread refactor: the request-time preload now
-  runs on a worker thread, and pyarrow's `.pyd` load on a worker
-  thread after PyO3 has initialized on the main thread also crashes
-  (same `create_module` failure, just observed from a different
-  thread). The CLI-level preload runs on the main thread before
-  any PyO3 ext is loaded, so both subsequent main-thread and
-  worker-thread imports of pyarrow find it already cached and skip
-  `create_module` entirely. ONNX backend tends to surface this faster
-  because nothing on the ONNX kompress code path imports
-  sentence_transformers at startup, so the very first import of it
-  is on a worker thread when the first compress request lands. The
-  PyTorch backend usually transitively imports it earlier as a side
-  effect of `transformers` / `safetensors` setup.
-
-  Operators running magos behind the mitmproxy addon process should
-  note: that's a *separate* `mitmdump` process, not the magos FastAPI
-  process. The two don't share state, so the preload doesn't need to
-  cross processes.
+  **Why the request-time preload alone isn't sufficient**: `route()`
+  runs on a worker thread, so the request-time preload also runs on a
+  worker thread, and pyarrow's `.pyd` load on a worker thread after
+  PyO3 has initialized on the main thread crashes the same way (the
+  same `create_module` failure, just observed from a different thread).
+  The CLI-level preload runs on the main thread before any PyO3 ext is
+  loaded, so both subsequent main-thread and worker-thread imports of
+  pyarrow find it already cached and skip `create_module` entirely.
+  ONNX backend tends to surface this faster because nothing on the
+  ONNX kompress code path imports sentence_transformers at startup, so
+  the very first import of it is on a worker thread when the first
+  compress request lands. The PyTorch backend usually transitively
+  imports it earlier as a side effect of `transformers` /
+  `safetensors` setup.
 
   The cascade is **import-time**, not runtime: `dynamic_detector.py`
   unconditionally imports `spacy` and `sentence_transformers` at module

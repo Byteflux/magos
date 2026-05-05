@@ -37,7 +37,7 @@ Atoms (each is a single-key dict):
 | `header`      | `{ header: { name: <matcher>, value: <matcher> } }`            | any inbound header pair |
 | `endpoint`    | `{ endpoint: <matcher> }`                                      | `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`, `/v1/responses/{id}`, `/v1/responses/{id}/input_items` |
 | `jq`          | `{ jq: "<expr>" }`                                             | parsed body (truthy)    |
-| `model_field` | `{ model_field: { field: <name>, op: <op>, value: <value> } }` | a registry-resolved field on the inbound model (see [matchers](../registry/matchers.md)) |
+| `model_field` | `{ model_field: { field: <name>, op: <op>, value: <value> } }` | a registry-resolved field on the inbound model (see [matchers](./matchers.md)) |
 
 `<matcher>` is exactly one of:
 

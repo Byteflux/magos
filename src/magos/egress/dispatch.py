@@ -1,6 +1,5 @@
 """Branch a ``RouteDecision`` into translate / passthrough / count_tokens.
 
-``DispatchError`` is re-exported for callers catching at this boundary.
 See ``docs/architecture/request-flow.md``.
 """
 
@@ -13,7 +12,8 @@ from typing import Any
 from fastapi import Response
 from fastapi.responses import StreamingResponse
 
-from magos.egress.auth import DispatchError, maybe_inject_api_key, resolve_api_key
+from magos.egress.auth import maybe_inject_api_key, resolve_api_key
+from magos.egress.errors import DispatchError
 from magos.egress.passthrough import _HTTP_ERROR_THRESHOLD, call_passthrough, stream_passthrough
 from magos.egress.tokens import count_tokens
 from magos.egress.translate import TRANSLATE_HANDLERS
@@ -26,7 +26,7 @@ from magos.egress.usage import (
 from magos.routing import RouteDecision
 from magos.telemetry import get_logger
 
-__all__ = ["DispatchError", "dispatch_decision"]
+__all__ = ["dispatch_decision"]
 
 log = get_logger("magos.egress.dispatch")
 

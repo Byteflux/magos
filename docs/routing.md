@@ -39,6 +39,7 @@ always win; the registry only catches what the rules miss. See
 |-------|----------|
 | [pipeline](./routing/pipeline.md) | Setup, config-path resolution, and the request lifecycle through pre-rewrites, match, post-rewrites, and dispatch. |
 | [grammar](./routing/grammar.md) | YAML schema: match expressions, rewrite ops, `set_model` registry resolution, and `compress` (Headroom) configuration. |
+| [matchers](./routing/matchers.md) | The `model_field` matcher and supported operators for registry-aware routing rules. |
 | [api-keys](./routing/api-keys.md) | How `api_key_env` is consumed in translate vs passthrough mode and provider-block inheritance. |
 | [errors](./routing/errors.md) | HTTP status codes, endpoint-shaped error envelopes, and config-load validation. |
 | [examples](./routing/examples.md) | Worked configs: alias normalisation, tier routing, Responses passthrough, auxiliary endpoints, streaming rejection. |

@@ -19,7 +19,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from magos.egress.dispatch import DispatchError, dispatch_decision
+from magos.egress.dispatch import dispatch_decision
+from magos.egress.errors import DispatchError
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import (
