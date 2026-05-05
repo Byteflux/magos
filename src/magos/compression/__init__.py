@@ -11,5 +11,12 @@ from __future__ import annotations
 
 from .build import ProviderName, build_pipeline
 from .config import PipelineConfig
+from .registry import PipelineRegistry, get_registry
 
-__all__ = ["PipelineConfig", "ProviderName", "build_pipeline"]
+__all__ = [
+    "PipelineConfig",
+    "PipelineRegistry",
+    "ProviderName",
+    "build_pipeline",
+    "get_registry",
+]
