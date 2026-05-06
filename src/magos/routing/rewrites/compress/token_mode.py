@@ -16,7 +16,7 @@ from typing import Any
 
 from magos.cache import derive_session_id, get_store
 from magos.cache.tracker import PrefixCacheTracker
-from magos.compression import PipelineConfig, ProviderName, apply
+from magos.compression import ProviderName, apply, pipeline_config_from_compress_options
 from magos.egress.usage import Usage
 from magos.registry.state import RegistryState
 from magos.routing.request import PostResponseHook, RoutedRequest
@@ -68,12 +68,7 @@ def _apply_token_mode(
         else _resolve_model_limit(model, registry=registry)
     )
 
-    config = PipelineConfig(
-        smart_routing=opts.smart_routing,
-        code_aware=opts.code_aware,
-        intelligent_context=opts.intelligent_context,
-        keep_last_turns=opts.keep_last_turns,
-    )
+    config = pipeline_config_from_compress_options(opts)
     provider_name = _provider_for_endpoint(req.endpoint)
 
     session_id = derive_session_id(req.headers, req.body, provider_name)
