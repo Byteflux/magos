@@ -232,7 +232,7 @@ class RegistryRefresher:
 # Lifespan runner
 # ---------------------------------------------------------------------------
 
-# Startup order: kompress backend env → metrics → headroom warmup →
+# Startup order: kompress backend env → metrics → compression warmup →
 #                kompress preload (background) → refresher start.
 # Shutdown order (AsyncExitStack LIFO): refresher stop → preload cancel →
 #                metrics (no-op) → backend override (no-op).

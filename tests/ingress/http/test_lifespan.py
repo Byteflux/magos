@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 import magos.compression as mc
 from magos.compression import PipelineConfig
 from magos.compression import registry as reg_mod
-from magos.compression import warmup as wu_mod
 from magos.ingress.http import create_app
 from magos.routing import RoutingConfig
 
@@ -36,10 +35,8 @@ def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
 
     monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", fake_get_or_build)
     # The lifespan does ``from magos.compression import eager_warmup`` inside
-    # the function, so the resolved name lives on the magos.compression
-    # package, not on the warmup module. Patch both for safety.
+    # the function, so the resolved name lives on the package.
     monkeypatch.setattr(mc, "eager_warmup", fake_eager_warmup)
-    monkeypatch.setattr(wu_mod, "eager_warmup", fake_eager_warmup)
 
     cfg = RoutingConfig.model_validate(
         {
@@ -76,7 +73,6 @@ def test_lifespan_skips_warmup_when_no_compress_rule(
 
     monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", fake_get_or_build)
     monkeypatch.setattr(mc, "eager_warmup", lambda _r: eager_calls.append(1))
-    monkeypatch.setattr(wu_mod, "eager_warmup", lambda _r: eager_calls.append(1))
 
     cfg = translate_only_cfg()
     app = create_app(routing=cfg)
