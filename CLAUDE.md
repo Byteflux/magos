@@ -208,7 +208,7 @@ wire-shape translation across providers.
 | mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.ingress.mitm` |
 | (none) | rule-based router (the product) | `magos.routing` |
 | (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
-| Headroom transforms | compression pipeline ownership (lifecycle, registry, inflation guard) | `magos.compression` |
+| (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 

@@ -40,6 +40,6 @@ Headroom encodes the constants in `headroom/cache/anthropic.py`:
 
 | Shape                                                | Verdict |
 |------------------------------------------------------|---------|
-| `headroom.compress()` direct call                    | **Adopted.** Wrapped as `Compress` rewrite primitive. |
+| `headroom.transforms.TransformPipeline` direct       | **Adopted.** Owned by `magos.compression` (per-(config,provider) registry, inflation guard, eager warmup); the `Compress` rewrite primitive is the routing-layer caller. |
 | `headroom.integrations.litellm_callback.HeadroomCallback` | **Rejected.** Implements LiteLLM's `CustomLogger.async_pre_call_hook`, which only fires when LiteLLM runs as a *proxy server*. Magos uses the LiteLLM SDK (`litellm.acompletion`, `litellm.anthropic_messages`, `litellm.aresponses`). The hook never fires in our architecture, verified by grep: `async_pre_call_hook` exists only under `litellm/proxy/`. |
 | `headroom.proxy.handlers.*` (HeadroomProxy)          | **Rejected.** ~6,300 LOC of FastAPI handlers that re-implement provider routing, header forwarding, streaming. Stacking it under magos's mitmproxy + FastAPI duplicates routing. |

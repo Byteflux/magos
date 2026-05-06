@@ -1,27 +1,31 @@
 # Failure semantics
 
-`compress()` already fails open (`compress.py:311-324`):
+Magos owns failure handling at two layers:
 
-- Wraps the pipeline in `try/except`.
-- Calls `get_otel_metrics().record_compression_failure(...)`.
-- Returns `CompressResult(messages=messages, tokens_*=0)` (original
-  messages, zero metrics).
+- **`magos.compression.apply` inflation guard** (`pipeline.py:72-86`):
+  if the pipeline returns `tokens_after > tokens_before`, log
+  `compress.inflation_reverted` and swap the result back to the
+  original messages with `tokens_saved=0` and `inflation_reverted=True`.
+- **`magos.compression.eager_warmup` per-transform try/except**
+  (`warmup.py`): a single transform failing to load doesn't break
+  process startup; logs `compress.eager_load_failed` and continues.
 
-Magos does **not** wrap this. We do swallow import errors as a defence
-against optional extras (kompress weights, etc.) being missing: log
-`compress.import_failed` and pass through.
+Headroom's own `compress()` library entry also fails open (returns
+original messages with zeroed metrics on exception), but magos calls
+`pipeline.apply(...)` directly and does not rely on that guarantee.
 
 ## Pipeline init cost
 
 Two distinct init costs:
 
-1. **TransformPipeline construction.** `_get_pipeline()` is a
-   thread-locked lazy singleton in upstream `headroom.compress` (magos
-   imports it via `ingress/http/lifespan.py:129`). First call
-   constructs the pipeline, the underlying tokenizer, transform
-   instances. Subsequent calls reuse. Magos warms this once at FastAPI
-   startup via the lifespan hook in `ingress/http/lifespan.py` if any routing rule
-   uses `compress`.
+1. **TransformPipeline construction.** `magos.compression.PipelineRegistry`
+   is a thread-locked lazy cache keyed by `(config-fingerprint,
+   provider_name)`. First `get_or_build` for a key constructs the
+   pipeline, the underlying tokenizer, and the transform instances;
+   subsequent calls reuse. Magos warms the default `PipelineConfig` for
+   both providers once at FastAPI startup via `MagosCompressionWarmup`
+   in `ingress/http/lifespan.py`, but only when at least one routing
+   rule uses `compress`.
 
 2. **Kompress weight load.** Separate from pipeline construction.
    `KompressCompressor._get_kompress` is lazy *inside* the compressor:

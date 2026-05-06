@@ -194,8 +194,8 @@ thread-locked) keyed by `model_id`, so repeated rules with the same
 model are cheap. Multiple models can coexist. There's also
 `unload_kompress_model()` for memory pressure.
 
-Kompress is **not preloaded by magos**. The lifespan hook calls
-`_get_pipeline()` which builds the TransformPipeline but
+Kompress is **not preloaded by magos**. The lifespan hook builds the
+pipeline via `magos.compression.PipelineRegistry.get_or_build(...)` but
 `KompressCompressor.compress` is lazy (`_get_kompress` only fires when
 `_route_and_compress_block` actually hits a PLAIN_TEXT block). First
 text-bearing compress request pays the HF download (~tens of seconds
