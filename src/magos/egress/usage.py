@@ -8,7 +8,7 @@ Anthropic-only; OpenAI shapes leave it 0.
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -86,7 +86,7 @@ def usage_from_openai_responses(body: Any) -> Usage:
     )
 
 
-_EXTRACTORS: dict[Shape, Any] = {
+_EXTRACTORS: dict[Shape, Callable[[Any], Usage]] = {
     "anthropic": usage_from_anthropic,
     "openai-chat": usage_from_openai_chat,
     "openai-responses": usage_from_openai_responses,
@@ -128,11 +128,27 @@ def log_usage(
     )
 
 
-def log_usage_from_body(shape: Shape, body: Any, *, endpoint: str, stream: bool = False) -> None:
-    """Convenience: extract usage for ``shape`` from ``body`` and log."""
+def log_usage_from_body(
+    shape: Shape,
+    body: Any,
+    *,
+    endpoint: str,
+    stream: bool = False,
+    on_complete: Callable[[Usage], None] | None = None,
+) -> Usage:
+    """Convenience: extract usage for ``shape`` from ``body``, log it, return it.
+
+    If ``on_complete`` is provided and the captured usage is non-empty,
+    it is invoked with the ``Usage``. The hook MUST NOT raise; callers
+    that need failure isolation should wrap their callback themselves.
+    """
     extractor = _EXTRACTORS[shape]
     model = body.get("model") if isinstance(body, dict) else None
-    log_usage(shape, endpoint=endpoint, model=model, usage=extractor(body), stream=stream)
+    usage = extractor(body)
+    log_usage(shape, endpoint=endpoint, model=model, usage=usage, stream=stream)
+    if on_complete is not None and not usage.is_empty:
+        on_complete(usage)
+    return usage
 
 
 # ---------------------------------------------------------------------------
@@ -266,11 +282,16 @@ async def tap_stream(
     *,
     endpoint: str,
     fallback_model: str | None = None,
+    on_complete: Callable[[Usage], None] | None = None,
 ) -> AsyncIterator[bytes]:
     """Forward ``upstream`` byte-for-byte while accumulating usage stats.
 
     Usage parsing is best-effort: malformed/truncated streams or upstreams
     that omit a final usage block degrade silently to no log.
+
+    If ``on_complete`` is provided and the final accumulated usage is
+    non-empty, it is invoked once after final logging, even if the stream
+    raised mid-way.
     """
     accumulator = UsageAccumulator(shape)
     buf = b""
@@ -290,10 +311,13 @@ async def tap_stream(
             event_name, data = _parse_event(buf)
             if data is not None:
                 accumulator.feed(event_name, data)
+        snapshot = accumulator.snapshot()
         log_usage(
             shape,
             endpoint=endpoint,
             model=accumulator.model or fallback_model,
-            usage=accumulator.snapshot(),
+            usage=snapshot,
             stream=True,
         )
+        if on_complete is not None and not snapshot.is_empty:
+            on_complete(snapshot)

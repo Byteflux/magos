@@ -378,3 +378,56 @@ def test_extractors_handle_missing_usage_block() -> None:
     assert usage_from_anthropic(_payload_with_no_usage()) == Usage()
     assert usage_from_openai_chat(_payload_with_no_usage()) == Usage()
     assert usage_from_openai_responses(_payload_with_no_usage()) == Usage()
+
+
+# ---------------------------------------------------------------------------
+# log_usage_from_body: return value and on_complete callback
+# ---------------------------------------------------------------------------
+
+
+def test_log_usage_from_body_returns_usage() -> None:
+    body = {"model": "x", "usage": {"input_tokens": 100, "output_tokens": 50}}
+    result = log_usage_from_body("anthropic", body, endpoint="/v1/messages")
+    assert result.input == 100
+    assert result.output == 50
+
+
+def test_log_usage_from_body_fires_on_complete_callback() -> None:
+    seen: list[Any] = []
+    body = {"model": "x", "usage": {"input_tokens": 100, "output_tokens": 50}}
+    log_usage_from_body("anthropic", body, endpoint="/v1/messages", on_complete=seen.append)
+    assert len(seen) == 1
+    assert seen[0].input == 100
+
+
+def test_log_usage_from_body_skips_callback_on_empty_usage() -> None:
+    seen: list[Any] = []
+    log_usage_from_body(
+        "anthropic", {"model": "x"}, endpoint="/v1/messages", on_complete=seen.append
+    )
+    assert seen == []
+
+
+def test_tap_stream_fires_on_complete_after_final_usage() -> None:
+    async def _run() -> tuple[bytes, list[Any]]:
+        async def upstream() -> AsyncIterator[bytes]:
+            yield (
+                b'event: message_start\ndata: {"message": {"usage": '
+                b'{"input_tokens": 100, "output_tokens": 0, "cache_read_input_tokens": 0, '
+                b'"cache_creation_input_tokens": 0}, "model": "claude-x"}}\n\n'
+            )
+            yield b'event: message_delta\ndata: {"usage": {"output_tokens": 50}}\n\n'
+
+        seen: list[Any] = []
+        bytes_out = b""
+        async for chunk in tap_stream(
+            upstream(), "anthropic", endpoint="/v1/messages", on_complete=seen.append
+        ):
+            bytes_out += chunk
+        return bytes_out, seen
+
+    bytes_out, seen = asyncio.run(_run())
+    assert b"message_start" in bytes_out
+    assert len(seen) == 1
+    assert seen[0].input == 100
+    assert seen[0].output == 50
