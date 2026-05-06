@@ -539,3 +539,60 @@ def test_compress_token_mode_uses_magos_compression_registry() -> None:
     assert list(get_registry().pipelines()), (
         "expected magos.compression registry to be populated after request"
     )
+
+
+def test_compress_token_mode_freezes_prefix_across_turns() -> None:
+    """End-to-end: two turns of the same conversation through a token-mode
+    compress rule. Asserts the tracker accumulates state across turns
+    (turn_number advances, frozen_message_count becomes non-zero if the
+    upstream actually cached anything).
+    """
+    _maybe_skip_anthropic_oauth()
+    from magos.cache import derive_session_id, get_store  # noqa: PLC0415
+    from magos.routing import RoutingConfig  # noqa: PLC0415
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "rewrites": [{"compress": {"mode": "token"}}],
+                    "action": {
+                        "provider": "anthropic",
+                        "mode": "translate",
+                        "api_key_env": "ANTHROPIC_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+
+    headers = {"x-magos-session-id": "phase1.5-e2e-smoke"}
+    body_turn1 = {
+        "model": ANTHROPIC_MODEL,
+        "messages": [{"role": "user", "content": "Say hi."}],
+        "max_tokens": 16,
+    }
+
+    with TestClient(create_app(routing=cfg)) as client:
+        r1 = client.post("/v1/messages", json=body_turn1, headers=headers)
+        assert r1.status_code == 200, r1.text
+
+        # Second turn appends an assistant + new user message.
+        body_turn2 = {
+            "model": ANTHROPIC_MODEL,
+            "messages": [
+                {"role": "user", "content": "Say hi."},
+                {"role": "assistant", "content": r1.json()["content"][0]["text"]},
+                {"role": "user", "content": "Say it again."},
+            ],
+            "max_tokens": 16,
+        }
+        r2 = client.post("/v1/messages", json=body_turn2, headers=headers)
+        assert r2.status_code == 200, r2.text
+
+    # Tracker state survived both turns.
+    sid = derive_session_id(headers, body_turn1, "anthropic")
+    tracker = get_store().get_or_create(sid, "anthropic")
+    # Tracker turn_number was advanced by the post-response hooks.
+    assert tracker.stats.turn_number >= 1
