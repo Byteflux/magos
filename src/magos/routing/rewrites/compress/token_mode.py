@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import replace
-from typing import Any, Literal
+from typing import Any
 
-from magos.compression import PipelineConfig, apply
+from magos.compression import PipelineConfig, ProviderName, apply
 from magos.registry.state import RegistryState
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import CompressOptions
@@ -23,8 +23,6 @@ from ._preload import _preload_sentence_transformers
 from .model_limit import _resolve_model_limit
 
 log = get_logger("magos.routing.rewrites")
-
-ProviderName = Literal["anthropic", "openai"]
 
 _OPENAI_ENDPOINTS: frozenset[str] = frozenset({"/v1/chat/completions"})
 
