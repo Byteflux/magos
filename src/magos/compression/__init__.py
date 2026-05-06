@@ -8,7 +8,7 @@ rewrite calls ``apply`` from this module instead of ``headroom.compress``.
 from __future__ import annotations
 
 from .build import ProviderName, build_pipeline
-from .config import PipelineConfig
+from .config import PipelineConfig, pipeline_config_from_compress_options
 from .pipeline import ApplyResult, apply
 from .registry import PipelineRegistry, get_registry
 from .warmup import eager_warmup
@@ -22,4 +22,5 @@ __all__ = [
     "build_pipeline",
     "eager_warmup",
     "get_registry",
+    "pipeline_config_from_compress_options",
 ]
