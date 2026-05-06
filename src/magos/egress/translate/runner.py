@@ -20,7 +20,7 @@ from magos.egress.translate.payload import (
     resolve_client_model,
 )
 from magos.egress.translate.sse import rewrite_data_in_stream
-from magos.egress.usage import Shape, log_usage_from_body, tap_stream
+from magos.egress.usage import Shape, Usage, log_usage_from_body, tap_stream
 from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.translate")
@@ -70,6 +70,7 @@ async def _proxy_translate_inner(
     forward_headers: dict[str, str] | None,
     api_key: str | None,
     api_base: str | None,
+    on_complete: Callable[[Usage], None] | None = None,
 ) -> dict[str, Any]:
     client_model = resolve_client_model(request.get("model", ""), provider, dispatch_model)
     body = request
@@ -85,7 +86,7 @@ async def _proxy_translate_inner(
     log.info("dispatch", shape=adapter.log_shape, model=client_model, dispatch_model=dispatch_model)
     result = coerce_to_dict(await dispatch(**payload))
     adapter.set_model_in_response(result, client_model)
-    log_usage_from_body(adapter.shape, result, endpoint=adapter.endpoint)
+    log_usage_from_body(adapter.shape, result, endpoint=adapter.endpoint, on_complete=on_complete)
     return result
 
 
@@ -99,6 +100,7 @@ async def proxy_translate(
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_complete: Callable[[Usage], None] | None = None,
 ) -> dict[str, Any]:
     """Generic non-streaming translate runner."""
     dispatch: Callable[..., Awaitable[Any]] = completion or adapter.default_dispatch
@@ -111,6 +113,7 @@ async def proxy_translate(
         forward_headers=forward_headers,
         api_key=api_key,
         api_base=api_base,
+        on_complete=on_complete,
     )
 
 
@@ -124,6 +127,7 @@ def stream_translate(
     forward_headers: dict[str, str] | None = None,
     api_key: str | None = None,
     api_base: str | None = None,
+    on_complete: Callable[[Usage], None] | None = None,
 ) -> AsyncIterator[bytes]:
     """Generic streaming translate runner.
 
@@ -155,4 +159,5 @@ def stream_translate(
         adapter.shape,
         endpoint=adapter.endpoint,
         fallback_model=client_model,
+        on_complete=on_complete,
     )
