@@ -34,9 +34,11 @@ def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
         eager_calls.append(1)
 
     monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", fake_get_or_build)
-    # The lifespan does ``from magos.compression import eager_warmup`` inside
-    # the function, so the resolved name lives on the package.
-    monkeypatch.setattr(mc, "eager_warmup", fake_eager_warmup)
+    # ``prebuild_from_routing`` (called by the lifespan) calls ``eager_warmup``
+    # via its own module-local reference, so patch at the call site.
+    from magos.compression import warmup as warmup_mod  # noqa: PLC0415
+
+    monkeypatch.setattr(warmup_mod, "eager_warmup", fake_eager_warmup)
 
     cfg = RoutingConfig.model_validate(
         {

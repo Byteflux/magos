@@ -148,11 +148,7 @@ class MagosCompressionWarmup:
         if not _config_uses_compress(cfg):
             return
         try:
-            from magos.compression import (  # noqa: PLC0415
-                PipelineConfig,
-                eager_warmup,
-                get_registry,
-            )
+            from magos.compression import prebuild_from_routing  # noqa: PLC0415
         except Exception as exc:
             log.warning(
                 "compress.pipeline_warm_failed",
@@ -161,12 +157,8 @@ class MagosCompressionWarmup:
             )
             return
 
-        registry = get_registry()
-        default_cfg = PipelineConfig()
         try:
-            registry.get_or_build(default_cfg, provider_name="anthropic")
-            registry.get_or_build(default_cfg, provider_name="openai")
-            eager_warmup(registry)
+            prebuild_from_routing(cfg)
             log.info("compress.pipeline_warmed")
         except Exception as exc:
             log.warning(
