@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
 from headroom.ccr import CCRResponseHandler, ResponseHandlerConfig
@@ -76,3 +76,60 @@ async def wrap_response(
         retrievals=handler.get_stats().get("total_retrievals", 0),
     )
     return final
+
+
+async def wrap_stream(
+    upstream: AsyncIterator[bytes],
+    *,
+    req: RoutedRequest,
+    adapter: TranslateAdapter,
+    completion: Callable[..., Awaitable[Any]],
+    dispatch_model: str,
+    provider: str,
+    forward_headers: dict[str, str],
+    api_key: str | None,
+    api_base: str | None,
+) -> AsyncIterator[bytes]:
+    """Hand a streaming response through headroom's CCR streaming handler.
+
+    Short-circuits when the request didn't inject the CCR tool: passes
+    chunks through verbatim. Otherwise wraps with
+    ``StreamingCCRHandler.process_stream`` and forwards the chunks it
+    yields (which may be the original stream or a continuation stream).
+    """
+    if not is_ccr_request(req):
+        async for chunk in upstream:
+            yield chunk
+        return
+
+    from headroom.ccr import StreamingCCRHandler  # noqa: PLC0415
+
+    handler = StreamingCCRHandler(
+        CCRResponseHandler(ResponseHandlerConfig()),
+        provider=provider,
+    )
+    continuation = make_continuation_callable(
+        adapter=adapter,
+        original_body=dict(req.body),
+        completion=completion,
+        dispatch_model=dispatch_model,
+        provider=provider,
+        forward_headers=forward_headers,
+        api_key=api_key,
+        api_base=api_base,
+    )
+
+    messages = list(req.body.get("messages", []))
+    tools = req.body.get("tools")
+    log.info("ccr.wrap_stream_start", endpoint=req.endpoint, provider=provider)
+    try:
+        async for chunk in handler.process_stream(upstream, messages, tools, continuation):
+            yield chunk
+    except Exception as exc:
+        log.warning(
+            "ccr.stream_handler_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        return
+    log.info("ccr.wrap_stream_done", endpoint=req.endpoint)
