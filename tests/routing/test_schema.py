@@ -15,6 +15,7 @@ from magos.routing.schema import (
     AddHeader,
     AllOf,
     AnyOf,
+    CompressOptions,
     EndpointAtom,
     GlobMatcher,
     HeaderAtom,
@@ -203,3 +204,30 @@ def test_routing_config_round_trips() -> None:
     )
     assert cfg.rules[0].name == "default"
     assert isinstance(cfg.pre_rewrites[0], SetHeader)
+
+
+# --- CompressOptions pipeline-shape knobs ---
+
+
+def test_compress_options_new_pipeline_fields_have_proxy_modern_defaults() -> None:
+    opts = CompressOptions()
+    assert opts.smart_routing is True
+    assert opts.code_aware is False
+    assert opts.intelligent_context is True
+    assert opts.keep_last_turns == 4
+
+
+def test_compress_options_accepts_legacy_shape() -> None:
+    opts = CompressOptions(
+        smart_routing=False,
+        intelligent_context=False,
+        keep_last_turns=8,
+    )
+    assert opts.smart_routing is False
+    assert opts.intelligent_context is False
+    assert opts.keep_last_turns == 8
+
+
+def test_compress_options_rejects_negative_keep_last_turns() -> None:
+    with pytest.raises(ValidationError):
+        CompressOptions(keep_last_turns=-1)

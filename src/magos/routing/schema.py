@@ -140,6 +140,22 @@ class CompressOptions(_Frozen):
     model_limit: int | None = Field(default=None, ge=1024)
     """Context-window override; ``None`` auto-detects. See ``docs/headroom/model-limit.md``."""
 
+    smart_routing: bool = True
+    """When True, use ContentRouter for per-content-type dispatch (default).
+    When False, use the legacy SmartCrusher-only path. See
+    ``docs/headroom/pipeline.md``."""
+
+    code_aware: bool = False
+    """Enable AST-aware code compression in ContentRouter. Requires
+    tree-sitter; ignored when ``smart_routing`` is False."""
+
+    intelligent_context: bool = True
+    """When True, use IntelligentContextManager (score-based fitting).
+    When False, fall back to RollingWindow (last-N-turns)."""
+
+    keep_last_turns: int = Field(default=4, ge=0)
+    """Recent turns the context manager must preserve verbatim."""
+
 
 class Compress(_Frozen):
     compress: CompressOptions = Field(default_factory=CompressOptions)
