@@ -11,6 +11,12 @@ from __future__ import annotations
 
 from headroom.ccr import CCR_TOOL_NAME
 
+from .continuation import ContinuationCallable, make_continuation_callable
 from .detection import is_ccr_request
 
-__all__ = ["CCR_TOOL_NAME", "is_ccr_request"]
+__all__ = [
+    "CCR_TOOL_NAME",
+    "ContinuationCallable",
+    "is_ccr_request",
+    "make_continuation_callable",
+]
