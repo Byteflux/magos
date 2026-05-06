@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-import headroom
 import litellm
 import pytest
 
+from magos.compression import ApplyResult, PipelineConfig
 from magos.routing import Compress, CompressOptions
 from magos.routing.rewrites import apply_rewrites
 from magos.routing.rewrites import compress as rw
+from magos.routing.rewrites.compress import token_mode as tm
 from tests.routing._helpers import make_req
 
 # --- Skip / no-op cases ---
@@ -40,36 +41,35 @@ def test_compress_empty_messages_is_noop() -> None:
 # --- Chat-shape token-mode pipeline ---
 
 
-class _StubResult:
-    def __init__(
-        self,
-        messages: list[dict[str, Any]],
-        *,
-        before: int = 100,
-        after: int = 60,
-        transforms: list[str] | None = None,
-    ) -> None:
-        self.messages = messages
-        self.tokens_before = before
-        self.tokens_after = after
-        self.tokens_saved = before - after
-        self.compression_ratio = (before - after) / before if before > 0 else 0.0
-        self.transforms_applied = transforms or ["stub"]
-
-
 def test_compress_token_mode_applies_pipeline_and_marks_dirty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
+    def fake_apply(
+        *,
+        messages: list[dict[str, Any]],
+        model: str,
+        model_limit: int,
+        config: PipelineConfig,
+        provider_name: str,
+        context: str | None = None,
+        biases: dict[str, float] | None = None,
+    ) -> ApplyResult:
         captured["messages"] = messages
-        captured["model"] = kwargs.get("model")
-        captured["model_limit"] = kwargs.get("model_limit")
-        captured["config"] = kwargs.get("config")
-        return _StubResult([{"role": "user", "content": "shorter"}])
+        captured["model"] = model
+        captured["model_limit"] = model_limit
+        captured["config"] = config
+        captured["provider_name"] = provider_name
+        return ApplyResult(
+            messages=[{"role": "user", "content": "shorter"}],
+            tokens_before=100,
+            tokens_after=60,
+            tokens_saved=40,
+            transforms_applied=["ContentRouter"],
+        )
 
-    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     req = make_req(
         body={
@@ -82,19 +82,83 @@ def test_compress_token_mode_applies_pipeline_and_marks_dirty(
     assert out.body_dirty is True
     assert out.body["messages"] == [{"role": "user", "content": "shorter"}]
     assert captured["model"] == "claude-sonnet-4-5"
-    assert captured["config"].target_ratio == 0.5
-    # model_limit is plumbed through (auto-resolved or default fallback).
-    assert isinstance(captured["model_limit"], int)
-    assert captured["model_limit"] > 0
+    assert captured["provider_name"] == "anthropic"
+    assert isinstance(captured["config"], PipelineConfig)
+    assert isinstance(captured["model_limit"], int) and captured["model_limit"] > 0
+
+
+def test_compress_token_mode_chat_endpoint_uses_openai_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen_providers: list[str] = []
+
+    def fake_apply(
+        *,
+        messages: list[dict[str, Any]],
+        model: str,
+        model_limit: int,
+        config: PipelineConfig,
+        provider_name: str,
+        context: str | None = None,
+        biases: dict[str, float] | None = None,
+    ) -> ApplyResult:
+        seen_providers.append(provider_name)
+        return ApplyResult(
+            messages=messages,
+            tokens_before=10,
+            tokens_after=10,
+            tokens_saved=0,
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+
+    req = make_req(
+        endpoint="/v1/chat/completions",
+        body={"model": "gpt-4o", "messages": [{"role": "user", "content": "x"}]},
+    )
+    apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    assert seen_providers == ["openai"]
+
+
+def test_compress_token_mode_inflation_returns_request_untouched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = [{"role": "user", "content": "input"}]
+
+    def fake_apply(**_kwargs: Any) -> ApplyResult:
+        return ApplyResult(
+            messages=original,
+            tokens_before=50,
+            tokens_after=50,
+            tokens_saved=0,
+            inflation_reverted=True,
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+
+    req = make_req(body={"model": "x", "messages": original})
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    assert out is req  # body_dirty must NOT flip when nothing changed
 
 
 def test_compress_zero_savings_returns_input_unchanged(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
-        return _StubResult(messages, before=100, after=100)
+    def fake_apply(
+        *,
+        messages: list[dict[str, Any]],
+        model: str,
+        model_limit: int,
+        config: PipelineConfig,
+        provider_name: str,
+        context: str | None = None,
+        biases: dict[str, float] | None = None,
+    ) -> ApplyResult:
+        return ApplyResult(messages=messages, tokens_before=100, tokens_after=100, tokens_saved=0)
 
-    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     req = make_req(body={"model": "x", "messages": [{"role": "user", "content": "hi"}]})
     out = apply_rewrites(req, [Compress(compress=CompressOptions())])
@@ -104,10 +168,10 @@ def test_compress_zero_savings_returns_input_unchanged(
 def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) -> None:
     """``mode: cache`` must not invoke the full compress() pipeline."""
 
-    def fake_compress(*args: Any, **kwargs: Any) -> _StubResult:  # pragma: no cover
-        raise AssertionError("compress() must not be called in cache mode")
+    def boom(*args: Any, **kwargs: Any) -> ApplyResult:  # pragma: no cover
+        raise AssertionError("apply() must not be called in cache mode")
 
-    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+    monkeypatch.setattr(tm, "apply", boom, raising=True)
 
     # The DynamicContentDetector (Tier 1 regex) extracts UUIDs from the
     # static prefix into a dynamic-context tail. UUID detection is the
@@ -130,13 +194,13 @@ def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) 
     assert uuid in sys_content
 
 
-def test_compress_unsupported_endpoint_does_not_call_headroom(
+def test_compress_unsupported_endpoint_does_not_call_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
-        raise AssertionError("compress() must not be called for /v1/responses")
+        raise AssertionError("apply() must not be called for /v1/responses")
 
-    monkeypatch.setattr(headroom, "compress", boom, raising=True)
+    monkeypatch.setattr(tm, "apply", boom, raising=True)
 
     req = make_req(
         endpoint="/v1/responses",
@@ -205,15 +269,15 @@ def test_responses_cache_mode_noop_when_instructions_empty() -> None:
     assert out is req
 
 
-def test_responses_token_mode_does_not_call_headroom(
+def test_responses_token_mode_does_not_call_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``mode: token`` is unsupported on /v1/responses: must not call compress()."""
+    """``mode: token`` is unsupported on /v1/responses: must not call apply()."""
 
     def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
-        raise AssertionError("compress() must not be called for Responses token mode")
+        raise AssertionError("apply() must not be called for Responses token mode")
 
-    monkeypatch.setattr(headroom, "compress", boom, raising=True)
+    monkeypatch.setattr(tm, "apply", boom, raising=True)
 
     req = make_req(
         endpoint="/v1/responses",
@@ -280,11 +344,25 @@ def test_compress_uses_explicit_model_limit_override(
     """``opts.model_limit`` bypasses the LiteLLM lookup."""
     captured: dict[str, Any] = {}
 
-    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
-        captured["model_limit"] = kwargs.get("model_limit")
-        return _StubResult([{"role": "user", "content": "x"}])
+    def fake_apply(
+        *,
+        messages: list[dict[str, Any]],
+        model: str,
+        model_limit: int,
+        config: PipelineConfig,
+        provider_name: str,
+        context: str | None = None,
+        biases: dict[str, float] | None = None,
+    ) -> ApplyResult:
+        captured["model_limit"] = model_limit
+        return ApplyResult(
+            messages=[{"role": "user", "content": "x"}],
+            tokens_before=10,
+            tokens_after=10,
+            tokens_saved=0,
+        )
 
-    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     # Spy on _resolve_model_limit to assert it's NOT called when explicit.
 
@@ -313,11 +391,25 @@ def test_compress_model_limit_auto_detect_per_model(
     """Auto-detected limit for the dispatch model is plumbed to compress()."""
     captured: dict[str, Any] = {}
 
-    def fake_compress(messages: list[dict[str, Any]], **kwargs: Any) -> _StubResult:
-        captured["model_limit"] = kwargs.get("model_limit")
-        return _StubResult([{"role": "user", "content": "x"}])
+    def fake_apply(
+        *,
+        messages: list[dict[str, Any]],
+        model: str,
+        model_limit: int,
+        config: PipelineConfig,
+        provider_name: str,
+        context: str | None = None,
+        biases: dict[str, float] | None = None,
+    ) -> ApplyResult:
+        captured["model_limit"] = model_limit
+        return ApplyResult(
+            messages=[{"role": "user", "content": "x"}],
+            tokens_before=10,
+            tokens_after=10,
+            tokens_saved=0,
+        )
 
-    monkeypatch.setattr(headroom, "compress", fake_compress, raising=True)
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", {"gpt-4o": 128_000})
 
