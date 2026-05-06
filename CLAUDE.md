@@ -53,7 +53,13 @@ src/magos/
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
   process.py         # transport-agnostic request processing core (process_routed_request)
 
-  compression/      # owns headroom TransformPipeline lifecycle
+  cache/             # owns headroom PrefixCacheTracker (per-session prefix tracking)
+    __init__.py     # public surface (TrackerStore, get_store, derive_session_id, PrefixCacheTracker)
+    tracker.py      # re-export of headroom's PrefixCacheTracker + PrefixFreezeConfig
+    session_id.py   # derive_session_id(headers, body, provider) -> str
+    store.py        # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
+
+  compression/      # owns headroom TransformPipeline lifecycle (see also magos.cache)
     __init__.py     # public surface (PipelineConfig, apply, eager_warmup, get_registry)
     config.py       # PipelineConfig + fingerprint
     build.py        # build_pipeline(config, provider_name) -> TransformPipeline
@@ -209,6 +215,7 @@ wire-shape translation across providers.
 | (none) | rule-based router (the product) | `magos.routing` |
 | (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
 | (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
+| (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.cache` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 

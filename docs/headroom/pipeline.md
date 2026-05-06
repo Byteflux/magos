@@ -13,6 +13,13 @@ library entry. This buys us:
   `keep_last_turns`).
 - Provider-bound pipelines (Anthropic for `/v1/messages` family, OpenAI
   for `/v1/chat/completions`) so token counting matches the destination.
+- Prefix-cache awareness via `frozen_message_count`: the routing rewrite
+  fetches a per-session `PrefixCacheTracker` from `magos.cache.get_store()`,
+  reads how many leading messages the upstream had already cached on the
+  previous turn, and passes that to `pipeline.apply` so the pipeline
+  doesn't bust the cache. After the response, a `post_response_hook`
+  registered on the routing layer feeds the upstream's reported
+  `cache_read` / `cache_write` tokens back into the tracker.
 - Token-inflation guard: if the pipeline produces more tokens than it
   received, the wrapper reverts to the original messages.
 - Eager warmup at lifespan: `MagosCompressionWarmup` pre-builds the
@@ -20,8 +27,7 @@ library entry. This buys us:
   calling `eager_load_compressors()`.
 
 `mode: cache` continues to use the standalone `CacheAligner` in
-`cache_mode.py`; it does not go through the registry. Prefix-cache-aware
-`frozen_message_count` tracking is deferred to a follow-up phase.
+`cache_mode.py`; it does not go through the registry.
 
 The transform list magos builds (`src/magos/compression/build.py`) for
 the default `PipelineConfig`:
