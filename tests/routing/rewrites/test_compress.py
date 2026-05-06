@@ -459,3 +459,135 @@ def test_compress_model_limit_auto_detect_per_model(
     req = make_req(body={"model": "gpt-4o", "messages": [{"role": "user", "content": "verbose"}]})
     apply_rewrites(req, [Compress(compress=CompressOptions())])
     assert captured["model_limit"] == 128_000
+
+
+# --- Prefix-cache tracker integration ---
+
+
+def test_compress_token_mode_passes_frozen_count_from_tracker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """First-turn cold-start: tracker reports frozen_count=0."""
+    from magos.cache import store as store_mod  # noqa: PLC0415
+
+    captured: dict[str, Any] = {}
+
+    def fake_apply(**kwargs: Any) -> ApplyResult:
+        captured.update(kwargs)
+        return ApplyResult(
+            messages=kwargs["messages"], tokens_before=10, tokens_after=8, tokens_saved=2
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+    monkeypatch.setattr(store_mod, "_STORE", store_mod.TrackerStore())
+
+    req = make_req(
+        body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
+    )
+    apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    assert captured["frozen_message_count"] == 0
+
+
+def test_compress_token_mode_registers_post_response_hook(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The compress rewrite appends exactly one hook to req.post_response_hooks."""
+    from magos.cache import store as store_mod  # noqa: PLC0415
+
+    def fake_apply(**kwargs: Any) -> ApplyResult:
+        return ApplyResult(
+            messages=kwargs["messages"], tokens_before=100, tokens_after=60, tokens_saved=40
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+    monkeypatch.setattr(store_mod, "_STORE", store_mod.TrackerStore())
+
+    req = make_req(
+        body={
+            "model": "claude-sonnet-4-5",
+            "system": "You are helpful.",
+            "messages": [{"role": "user", "content": "x"}],
+        }
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    assert len(out.post_response_hooks) == 1
+
+
+def test_compress_token_mode_hook_updates_tracker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Firing the registered hook reaches PrefixCacheTracker.update_from_response."""
+    from magos.cache import PrefixCacheTracker, store as store_mod  # noqa: PLC0415, I001
+    from magos.egress.usage import Usage  # noqa: PLC0415
+
+    update_calls: list[dict[str, Any]] = []
+
+    def fake_update(
+        self: PrefixCacheTracker,
+        cache_read_tokens: int,
+        cache_write_tokens: int,
+        messages: list[dict[str, Any]],
+        message_token_counts: list[int] | None = None,
+        original_messages: list[dict[str, Any]] | None = None,
+    ) -> None:
+        update_calls.append(
+            {
+                "cache_read": cache_read_tokens,
+                "cache_write": cache_write_tokens,
+                "n_messages": len(messages),
+            }
+        )
+
+    monkeypatch.setattr(store_mod, "_STORE", store_mod.TrackerStore())
+    monkeypatch.setattr(PrefixCacheTracker, "update_from_response", fake_update)
+
+    def fake_apply(**kwargs: Any) -> ApplyResult:
+        return ApplyResult(
+            messages=kwargs["messages"], tokens_before=100, tokens_after=60, tokens_saved=40
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+
+    req = make_req(
+        body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    # Now fire the registered hook with a fake Usage.
+    out.post_response_hooks[0](Usage(input=200, output=100, cache_read=4000, cache_write=0))
+
+    assert len(update_calls) == 1
+    assert update_calls[0]["cache_read"] == 4000
+    assert update_calls[0]["cache_write"] == 0
+
+
+def test_compress_token_mode_no_hook_when_inflation_reverted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If apply() returns inflation_reverted=True, no rewrite happens. The hook
+    still registers though, because the upstream cache state still needs to be
+    tracked to inform the next turn."""
+    from magos.cache import store as store_mod  # noqa: PLC0415
+
+    def fake_apply(**kwargs: Any) -> ApplyResult:
+        return ApplyResult(
+            messages=kwargs["messages"],
+            tokens_before=50,
+            tokens_after=50,
+            tokens_saved=0,
+            inflation_reverted=True,
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+    monkeypatch.setattr(store_mod, "_STORE", store_mod.TrackerStore())
+
+    req = make_req(
+        body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
+    )
+    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+
+    # body unchanged, but hook still registered for tracker observability.
+    assert out.body == req.body
+    assert len(out.post_response_hooks) == 1
