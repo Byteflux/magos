@@ -22,9 +22,15 @@ library entry. This buys us:
   `cache_read` / `cache_write` tokens back into the tracker.
 - Token-inflation guard: if the pipeline produces more tokens than it
   received, the wrapper reverts to the original messages.
-- Eager warmup at lifespan: `MagosCompressionWarmup` pre-builds the
-  default pipeline for both providers and walks each unique transform
-  calling `eager_load_compressors()`.
+- Per-rule pipeline pre-warm: at startup, `MagosCompressionWarmup`
+  calls `magos.compression.prebuild_from_routing(cfg)`, which walks the
+  loaded routing config and pre-builds a pipeline for every distinct
+  (token-mode `CompressOptions`, provider) tuple. This eliminates first-
+  request cold-start latency for rules that override `smart_routing`,
+  `code_aware`, `intelligent_context`, or `keep_last_turns`. Cache-mode
+  Compress is skipped (CacheAligner has no transform model loads). After
+  the builds, `eager_warmup` walks each unique transform calling
+  `eager_load_compressors()`.
 
 `mode: cache` continues to use the standalone `CacheAligner` in
 `cache_mode.py`; it does not go through the registry.

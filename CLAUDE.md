@@ -60,12 +60,12 @@ src/magos/
     store.py        # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
 
   compression/      # owns headroom TransformPipeline lifecycle (see also magos.cache)
-    __init__.py     # public surface (PipelineConfig, apply, eager_warmup, get_registry)
-    config.py       # PipelineConfig + fingerprint
+    __init__.py     # public surface (PipelineConfig, apply, eager_warmup, prebuild_from_routing, get_registry)
+    config.py       # PipelineConfig + fingerprint + pipeline_config_from_compress_options
     build.py        # build_pipeline(config, provider_name) -> TransformPipeline
     registry.py     # PipelineRegistry caches by (fingerprint, provider_name)
     pipeline.py     # apply() + ApplyResult; inflation guard
-    warmup.py       # eager_warmup() walks unique transforms
+    warmup.py       # eager_warmup + prebuild_from_routing (per-rule pipeline pre-warm)
 
   config/            # process + yaml configuration
     settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
