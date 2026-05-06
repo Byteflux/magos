@@ -14,6 +14,8 @@ from collections import Counter
 from dataclasses import replace
 from typing import Any
 
+from headroom.ccr import CCRToolInjector
+
 from magos.cache import derive_session_id, get_store
 from magos.cache.tracker import PrefixCacheTracker
 from magos.compression import ProviderName, apply, pipeline_config_from_compress_options
@@ -96,6 +98,38 @@ def _apply_token_mode(
     sent_messages = list(result.messages)
     req.post_response_hooks.append(_make_post_response_hook(tracker, sent_messages))
 
+    # CCR tool injection: when post-compression messages carry compression
+    # markers, inject ``headroom_retrieve`` so the model can retrieve the
+    # original content. Frozen prefix > 0 disables instruction injection
+    # to preserve prefix cache; tool injection still runs.
+    new_tools: list[dict[str, Any]] | None = None
+    new_messages_for_ccr: list[dict[str, Any]] | None = None
+    if opts.ccr_enabled:
+        instructions_enabled = opts.ccr_inject_instructions and frozen_count == 0
+        injector = CCRToolInjector(
+            provider=provider_name,
+            inject_tool=opts.ccr_inject_tool,
+            inject_system_instructions=instructions_enabled,
+        )
+        existing_tools_raw = req.body.get("tools")
+        existing_tools = list(existing_tools_raw) if isinstance(existing_tools_raw, list) else None
+        injected_messages, injected_tools, was_injected = injector.process_request(
+            list(result.messages), existing_tools
+        )
+        if injector.has_compressed_content:
+            new_tools = injected_tools
+            new_messages_for_ccr = injected_messages
+            log.info(
+                "ccr.injected",
+                endpoint=req.endpoint,
+                provider=provider_name,
+                hashes=injector.detected_hashes,
+                tool_was_injected=was_injected,
+                instructions_skipped_for_frozen_prefix=(
+                    bool(opts.ccr_inject_instructions and frozen_count > 0)
+                ),
+            )
+
     if result.inflation_reverted or result.tokens_saved <= 0:
         log.debug(
             "compress.no_savings",
@@ -105,6 +139,13 @@ def _apply_token_mode(
             session_id=session_id,
             frozen_count=frozen_count,
         )
+        if new_messages_for_ccr is not None or new_tools is not None:
+            new_body = dict(req.body)
+            if new_messages_for_ccr is not None:
+                new_body["messages"] = new_messages_for_ccr
+            if new_tools is not None:
+                new_body["tools"] = new_tools
+            return replace(req, body=new_body, body_dirty=True)
         return req
 
     log.info(
@@ -124,5 +165,9 @@ def _apply_token_mode(
         transforms=dict(Counter(result.transforms_applied)),
     )
     new_body = dict(req.body)
-    new_body["messages"] = result.messages
+    new_body["messages"] = (
+        new_messages_for_ccr if new_messages_for_ccr is not None else result.messages
+    )
+    if new_tools is not None:
+        new_body["tools"] = new_tools
     return replace(req, body=new_body, body_dirty=True)
