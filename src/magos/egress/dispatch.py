@@ -19,11 +19,13 @@ from magos.egress.tokens import count_tokens
 from magos.egress.translate import TRANSLATE_HANDLERS
 from magos.egress.translate.runner import proxy_translate, stream_translate
 from magos.egress.usage import (
+    Usage,
     log_usage_from_body,
     shape_for_endpoint,
     tap_stream,
 )
 from magos.routing import RouteDecision
+from magos.routing.request import PostResponseHook
 from magos.telemetry import get_logger
 
 __all__ = ["dispatch_decision"]
@@ -31,6 +33,35 @@ __all__ = ["dispatch_decision"]
 log = get_logger("magos.egress.dispatch")
 
 CompletionFn = Callable[..., Awaitable[Any]]
+
+
+def _make_on_complete(
+    hooks: list[PostResponseHook],
+) -> Callable[[Usage], None] | None:
+    """Wrap a hook list into a single on_complete callback.
+
+    Returns None when there are no hooks (so call sites can pass it
+    through unconditionally without paying the wrap cost). Each hook
+    is fired in order; one raising hook is logged and skipped, the
+    rest still fire.
+    """
+    if not hooks:
+        return None
+    snapshot = list(hooks)
+
+    def fire(usage: Usage) -> None:
+        for hook in snapshot:
+            try:
+                hook(usage)
+            except Exception as exc:
+                log.warning(
+                    "compress.hook_failed",
+                    hook=getattr(hook, "__qualname__", repr(hook)),
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                )
+
+    return fire
 
 
 async def dispatch_decision(
@@ -47,6 +78,8 @@ async def dispatch_decision(
 
     forward_headers = maybe_inject_api_key(dict(req.headers), action)
     is_streaming = bool(req.body.get("stream"))
+
+    on_complete = _make_on_complete(req.post_response_hooks)
 
     if action.mode == "passthrough":
         if not action.base_url:  # validated at config load; defensive guard.
@@ -65,7 +98,11 @@ async def dispatch_decision(
             )
             iterator = (
                 tap_stream(
-                    upstream, shape, endpoint=req.endpoint, fallback_model=model_hint or None
+                    upstream,
+                    shape,
+                    endpoint=req.endpoint,
+                    fallback_model=model_hint or None,
+                    on_complete=on_complete,
                 )
                 if shape is not None
                 else upstream
@@ -89,7 +126,7 @@ async def dispatch_decision(
             except (UnicodeDecodeError, ValueError):
                 parsed = None
             if parsed is not None:
-                log_usage_from_body(shape, parsed, endpoint=req.endpoint)
+                log_usage_from_body(shape, parsed, endpoint=req.endpoint, on_complete=on_complete)
         return Response(content=raw, status_code=status, media_type=content_type)
 
     # mode: translate -- only POST endpoints have litellm equivalents.
@@ -112,6 +149,7 @@ async def dispatch_decision(
         "forward_headers": forward_headers,
         "api_key": api_key,
         "api_base": api_base,
+        "on_complete": on_complete,
     }
     if is_streaming:
         stream = stream_translate(adapter, dict(req.body), **common)
