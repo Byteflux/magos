@@ -238,3 +238,29 @@ Gotchas:
   `DROP_BY_SCORE`.
 - Safety guarantees: system messages preserved, last N turns protected,
   tool call/response pairs kept atomic.
+
+## CCR (reversible compression)
+
+When the compression pipeline emits a marker like `[N items compressed
+to M. Retrieve more: hash=abc123]`, magos can let the model retrieve
+the original content on demand:
+
+- The compress rewrite (token mode) scans its post-compression messages
+  for markers via `headroom.ccr.CCRToolInjector`. If markers are found,
+  it injects the `headroom_retrieve` tool definition into `body.tools`
+  and (when no prefix is frozen) prepends a system-message instruction
+  block describing how to call the tool.
+- Egress dispatch (`magos.egress.dispatch`) wraps the upstream response
+  with `magos.ccr.wrap_response` (non-streaming) or `magos.ccr.wrap_stream`
+  (streaming). The wrappers short-circuit when the request didn't carry
+  the CCR tool. When the model calls `headroom_retrieve`, the wrappers
+  retrieve from `headroom.cache.compression_store`, build a continuation
+  closure that re-runs the translate adapter with the original retrieval
+  results appended, and return the final response to the client.
+- CCR is on by default whenever compress is on. Disable per-rule with
+  `compress.ccr_enabled: false`. For finer control, the
+  `ccr_inject_tool` and `ccr_inject_instructions` flags scope the
+  injection separately.
+- v1 supports `action.mode: translate` only. Passthrough-mode CCR is
+  deferred. `/v1/responses` does not support compress in token mode,
+  so CCR is naturally out for that endpoint.

@@ -59,6 +59,12 @@ src/magos/
     session_id.py   # derive_session_id(headers, body, provider) -> str
     store.py        # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
 
+  ccr/               # owns CCR (reversible compression) integration with headroom.ccr
+    __init__.py     # public surface (is_ccr_request, wrap_response, wrap_stream, make_continuation_callable)
+    detection.py    # is_ccr_request(req) -> bool: scans body.tools for headroom_retrieve
+    continuation.py # closure builder; re-runs translate adapter with substituted messages/tools
+    handler.py      # wrap_response (non-streaming) + wrap_stream (streaming) wrappers
+
   compression/      # owns headroom TransformPipeline lifecycle (see also magos.cache)
     __init__.py     # public surface (PipelineConfig, apply, eager_warmup, prebuild_from_routing, get_registry)
     config.py       # PipelineConfig + fingerprint + pipeline_config_from_compress_options
@@ -216,6 +222,7 @@ wire-shape translation across providers.
 | (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
 | (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
 | (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.cache` |
+| (none) | reversible-compression integration with `headroom.ccr` (request injection + response handling) | `magos.ccr` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 
