@@ -134,6 +134,7 @@ def test_apply_passes_kwargs_through_to_pipeline(
             "target_ratio": None,
             "min_tokens_to_compress": 250,
             "kompress_model": None,
+            "frozen_message_count": 0,
             "context": "user query",
             "biases": {"foo": 1.0},
         }
@@ -170,3 +171,48 @@ def test_apply_forwards_compress_config_overrides(monkeypatch: pytest.MonkeyPatc
     assert forwarded["target_ratio"] == 0.5
     assert forwarded["min_tokens_to_compress"] == 100
     assert forwarded["kompress_model"] == "custom/model"
+
+
+def test_apply_forwards_frozen_message_count(monkeypatch: pytest.MonkeyPatch) -> None:
+    pipeline = _StubPipeline(
+        _StubResult(
+            messages=[{"role": "user", "content": "x"}],
+            tokens_before=10,
+            tokens_after=8,
+        )
+    )
+    _patch_registry(monkeypatch, pipeline)
+
+    apply(
+        messages=[{"role": "user", "content": "x"}],
+        model="claude-sonnet-4-5",
+        model_limit=128_000,
+        config=PipelineConfig(),
+        provider_name="anthropic",
+        frozen_message_count=3,
+    )
+
+    assert pipeline.calls[0]["frozen_message_count"] == 3
+
+
+def test_apply_omits_frozen_message_count_when_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default 0 is the no-freeze case; we still forward the value so
+    transforms that read it always see the same key."""
+    pipeline = _StubPipeline(
+        _StubResult(
+            messages=[{"role": "user", "content": "x"}],
+            tokens_before=10,
+            tokens_after=8,
+        )
+    )
+    _patch_registry(monkeypatch, pipeline)
+
+    apply(
+        messages=[{"role": "user", "content": "x"}],
+        model="claude-sonnet-4-5",
+        model_limit=128_000,
+        config=PipelineConfig(),
+        provider_name="anthropic",
+    )
+
+    assert pipeline.calls[0]["frozen_message_count"] == 0

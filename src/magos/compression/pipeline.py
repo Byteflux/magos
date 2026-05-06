@@ -51,6 +51,7 @@ def apply(
     target_ratio: float | None = None,
     min_tokens_to_compress: int = 250,
     kompress_model: str | None = None,
+    frozen_message_count: int = 0,
 ) -> ApplyResult:
     """Run the pipeline for ``(config, provider_name)`` against ``messages``.
 
@@ -58,6 +59,10 @@ def apply(
     ``min_tokens_to_compress`` / ``kompress_model`` kwargs are forwarded
     verbatim to ``TransformPipeline.apply``; transforms read whichever
     they care about. Defaults match Headroom's ``CompressConfig``.
+
+    ``frozen_message_count`` tells the pipeline how many leading messages
+    must not be modified (prefix-cache preservation); see
+    ``docs/superpowers/specs/2026-05-06-phase-1.5-prefix-cache-tracking-design.md``.
 
     On token inflation (``tokens_after > tokens_before``), discards the
     pipeline's output and returns the original messages with zero savings.
@@ -75,6 +80,7 @@ def apply(
         "target_ratio": target_ratio,
         "min_tokens_to_compress": min_tokens_to_compress,
         "kompress_model": kompress_model,
+        "frozen_message_count": frozen_message_count,
     }
     if context is not None:
         kwargs["context"] = context
