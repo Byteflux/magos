@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import Response
 from fastapi.responses import StreamingResponse
 
+from magos.ccr import wrap_response, wrap_stream
 from magos.egress.auth import maybe_inject_api_key, resolve_api_key
 from magos.egress.errors import DispatchError
 from magos.egress.passthrough import _HTTP_ERROR_THRESHOLD, call_passthrough, stream_passthrough
@@ -151,10 +152,24 @@ async def dispatch_decision(
         "api_base": api_base,
         "on_complete": on_complete,
     }
+    ccr_kwargs: dict[str, Any] = {
+        "req": req,
+        "adapter": adapter,
+        "completion": completion,
+        "dispatch_model": decision.dispatch_model,
+        "provider": action.provider,
+        "forward_headers": forward_headers,
+        "api_key": api_key,
+        "api_base": api_base,
+    }
     if is_streaming:
         stream = stream_translate(adapter, dict(req.body), **common)
-        return StreamingResponse(stream, media_type="text/event-stream")
-    return await proxy_translate(adapter, dict(req.body), **common)
+        return StreamingResponse(
+            wrap_stream(stream, **ccr_kwargs),
+            media_type="text/event-stream",
+        )
+    response = await proxy_translate(adapter, dict(req.body), **common)
+    return await wrap_response(response, **ccr_kwargs)
 
 
 async def _dispatch_count_tokens(
