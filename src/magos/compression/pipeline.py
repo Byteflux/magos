@@ -44,8 +44,20 @@ def apply(
     provider_name: ProviderName,
     context: str | None = None,
     biases: dict[str, float] | None = None,
+    compress_user_messages: bool = False,
+    compress_system_messages: bool = True,
+    protect_recent: int = 4,
+    protect_analysis_context: bool = True,
+    target_ratio: float | None = None,
+    min_tokens_to_compress: int = 250,
+    kompress_model: str | None = None,
 ) -> ApplyResult:
     """Run the pipeline for ``(config, provider_name)`` against ``messages``.
+
+    The ``compress_*`` / ``protect_*`` / ``target_ratio`` /
+    ``min_tokens_to_compress`` / ``kompress_model`` kwargs are forwarded
+    verbatim to ``TransformPipeline.apply``; transforms read whichever
+    they care about. Defaults match Headroom's ``CompressConfig``.
 
     On token inflation (``tokens_after > tokens_before``), discards the
     pipeline's output and returns the original messages with zero savings.
@@ -56,6 +68,13 @@ def apply(
         "messages": messages,
         "model": model,
         "model_limit": model_limit,
+        "compress_user_messages": compress_user_messages,
+        "compress_system_messages": compress_system_messages,
+        "protect_recent": protect_recent,
+        "protect_analysis_context": protect_analysis_context,
+        "target_ratio": target_ratio,
+        "min_tokens_to_compress": min_tokens_to_compress,
+        "kompress_model": kompress_model,
     }
     if context is not None:
         kwargs["context"] = context

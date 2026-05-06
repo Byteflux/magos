@@ -127,7 +127,46 @@ def test_apply_passes_kwargs_through_to_pipeline(
             "messages": [{"role": "user", "content": "x"}],
             "model": "claude-sonnet-4-5",
             "model_limit": 128_000,
+            "compress_user_messages": False,
+            "compress_system_messages": True,
+            "protect_recent": 4,
+            "protect_analysis_context": True,
+            "target_ratio": None,
+            "min_tokens_to_compress": 250,
+            "kompress_model": None,
             "context": "user query",
             "biases": {"foo": 1.0},
         }
     ]
+
+
+def test_apply_forwards_compress_config_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    pipeline = _StubPipeline(
+        _StubResult(
+            messages=[{"role": "user", "content": "x"}],
+            tokens_before=10,
+            tokens_after=8,
+        )
+    )
+    _patch_registry(monkeypatch, pipeline)
+
+    apply(
+        messages=[{"role": "user", "content": "x"}],
+        model="claude-sonnet-4-5",
+        model_limit=128_000,
+        config=PipelineConfig(),
+        provider_name="anthropic",
+        compress_user_messages=True,
+        protect_recent=0,
+        target_ratio=0.5,
+        min_tokens_to_compress=100,
+        kompress_model="custom/model",
+    )
+
+    forwarded = pipeline.calls[0]
+    assert forwarded["compress_user_messages"] is True
+    assert forwarded["compress_system_messages"] is True  # default preserved
+    assert forwarded["protect_recent"] == 0
+    assert forwarded["target_ratio"] == 0.5
+    assert forwarded["min_tokens_to_compress"] == 100
+    assert forwarded["kompress_model"] == "custom/model"

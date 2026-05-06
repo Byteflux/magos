@@ -62,6 +62,13 @@ def _apply_token_mode(
         model_limit=model_limit,
         config=config,
         provider_name=provider_name,
+        compress_user_messages=opts.compress_user_messages,
+        compress_system_messages=opts.compress_system_messages,
+        protect_recent=opts.protect_recent,
+        protect_analysis_context=opts.protect_analysis_context,
+        target_ratio=opts.target_ratio,
+        min_tokens_to_compress=opts.min_tokens_to_compress,
+        kompress_model=opts.kompress_model,
     )
 
     if result.inflation_reverted or result.tokens_saved <= 0:

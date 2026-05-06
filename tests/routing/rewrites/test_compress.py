@@ -55,6 +55,7 @@ def test_compress_token_mode_applies_pipeline_and_marks_dirty(
         provider_name: str,
         context: str | None = None,
         biases: dict[str, float] | None = None,
+        **_extra: Any,
     ) -> ApplyResult:
         captured["messages"] = messages
         captured["model"] = model
@@ -101,6 +102,7 @@ def test_compress_token_mode_chat_endpoint_uses_openai_provider(
         provider_name: str,
         context: str | None = None,
         biases: dict[str, float] | None = None,
+        **_extra: Any,
     ) -> ApplyResult:
         seen_providers.append(provider_name)
         return ApplyResult(
@@ -119,6 +121,44 @@ def test_compress_token_mode_chat_endpoint_uses_openai_provider(
     apply_rewrites(req, [Compress(compress=CompressOptions())])
 
     assert seen_providers == ["openai"]
+
+
+def test_compress_options_forward_to_apply_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CompressOptions runtime hints (target_ratio, protect_recent, etc.)
+    must reach magos.compression.apply, not get silently dropped."""
+    captured: dict[str, Any] = {}
+
+    def fake_apply(**kwargs: Any) -> ApplyResult:
+        captured.update(kwargs)
+        return ApplyResult(
+            messages=kwargs["messages"], tokens_before=10, tokens_after=8, tokens_saved=2
+        )
+
+    monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
+
+    req = make_req(
+        body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
+    )
+    apply_rewrites(
+        req,
+        [
+            Compress(
+                compress=CompressOptions(
+                    compress_user_messages=True,
+                    protect_recent=0,
+                    target_ratio=0.5,
+                    min_tokens_to_compress=100,
+                    kompress_model="custom/model",
+                )
+            )
+        ],
+    )
+
+    assert captured["compress_user_messages"] is True
+    assert captured["protect_recent"] == 0
+    assert captured["target_ratio"] == 0.5
+    assert captured["min_tokens_to_compress"] == 100
+    assert captured["kompress_model"] == "custom/model"
 
 
 def test_compress_token_mode_inflation_returns_request_untouched(
@@ -155,6 +195,7 @@ def test_compress_zero_savings_returns_input_unchanged(
         provider_name: str,
         context: str | None = None,
         biases: dict[str, float] | None = None,
+        **_extra: Any,
     ) -> ApplyResult:
         return ApplyResult(messages=messages, tokens_before=100, tokens_after=100, tokens_saved=0)
 
@@ -353,6 +394,7 @@ def test_compress_uses_explicit_model_limit_override(
         provider_name: str,
         context: str | None = None,
         biases: dict[str, float] | None = None,
+        **_extra: Any,
     ) -> ApplyResult:
         captured["model_limit"] = model_limit
         return ApplyResult(
@@ -400,6 +442,7 @@ def test_compress_model_limit_auto_detect_per_model(
         provider_name: str,
         context: str | None = None,
         biases: dict[str, float] | None = None,
+        **_extra: Any,
     ) -> ApplyResult:
         captured["model_limit"] = model_limit
         return ApplyResult(
