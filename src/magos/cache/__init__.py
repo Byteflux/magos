@@ -11,6 +11,7 @@ See ``docs/superpowers/specs/2026-05-06-phase-1.5-prefix-cache-tracking-design.m
 
 from __future__ import annotations
 
+from .session_id import derive_session_id
 from .tracker import PrefixCacheTracker, PrefixFreezeConfig
 
-__all__ = ["PrefixCacheTracker", "PrefixFreezeConfig"]
+__all__ = ["PrefixCacheTracker", "PrefixFreezeConfig", "derive_session_id"]
