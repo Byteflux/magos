@@ -2,9 +2,7 @@
 
 Honors ``x-magos-session-id`` if the client supplies one (prefixed
 ``explicit:``); otherwise hashes (provider + auth-prefix + model +
-system-bytes) into a ``derived:<sha1>`` id. See
-``docs/superpowers/specs/2026-05-06-phase-1.5-prefix-cache-tracking-design.md``
-for the contract and edge cases.
+system-bytes) into a ``derived:<sha1>`` id.
 """
 
 from __future__ import annotations

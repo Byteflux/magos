@@ -61,8 +61,7 @@ def apply(
     they care about. Defaults match Headroom's ``CompressConfig``.
 
     ``frozen_message_count`` tells the pipeline how many leading messages
-    must not be modified (prefix-cache preservation); see
-    ``docs/superpowers/specs/2026-05-06-phase-1.5-prefix-cache-tracking-design.md``.
+    must not be modified (prefix-cache preservation).
 
     On token inflation (``tokens_after > tokens_before``), discards the
     pipeline's output and returns the original messages with zero savings.

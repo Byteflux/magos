@@ -5,8 +5,6 @@ session-id-keyed store and TTL eviction. The compress routing rewrite
 fetches a tracker per request to read ``frozen_message_count``; the
 egress layer fires post-response hooks that update the tracker with
 the upstream's reported cache_read / cache_write tokens.
-
-See ``docs/superpowers/specs/2026-05-06-phase-1.5-prefix-cache-tracking-design.md``.
 """
 
 from __future__ import annotations
