@@ -133,23 +133,40 @@ class MetricsMeter:
         pass
 
 
-class HeadroomWarmup:
-    """Warm the Headroom compress pipeline when any rule uses Compress.
+class MagosCompressionWarmup:
+    """Build pipelines for both providers and eagerly load compressors.
 
-    Failures are non-fatal: compression is best-effort and a broken
-    pipeline init must not prevent the server from starting.
+    The proxy uses two pipelines (Anthropic + OpenAI) sharing transform
+    instances; magos's registry deduplicates the same way. Failures are
+    non-fatal — compression is best-effort.
     """
 
-    name = "headroom_warmup"
+    name = "compression_warmup"
 
     async def start(self, app: FastAPI) -> None:
         cfg = cast(RoutingConfig, app.state.routing)
         if not _config_uses_compress(cfg):
             return
         try:
-            from headroom.compress import _get_pipeline  # noqa: PLC0415
+            from magos.compression import (  # noqa: PLC0415
+                PipelineConfig,
+                eager_warmup,
+                get_registry,
+            )
+        except Exception as exc:
+            log.warning(
+                "compress.pipeline_warm_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
+            return
 
-            _get_pipeline()
+        registry = get_registry()
+        default_cfg = PipelineConfig()
+        try:
+            registry.get_or_build(default_cfg, provider_name="anthropic")
+            registry.get_or_build(default_cfg, provider_name="openai")
+            eager_warmup(registry)
             log.info("compress.pipeline_warmed")
         except Exception as exc:
             log.warning(
@@ -222,7 +239,7 @@ class RegistryRefresher:
 _COMPONENTS: list[LifespanComponent] = [
     KompressBackendOverride(),
     MetricsMeter(),
-    HeadroomWarmup(),
+    MagosCompressionWarmup(),
     KompressPreload(),
     RegistryRefresher(),
 ]

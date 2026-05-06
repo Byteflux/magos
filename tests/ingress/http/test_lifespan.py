@@ -1,4 +1,4 @@
-"""Lifespan tests: Headroom warmup and kompress-backend override."""
+"""Lifespan tests: magos.compression warmup and kompress-backend override."""
 
 from __future__ import annotations
 
@@ -8,26 +8,38 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
+import magos.compression as mc
+from magos.compression import PipelineConfig
+from magos.compression import registry as reg_mod
+from magos.compression import warmup as wu_mod
 from magos.ingress.http import create_app
 from magos.routing import RoutingConfig
 
 from ._helpers import translate_only_cfg
 
-# --- Lifespan: Headroom pipeline warmup ---
+# --- Lifespan: magos.compression warmup ---
 
 
 def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """If any rule has a Compress rewrite, startup must call _get_pipeline()."""
-    calls: list[str] = []
+    """If any rule has a Compress rewrite, startup must build pipelines + run eager_warmup."""
+    built: list[tuple[str, str]] = []
+    eager_calls: list[int] = []
 
-    def fake_get_pipeline() -> object:
-        calls.append("warmed")
+    def fake_get_or_build(self: object, config: PipelineConfig, *, provider_name: str) -> object:
+        built.append((config.fingerprint(), provider_name))
         return object()
 
-    hc = importlib.import_module("headroom.compress")
-    monkeypatch.setattr(hc, "_get_pipeline", fake_get_pipeline, raising=True)
+    def fake_eager_warmup(_registry: object) -> None:
+        eager_calls.append(1)
+
+    monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", fake_get_or_build)
+    # The lifespan does ``from magos.compression import eager_warmup`` inside
+    # the function, so the resolved name lives on the magos.compression
+    # package, not on the warmup module. Patch both for safety.
+    monkeypatch.setattr(mc, "eager_warmup", fake_eager_warmup)
+    monkeypatch.setattr(wu_mod, "eager_warmup", fake_eager_warmup)
 
     cfg = RoutingConfig.model_validate(
         {
@@ -44,40 +56,46 @@ def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
     with TestClient(app):
         pass
 
-    assert calls == ["warmed"]
+    fp = PipelineConfig().fingerprint()
+    assert (fp, "anthropic") in built
+    assert (fp, "openai") in built
+    assert eager_calls == [1]
 
 
 def test_lifespan_skips_warmup_when_no_compress_rule(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """No Compress rewrite anywhere -> never touch headroom on startup."""
-    calls: list[str] = []
+    """No Compress rewrite anywhere -> never touch the magos.compression registry."""
+    built: list[tuple[str, str]] = []
 
-    def fake_get_pipeline() -> object:
-        calls.append("warmed")
+    def fake_get_or_build(self: object, config: PipelineConfig, *, provider_name: str) -> object:
+        built.append((config.fingerprint(), provider_name))
         return object()
 
-    hc = importlib.import_module("headroom.compress")
-    monkeypatch.setattr(hc, "_get_pipeline", fake_get_pipeline, raising=True)
+    eager_calls: list[int] = []
+
+    monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", fake_get_or_build)
+    monkeypatch.setattr(mc, "eager_warmup", lambda _r: eager_calls.append(1))
+    monkeypatch.setattr(wu_mod, "eager_warmup", lambda _r: eager_calls.append(1))
 
     cfg = translate_only_cfg()
     app = create_app(routing=cfg)
     with TestClient(app):
         pass
 
-    assert calls == []
+    assert built == []
+    assert eager_calls == []
 
 
 def test_lifespan_warmup_failure_does_not_block_startup(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A broken pipeline init must log + continue, not crash the app."""
+    """A broken pipeline build must log + continue, not crash the app."""
 
-    def boom() -> object:
+    def boom(self: object, *args: object, **kwargs: object) -> object:
         raise RuntimeError("pipeline init failed")
 
-    hc = importlib.import_module("headroom.compress")
-    monkeypatch.setattr(hc, "_get_pipeline", boom, raising=True)
+    monkeypatch.setattr(reg_mod.PipelineRegistry, "get_or_build", boom)
 
     cfg = RoutingConfig.model_validate(
         {
@@ -92,10 +110,7 @@ def test_lifespan_warmup_failure_does_not_block_startup(
     )
     app = create_app(routing=cfg)
     with TestClient(app) as client:
-        # App must come up despite the warmup failure; routing-layer
-        # health is unaffected because compression is best-effort.
         resp = client.post("/v1/messages", json={"model": "x", "messages": []})
-    # 400 (validation) or routed; either is fine: the point is "didn't crash on startup".
     assert resp.status_code != 500
 
 
