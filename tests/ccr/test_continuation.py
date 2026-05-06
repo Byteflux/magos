@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from magos.ccr import make_continuation_callable
 
 
-async def test_continuation_substitutes_messages_and_tools() -> None:
+def test_continuation_substitutes_messages_and_tools() -> None:
     """The returned closure substitutes the supplied messages/tools into a copy
     of the original body, then invokes proxy_translate with the same kwargs."""
     from magos.egress.translate import TRANSLATE_HANDLERS  # noqa: PLC0415
@@ -47,7 +48,7 @@ async def test_continuation_substitutes_messages_and_tools() -> None:
     ]
     new_tools = [{"name": "headroom_retrieve"}]
 
-    result = await fn(new_messages, new_tools)
+    result = asyncio.run(fn(new_messages, new_tools))
 
     assert result["model"] == "anthropic/claude-sonnet-4-5"
     # The closure passed the substituted messages downstream.
@@ -55,7 +56,7 @@ async def test_continuation_substitutes_messages_and_tools() -> None:
     assert captured["tools"] == new_tools
 
 
-async def test_continuation_does_not_mutate_original_body() -> None:
+def test_continuation_does_not_mutate_original_body() -> None:
     from magos.egress.translate import TRANSLATE_HANDLERS  # noqa: PLC0415
 
     async def fake_completion(**_: Any) -> dict[str, Any]:
@@ -78,14 +79,14 @@ async def test_continuation_does_not_mutate_original_body() -> None:
         api_key=None,
         api_base=None,
     )
-    await fn([{"role": "user", "content": "new"}], [{"name": "headroom_retrieve"}])
+    asyncio.run(fn([{"role": "user", "content": "new"}], [{"name": "headroom_retrieve"}]))
 
     # Original body untouched.
     assert original_body["messages"] == [{"role": "user", "content": "hi"}]
     assert original_body["tools"] == [{"name": "old_tool"}]
 
 
-async def test_continuation_drops_tools_when_none() -> None:
+def test_continuation_drops_tools_when_none() -> None:
     """If headroom passes ``tools=None``, the closure removes the tools key
     from the substituted body (rather than passing tools=None through, which
     some adapters might object to)."""
@@ -115,4 +116,4 @@ async def test_continuation_drops_tools_when_none() -> None:
         api_base=None,
     )
     # Call must not crash with tools=None.
-    await fn([], None)
+    asyncio.run(fn([], None))

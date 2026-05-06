@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
 from magos.egress.translate.runner import proxy_translate
@@ -11,7 +11,8 @@ if TYPE_CHECKING:
     from magos.egress.translate import TranslateAdapter
 
 ContinuationCallable = Callable[
-    [list[dict[str, Any]], list[dict[str, Any]] | None], Awaitable[dict[str, Any]]
+    [list[dict[str, Any]], list[dict[str, Any]] | None],
+    Coroutine[Any, Any, dict[str, Any]],
 ]
 
 
