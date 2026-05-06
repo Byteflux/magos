@@ -53,6 +53,14 @@ src/magos/
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
   process.py         # transport-agnostic request processing core (process_routed_request)
 
+  compression/      # owns headroom TransformPipeline lifecycle
+    __init__.py     # public surface (PipelineConfig, apply, eager_warmup, get_registry)
+    config.py       # PipelineConfig + fingerprint
+    build.py        # build_pipeline(config, provider_name) -> TransformPipeline
+    registry.py     # PipelineRegistry caches by (fingerprint, provider_name)
+    pipeline.py     # apply() + ApplyResult; inflation guard
+    warmup.py       # eager_warmup() walks unique transforms
+
   config/            # process + yaml configuration
     settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
     schema.py        # MagosIngressConfig + HttpIngressConfig + MitmIngressConfig (yaml `ingress:` block)
@@ -65,7 +73,7 @@ src/magos/
   ingress/           # how requests enter
     http/            # FastAPI entry
       app.py        # create_app, app.state wiring
-      lifespan.py   # async context manager (kompress backend, OTel meter, Headroom warmup, kompress preload, refresher start)
+      lifespan.py   # async context manager (kompress backend, OTel meter, magos.compression warmup, kompress preload, refresher start)
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
       headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
@@ -90,7 +98,7 @@ src/magos/
       headers.py     # SetHeader / AddHeader / RemoveHeader
       model.py       # SetModel
       jq_patch.py    # JqPatch
-      compress/      # Compress primitive (Headroom integration)
+      compress/      # Compress primitive (drives magos.compression)
         __init__.py  # _apply_compress dispatch + Compress schema
         token_mode.py    # token-mode compression
         cache_mode.py    # cache-aligner mode (chat shapes + Responses)
@@ -200,6 +208,7 @@ wire-shape translation across providers.
 | mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.ingress.mitm` |
 | (none) | rule-based router (the product) | `magos.routing` |
 | (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
+| Headroom transforms | compression pipeline ownership (lifecycle, registry, inflation guard) | `magos.compression` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 

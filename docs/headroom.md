@@ -13,3 +13,4 @@ Verified against `headroom-ai==0.10.16`.
 | [Backend](headroom/backend.md) | Forcing the Kompress backend (`MAGOS_KOMPRESS_BACKEND`) |
 | [Endpoint scope](headroom/endpoint-scope.md) | Per-endpoint compress support and Magos-Headroom mode terminology |
 | [Gotchas](headroom/gotchas.md) | Subtleties worth not forgetting and where this lives in magos |
+| [magos.compression layer](../src/magos/compression/__init__.py) | Magos-owned `TransformPipeline` registry, lifecycle, inflation guard. The routing rewrite is a thin caller. |

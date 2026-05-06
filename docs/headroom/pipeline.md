@@ -1,9 +1,33 @@
 # The compression pipeline
 
-Default ordering (defined upstream in `headroom.compress`):
+## How magos drives the pipeline
+
+`magos.compression` (peer package to `routing/`, `egress/`, etc.) owns a
+per-(config-fingerprint, provider) registry of `TransformPipeline`
+instances. The `compress` routing rewrite calls
+`magos.compression.apply(...)` rather than Headroom's `compress()`
+library entry. This buys us:
+
+- Per-rule transform configuration via `CompressOptions` knobs
+  (`smart_routing`, `code_aware`, `intelligent_context`,
+  `keep_last_turns`).
+- Provider-bound pipelines (Anthropic for `/v1/messages` family, OpenAI
+  for `/v1/chat/completions`) so token counting matches the destination.
+- Token-inflation guard: if the pipeline produces more tokens than it
+  received, the wrapper reverts to the original messages.
+- Eager warmup at lifespan: `MagosCompressionWarmup` pre-builds the
+  default pipeline for both providers and walks each unique transform
+  calling `eager_load_compressors()`.
+
+`mode: cache` continues to use the standalone `CacheAligner` in
+`cache_mode.py`; it does not go through the registry. Prefix-cache-aware
+`frozen_message_count` tracking is deferred to a follow-up phase.
+
+The transform list magos builds (`src/magos/compression/build.py`) for
+the default `PipelineConfig`:
 
 ```
-CacheAligner -> ContentRouter -> IntelligentContext
+CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager
 ```
 
 **`CacheAligner`** (`transforms/cache_aligner.py`)
