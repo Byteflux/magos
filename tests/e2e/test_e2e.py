@@ -596,3 +596,81 @@ def test_compress_token_mode_freezes_prefix_across_turns() -> None:
     tracker = get_store().get_or_create(sid, "anthropic")
     # Tracker turn_number was advanced by the post-response hooks.
     assert tracker.stats.turn_number >= 1
+
+
+def test_ccr_end_to_end_with_compression() -> None:
+    """End-to-end: a request large enough to trigger compression goes
+    through token-mode compress with CCR enabled. Asserts the wiring
+    doesn't error and compression actually happened (store entries exist)."""
+    _maybe_skip_anthropic_oauth()
+
+    import json  # noqa: PLC0415
+
+    from headroom.cache.compression_store import (  # noqa: PLC0415
+        get_compression_store,
+        reset_compression_store,
+    )
+
+    from magos.routing import RoutingConfig  # noqa: PLC0415
+
+    reset_compression_store()
+
+    cfg = RoutingConfig.model_validate(
+        {
+            "rules": [
+                {
+                    "match": {"endpoint": {"literal": "/v1/messages"}},
+                    "rewrites": [{"compress": {"mode": "token"}}],
+                    "action": {
+                        "provider": "anthropic",
+                        "mode": "translate",
+                        "api_key_env": "ANTHROPIC_API_KEY",
+                    },
+                }
+            ]
+        }
+    )
+
+    # JSON array of dicts large enough to trigger SmartCrusher compression
+    # and compression-store caching (min_items_to_cache = 20).
+    items = [{"path": f"path/to/file_{i}.py"} for i in range(50)]
+    long_tool_content = json.dumps(items)
+
+    body = {
+        "model": ANTHROPIC_MODEL,
+        "messages": [
+            {"role": "user", "content": "find all python files"},
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_01x",
+                        "name": "Bash",
+                        "input": {"command": "find . -name '*.py'"},
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_01x",
+                        "content": long_tool_content,
+                    }
+                ],
+            },
+            {"role": "user", "content": "summarise"},
+        ],
+        "max_tokens": 64,
+    }
+
+    with TestClient(create_app(routing=cfg)) as client:
+        r = client.post("/v1/messages", json=body)
+        assert r.status_code == 200, r.text
+
+    # Compression actually happened.
+    store = get_compression_store()
+    stats = store.get_stats()
+    assert stats.get("entry_count", 0) >= 1
