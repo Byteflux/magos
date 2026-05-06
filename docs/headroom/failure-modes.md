@@ -27,15 +27,20 @@ Two distinct init costs:
    in `ingress/http/lifespan.py`, but only when at least one routing
    rule uses `compress`.
 
-2. **Kompress weight load.** Separate from pipeline construction.
-   `KompressCompressor._get_kompress` is lazy *inside* the compressor:
-   first plain-text compress request triggers HF download (or disk
-   cache deserialization on subsequent restarts). Magos does not warm
-   this. Cold start: tens of seconds on a fresh deployment, hundreds
-   of ms on a restart with cache. ContentRouter has a warmup-style
-   method (`content_router.py:1232-1239`) that magos could call from
-   the lifespan hook to amortise this; not implemented because
-   cold-start latency hasn't been a complaint.
+2. **Kompress weight load.** Separate from pipeline construction
+   itself but warmed at the same lifespan step. Magos's
+   `MagosCompressionWarmup` component calls
+   `magos.compression.prebuild_from_routing(cfg)`, which builds every
+   `(PipelineConfig, provider)` pipeline implied by token-mode
+   `compress` rewrites and then `eager_warmup`s each unique transform.
+   `eager_warmup` invokes `eager_load_compressors()` on every
+   transform that exposes one — `ContentRouter.eager_load_compressors`
+   loads Kompress, the Magika content detector, and (when `code_aware`
+   is set) tree-sitter parsers. Cold start: tens of seconds on a
+   fresh deployment paid up-front at startup, hundreds of ms on a
+   restart with cache. Operators who want zero ML cost can declare
+   `kompress_model: disabled` per-rule, which bypasses Kompress
+   entirely while keeping the rest of the pipeline.
 
 Operators who want zero per-request ML cost can declare
 `kompress_model: disabled` per-rule; that bypasses Kompress entirely

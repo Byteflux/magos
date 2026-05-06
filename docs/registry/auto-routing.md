@@ -28,6 +28,7 @@ stamping `litellm_id` with a litellm-known provider prefix:
 | `anthropic`  | `anthropic`                | Anthropic-specific provider.                                                                  |
 | `openrouter` | `openrouter`               | OpenRouter-specific provider.                                                                 |
 | `vultr`      | `custom_openai`            | No vendor-specific provider; use LiteLLM's generic openai-compatible shape, which requires explicit `api_base` and won't silently fall back to `api.openai.com` + `OPENAI_API_KEY` the way bare `openai` would. |
+| `noop`       | n/a                        | Manual-only provider (no upstream discovery). Set `litellm_provider` explicitly per entry — no default — and prefer `custom_openai` for openai-compatible hosts. |
 
 Picking `openai` for a non-OpenAI host is the common footgun: the call
 succeeds in flight but lands on `api.openai.com` with `OPENAI_API_KEY`,

@@ -206,16 +206,16 @@ thread-locked) keyed by `model_id`, so repeated rules with the same
 model are cheap. Multiple models can coexist. There's also
 `unload_kompress_model()` for memory pressure.
 
-Kompress is **not preloaded by magos**. The lifespan hook builds the
-pipeline via `magos.compression.PipelineRegistry.get_or_build(...)` but
-`KompressCompressor.compress` is lazy (`_get_kompress` only fires when
-`_route_and_compress_block` actually hits a PLAIN_TEXT block). First
-text-bearing compress request pays the HF download (~tens of seconds
-on a fresh deployment) or disk-cache deserialization (~hundreds of
-ms). ContentRouter has a warmup-style method that eagerly loads
-Kompress (`content_router.py:1232-1239`); magos doesn't call it.
-Worth wiring into the lifespan hook only if cold-start latency
-becomes a complaint.
+Kompress **is** preloaded by magos at startup. The
+`MagosCompressionWarmup` lifespan component first calls
+`magos.compression.prebuild_from_routing(cfg)` to build every
+(`PipelineConfig`, provider) pipeline implied by token-mode `compress`
+rewrites, then `eager_warmup(registry)` walks each unique transform and
+invokes `eager_load_compressors()`. `ContentRouter.eager_load_compressors`
+loads Kompress (subject to `kompress_model` / `enable_kompress`),
+the Magika content detector, and — if `code_aware` is set — tree-sitter
+parsers for the common languages. The very first compress request after
+startup therefore hits a hot pipeline.
 
 Gotchas:
 

@@ -152,6 +152,15 @@ hop) instead of infinite, but it doesn't fix the underlying loop.
 - **`Address already in use` on :6247**: another mitmdump or service
   has the port. Change `ingress.mitm.port` in yaml (or set
   `MAGOS_MITM_PORT`, or pass `--mitm-port`).
+- **Overriding mitm settings via env**: every `ingress.mitm.*` yaml
+  key has a matching `MAGOS_MITM_*` env var (resolved in
+  `serve.resolve_mitm`):
+  - `MAGOS_MITM_ENABLED` (`true`/`false`) — toggle the listener
+  - `MAGOS_MITM_HOST` — bind host
+  - `MAGOS_MITM_PORT` — bind port
+  - `MAGOS_MITM_INTERCEPT_HOSTS` — comma-separated host list
+    (e.g. `api.anthropic.com,api.openai.com`)
+  Env wins over yaml; CLI flags (`--mitm-port`) win over env.
 - **Clients that don't honor `HTTPS_PROXY`**: some tools have their
   own proxy logic. Check the tool's docs; the `HTTP_PROXY` /
   `HTTPS_PROXY` env vars are the de-facto standard but not universal.

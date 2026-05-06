@@ -26,7 +26,7 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 | `MAGOS_MITM_INTERCEPT_HOSTS` | (unset)       | Comma-separated hosts; overrides `ingress.mitm.intercept_hosts`     |
 | `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level                                        |
 | `MAGOS_LOG_JSON`             | `0`           | `1` flips renderer to JSON                             |
-| `MAGOS_LOG_COLOR`            | auto-TTY      | `0`/`1` overrides TTY autodetect                       |
+| `MAGOS_LOG_COLOR`            | auto-TTY      | `0`/`1` overrides TTY autodetect (read directly via `os.environ` in `telemetry/logging.py`; not a `MagosSettings` field, so `.env` loading does not apply) |
 | `MAGOS_OTEL_ENABLED`         | `0`           | `1` ships OTel spans                                   |
 | `MAGOS_OTEL_ENDPOINT`        | unset         | OTLP endpoint when OTel enabled                        |
 | `MAGOS_KOMPRESS_BACKEND`     | `auto`        | `pytorch` forces PyTorch path (CUDA/MPS/CPU)           |

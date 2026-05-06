@@ -3,7 +3,10 @@
 ## Startup order
 
 Two phases: `create_app()` (synchronous, builds the FastAPI app) and
-`_lifespan()` (async, runs once when uvicorn starts the app).
+`lifespan()` (async, runs once when uvicorn starts the app). The
+lifespan is a thin runner over an ordered list of `LifespanComponent`
+objects (`ingress/http/lifespan.py`); each component implements
+`start()` / `stop()` and is run / unwound via an `AsyncExitStack`.
 
 **`magos.serve.serve_async()`, top-level orchestrator:**
 
@@ -38,28 +41,33 @@ Two phases: `create_app()` (synchronous, builds the FastAPI app) and
 5. Register the `GET /v1/models` registry-backed endpoint
    (`ingress/http/models.py`).
 
-**`_lifespan()`, async, runs at startup:**
+**`lifespan()`, async, runs at startup.** Each step is a separate
+`LifespanComponent`; they are started in order and stopped in reverse
+order via `AsyncExitStack`:
 
-1. **Kompress backend monkey-patch**: only if
+1. **`KompressBackendOverride`**: only if
    `MAGOS_KOMPRESS_BACKEND=pytorch`. Replaces
    `headroom.transforms.kompress_compressor._is_onnx_available` with a
    False-stub. See [headroom/backend.md](../headroom/backend.md).
-2. **OTel MeterProvider configuration**: only if
-   `MAGOS_METRICS_ENABLED=1`. Wires the Prometheus exporter into the
-   global meter provider; the `/metrics` endpoint mounted in
-   `create_app` reads from this.
-3. **Headroom pipeline warmup**: only if any rule uses `compress`.
-   Builds `TransformPipeline` (lazy thread-locked singleton inside
-   Headroom).
-4. **Kompress preload background task**: only inside the compress
-   branch above, AND only if `MAGOS_KOMPRESS_PRELOAD=1` (the default).
-   Async via `asyncio.to_thread`, doesn't block startup; cancelled on
-   shutdown.
-5. **Refresher startup** (`registry/refresher.py`): only if a
-   Refresher was constructed. Loads `models.json`, kicks off
-   per-provider boot-discovery tasks, schedules periodic refresh.
+2. **`MetricsMeter`**: only if `MAGOS_METRICS_ENABLED=1`. Wires the
+   Prometheus exporter into the global meter provider; the `/metrics`
+   endpoint mounted in `create_app` reads from this.
+3. **`MagosCompressionWarmup`**: only if any rule uses `compress`.
+   Calls `magos.compression.prebuild_from_routing(cfg)`, which builds
+   a `TransformPipeline` per `(PipelineConfig, provider)` pair and
+   then `eager_warmup`s every unique transform (loads Kompress,
+   Magika, tree-sitter parsers, etc.).
+4. **`KompressPreload`**: independent of step 3. Fires only if any
+   rule uses `compress` AND `MAGOS_KOMPRESS_PRELOAD=1` (the default).
+   Schedules `_preload_kompress_model` as a background task via
+   `asyncio.create_task` (runs in `asyncio.to_thread`); doesn't block
+   startup. Cancelled on shutdown.
+5. **`RegistryRefresher`**: only if a Refresher was constructed.
+   Loads `models.json`, kicks off per-provider boot-discovery tasks,
+   schedules periodic refresh.
 
-Shutdown reverses 4 + 5: cancel preload task, stop Refresher.
+Shutdown unwinds 5 → 4: stop Refresher, cancel preload task. Steps
+1-3 have no shutdown work.
 
 ## Registry single-writer invariant
 

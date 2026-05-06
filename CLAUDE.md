@@ -85,7 +85,7 @@ src/magos/
   ingress/           # how requests enter
     http/            # FastAPI entry
       app.py        # create_app, app.state wiring
-      lifespan.py   # async context manager (kompress backend, OTel meter, magos.compression warmup, kompress preload, refresher start)
+      lifespan.py   # ordered LifespanComponent runner: kompress backend override, OTel meter, magos.compression warmup, kompress preload, refresher start
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
       headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
@@ -128,6 +128,7 @@ src/magos/
     translate/       # LiteLLM SDK marshalling
       payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
+      runner.py      # generic proxy_translate / stream_translate (per-adapter dispatch)
       anthropic.py   # anthropic_messages flows + output_config translation
       openai_chat.py # acompletion flows
       openai_responses.py # aresponses flows
@@ -142,6 +143,7 @@ src/magos/
     refresher.py     # async lifecycle owner: load, boot-discover, refresh
     telemetry.py     # OTel meters + structlog event helpers
     litellm_lookup.py # bundled-registry fallback wrapper
+    pipeline.py       # pure pipeline functions: merge, diff, override-to-fields conversion
     discovery/       # adapters
       base.py        # DiscoveryAdapter Protocol + types
       factory.py     # adapter_for(ProviderConfig) -> DiscoveryAdapter
@@ -185,8 +187,8 @@ position. Drop redundant prefixes (`test_routing_engine.py` → `tests/routing/t
 tests/
   conftest.py            # pytest fixtures (loaded automatically)
   fixtures/              # test routing yaml
-  cli/, config/, egress/{translate/}, ingress/{http,mitm}/,
-  registry/, routing/{rewrites/}/, telemetry/
+  cache/, ccr/, cli/, compression/, config/, egress/{translate/},
+  ingress/{http,mitm}/, registry/, routing/{rewrites/}/, telemetry/
   e2e/                   # MAGOS_E2E=1-gated full-stack tests (FastAPI -> egress -> real provider, plus agent-sdk)
   test_main_module.py, test_serve.py, test_smoke.py
 ```

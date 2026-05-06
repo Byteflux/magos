@@ -44,7 +44,6 @@ services:
   magos:
     build: .
     image: ghcr.io/byteflux/magos
-    container_name: magos
     restart: unless-stopped
     ports:
       - "6246:6246"   # FastAPI HTTP
@@ -52,8 +51,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ${USERPROFILE:-${HOME:-.}}/.cache/huggingface:/root/.cache/huggingface
       - ${USERPROFILE:-${HOME:-.}}/.mitmproxy:/root/.mitmproxy
+      - ${USERPROFILE:-${HOME:-.}}/.cache/huggingface:/root/.cache/huggingface
       - ./magos.yaml:/etc/magos/magos.yaml:ro
       - magos-state:/var/lib/magos
     deploy:
@@ -112,6 +111,15 @@ and remove the `deploy.resources.reservations` block from compose.
 Set `MAGOS_KOMPRESS_BACKEND=auto` (or unset it) so Headroom picks ONNX
 where available.
 
+> **Important:** the `cpu` and `gpu` extras both depend on
+> `torch>=2.11`; the difference is the `[tool.uv.sources]` index
+> mapping in `pyproject.toml` (`pytorch-cpu` vs `pytorch-gpu`).
+> `uv sync --extra cpu` will resolve against the CPU index and
+> install the CPU wheel as intended, but plain `pip install -e .[cpu]`
+> bypasses uv's source mapping and will silently install whatever
+> PyPI resolves (the GPU wheel). Stick with `uv sync` (or pin
+> `--index` manually) when building outside the provided Dockerfile.
+
 ## Environment-variable layering
 
 The image bakes opinionated defaults; compose's `.env` overrides them
@@ -150,7 +158,7 @@ Mount the host CA dir into the container so they share state:
 
 ```yaml
 volumes:
-  - ${USERPROFILE:-${HOME}}/.mitmproxy:/root/.mitmproxy
+  - ${USERPROFILE:-${HOME:-.}}/.mitmproxy:/root/.mitmproxy
 ```
 
 Now both sides use the same CA, the host trust step described in

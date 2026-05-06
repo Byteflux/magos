@@ -24,10 +24,13 @@ preprocessing steps happen in `egress/translate/anthropic.py` first:
   request through a metaschema validator that misreports `{}` as `[]` and
   rejects with `[] is not of type 'object', 'boolean'`. The two forms
   (`{}` and `true`) are semantically identical per the JSON Schema spec,
-  so the coercion is safe and sidesteps the upstream bug. Walks the entire
-  body so the rule catches schemas wherever they appear -- not just
-  `tools[*].input_schema` but also `response_format.json_schema.schema`,
-  `tool_choice`, and any nested `properties` / `items` blocks.
+  so the coercion is safe and sidesteps the upstream bug. Walks only
+  the schema-bearing top-level fields (`_SCHEMA_BEARING_FIELDS = (
+  "tools", "tool_choice", "response_format")`); `messages` is
+  intentionally excluded since it never legitimately carries JSON
+  Schema and skipping it avoids scanning the bulk of every body. The
+  walk recurses into nested `properties` / `items` / `schema` subtrees
+  inside those fields.
 
 If you add a new Anthropic-only field downstream, mirror it in the
 strip list. If you discover another shape that Anthropic accepts and an

@@ -118,7 +118,8 @@ Failure mode: Headroom fails open internally. On any compression error
 the original messages pass through and an OTel metric is recorded.
 
 All `CompressConfig` knobs are surfaced verbatim, plus an explicit
-`model_limit` override:
+`model_limit` override and the magos-side CCR (reversible-compression)
+toggles:
 
 ```yaml
 rewrites:
@@ -132,7 +133,43 @@ rewrites:
       min_tokens_to_compress: 250
       kompress_model: null     # HF model id, or "disabled"
       model_limit: null        # null = auto-detect via litellm; or e.g. 128000
+
+      # ContentRouter / IntelligentContext knobs (smart_routing path)
+      smart_routing: true        # false = legacy SmartCrusher-only
+      code_aware: false          # AST-aware code compression (needs tree-sitter)
+      intelligent_context: true  # false = RollingWindow (last-N turns)
+      keep_last_turns: 4         # context manager preserves last N verbatim
+
+      # CCR (reversible compression) injection toggles
+      ccr_enabled: true              # false disables tool / instruction injection
+      ccr_inject_tool: true          # false if a client distributes the tool via MCP
+      ccr_inject_instructions: true  # auto-skipped while prefix-cache freeze count > 0
 ```
+
+#### CCR (reversible compression)
+
+When `ccr_enabled: true` (default) and post-compression messages
+contain Headroom compression markers, the `compress` rewrite injects
+the `headroom_retrieve` tool definition into `body.tools` and a
+short system-message instruction block telling the model how to use
+it. Egress dispatch then wraps the response (streaming and
+non-streaming) so any `headroom_retrieve` tool call from the model
+is intercepted, the original content is restored, and the request
+is re-run transparently.
+
+- `ccr_enabled: false` — disable CCR entirely for this rule.
+  Compression still runs and emits markers, but no tool / instructions
+  are injected and no response interception occurs.
+- `ccr_inject_tool: false` — skip tool injection when a client already
+  distributes the `headroom_retrieve` tool via MCP and re-injection
+  would duplicate it.
+- `ccr_inject_instructions: false` — skip instruction injection.
+  Instruction injection is *also* automatically skipped whenever the
+  prefix-cache freeze count is non-zero (preserves cache hits),
+  regardless of this flag.
+
+See [`docs/headroom/pipeline.md`](../headroom/pipeline.md) for the
+end-to-end CCR flow and the per-session prefix-cache tracker.
 
 `model_limit` controls when Headroom's IntelligentContextManager fires
 (over-budget message dropping) and how aggressively ContentRouter

@@ -6,8 +6,8 @@
 # error envelope.
 #
 # Match expression grammar:
-#   - atoms: model / header / endpoint / jq
-#   - matchers (for non-jq atoms): { literal: ... } | { glob: ... } | { regex: ... }
+#   - atoms: model / header / endpoint / jq / model_field
+#   - matchers (for non-jq, non-model_field atoms): { literal: ... } | { glob: ... } | { regex: ... }
 #   - combinators: all_of / any_of / not (recursive)
 # Rewrite ops:
 #   - set_model / set_header / add_header / remove_header / jq_patch / compress
@@ -165,6 +165,10 @@ rules:
   #         mode: token
   #         protect_recent: 8
   #         target_ratio: 0.6
+  #         # CCR (reversible compression) is on by default; set
+  #         # ``ccr_enabled: false`` to disable tool/instruction injection,
+  #         # or ``ccr_inject_tool: false`` if a client already distributes
+  #         # the ``headroom_retrieve`` tool via MCP. See docs/routing/grammar.md.
   #   action:
   #     provider: anthropic
   #     mode: translate

@@ -8,7 +8,7 @@ on the dates the references resolve. Split into focused sub-docs below.
 | Topic | Contents |
 |---|---|
 | [Request flow](architecture/request-flow.md) | Process topology, request lifecycle, the `body_dirty` contract, why passthrough is byte-exact |
-| [Startup](architecture/startup.md) | Startup order (`serve_async` / `create_app` / `_lifespan`), registry single-writer invariant, `litellm.drop_params=True` global |
+| [Startup](architecture/startup.md) | Startup order (`serve_async` / `create_app` / `lifespan`), registry single-writer invariant, `litellm.drop_params=True` global |
 | [Headers and auth](architecture/headers-and-auth.md) | Auth-header injection (OAuth detection, override, provider default), multi-stage header forwarding |
 | [Translation](architecture/translation.md) | Anthropic-shape cross-provider translation: Anthropic-only field stripping, `effort` → `reasoning_effort`, `additionalProperties` coercion |
 | [Environment variables](architecture/env-vars.md) | Config-path resolution order, `MAGOS_HOME` bootstrap semantics, full env-var table |

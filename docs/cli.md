@@ -46,7 +46,7 @@ magos serve --mitm-port 9090           # override MAGOS_MITM_PORT and yaml
 | Flag                            | Effect                                                                       |
 |---------------------------------|------------------------------------------------------------------------------|
 | `--host`                        | HTTP listen host. Stamps `MAGOS_HOST`; overrides yaml + env.                 |
-| `--port`                        | HTTP listen port. Stamps `MAGOS_PORT`; overrides yaml + env.                 |
+| `--port`, `-p`                  | HTTP listen port. Stamps `MAGOS_PORT`; overrides yaml + env.                 |
 | `--enable-mitm`/`--disable-mitm`| Toggle the mitmproxy ingress. Stamps `MAGOS_MITM_ENABLED`; overrides yaml.   |
 | `--mitm-host`                   | mitmproxy listener host. Stamps `MAGOS_MITM_HOST`; overrides yaml.           |
 | `--mitm-port`                   | mitmproxy listener port. Stamps `MAGOS_MITM_PORT`; overrides yaml.           |
@@ -79,8 +79,15 @@ magos models refresh                 # trigger refresh on all providers
 magos models refresh --provider X    # scope to one provider
 magos models prune                   # sweep past-grace deprecated entries
 
-magos models discover --provider X --dry-run
+magos models discover --provider X              # standalone discovery; dry-run by default
+magos models discover --provider X --no-dry-run  # actually persist results
 ```
+
+`magos models discover` runs read-only against one provider without
+touching the server. The `--dry-run/--no-dry-run` flag defaults to
+**dry-run** — pass `--no-dry-run` explicitly to write the discovered
+entries into `models.json`. Useful for validating a provider's
+discovery adapter before enabling it in `magos.yaml`.
 
 Full reference + the registry lifecycle is in
 [`docs/registry.md`](registry.md). The CLI hits
@@ -104,7 +111,7 @@ Settings (read from the process env, optionally via `.env`):
 | `MAGOS_MITM_INTERCEPT_HOSTS`| yaml `ingress.mitm.intercept_hosts` | Comma-separated allow-list of hosts to TLS-terminate. |
 | `MAGOS_LOG_LEVEL`           | `INFO`                        | structlog filter level.                    |
 | `MAGOS_LOG_JSON`            | `0`                           | `1` to emit JSON instead of structured text. |
-| `MAGOS_LOG_COLOR`           | auto (TTY)                    | `0`/`1` to force off/on regardless of TTY. |
+| `MAGOS_LOG_COLOR`           | auto (TTY)                    | `0`/`1` to force off/on regardless of TTY. Read directly via `os.environ` in `telemetry/logging.py`; not a `MagosSettings` field, so `.env` loading does not apply. |
 | `MAGOS_ACCESS_LOG`          | `1`                           | One structlog line per HTTP request.       |
 | `MAGOS_OTEL_ENABLED`        | `0`                           | Ship OTLP spans.                           |
 | `MAGOS_OTEL_ENDPOINT`       | OTel SDK default              | OTLP HTTP endpoint.                        |

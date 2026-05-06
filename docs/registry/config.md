@@ -8,7 +8,7 @@ provider_order: [openrouter, anthropic, openai]    # tie-break order
 providers:
   openrouter:
     api_key_env: OPENROUTER_API_KEY                # env-var only, no inline secrets
-    discovery: openrouter                          # optional; inferred from base_url when omitted
+    discovery: openrouter                          # optional; inferred from base_url host (see below)
     refresh_interval: 4h                           # optional, overrides global default
     litellm_provider: openrouter                   # optional, overrides adapter default
     models:                                        # optional per-model overrides

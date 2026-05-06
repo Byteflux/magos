@@ -13,7 +13,8 @@ magos models refresh --provider openrouter
 
 magos models prune                    # sweep past-grace deprecated entries
 
-magos models discover --provider openrouter --dry-run
+magos models discover --provider openrouter              # dry-run by default
+magos models discover --provider openrouter --no-dry-run # actually persist results
 ```
 
 Every subcommand accepts `--config <path>` to point at a non-default

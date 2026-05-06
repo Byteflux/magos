@@ -12,7 +12,8 @@ interception too. See `docs/ingress.md` for the operator guide.
 ```
                        ┌─────────────────── single magos process ──────────────────┐
 client (direct) ──────▶│ FastAPI (uvicorn) :6246                                   │──▶ provider API
-                       │   ingress.http → routing.engine → egress.dispatch         │
+                       │   ingress.http → magos.process → routing.engine          │
+                       │                                  → egress.dispatch        │
                        │                                                           │
 client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :6247  (optional)                    │
                        │   ├── ingress.mitm.addon (TLS terminate + rewrite to :6246)│
@@ -59,10 +60,24 @@ Per request, the FastAPI app does this:
    (`content-length`, `content-encoding`, `host`, etc.). The filtered
    headers are lowercased into a dict.
 2. **Construct `RoutedRequest`** (`routing/request.py`). Frozen
-   dataclass carrying: endpoint kind, **templated path** (e.g.
-   `/v1/responses/{id}`), **actual path** (e.g.
-   `/v1/responses/resp_abc123`), `body` (mutable dict view),
-   `raw_body` (bytes), `body_dirty=False`, lowercased headers.
+   dataclass carrying: `endpoint` (a `Literal` of the six templated
+   paths, e.g. `/v1/responses/{id}`), `actual_path` (concrete inbound
+   path when the endpoint is templated, e.g. `/v1/responses/resp_abc123`;
+   `None` for non-templated endpoints), `body` (mutable dict view),
+   `raw_body` (bytes), `body_dirty=False`, lowercased `headers`,
+   `method`, and `post_response_hooks`. The `forward_path` property
+   returns `actual_path` when set, else falls back to `endpoint`.
+
+   The handler then hands the `RoutedRequest` to
+   :func:`magos.process.process_routed_request`. `magos.process` is
+   the transport-agnostic core: it owns routing + dispatch
+   orchestration and the exception ladder, and returns a transport-
+   agnostic `RoutedResponse` (status, headers, body-or-stream). The
+   FastAPI handler in `ingress/http/run.py` is a thin adapter that
+   converts `Request` to `RoutedRequest` and `RoutedResponse` to a
+   `Response` / `StreamingResponse` / `JSONResponse`. Routing is
+   sync but offloaded to a worker thread (`asyncio.to_thread`) so a
+   cold Kompress download cannot stall the event loop.
 3. **Route** (`routing/engine.py:route`). Applies pre-rewrites, walks
    `rules` top-to-bottom, returns the first match's `RouteDecision` or
    a `RouteError`. If no rule matches, **auto-routing** (in
@@ -70,28 +85,30 @@ Per request, the FastAPI app does this:
    `<provider>/<raw_id>` lookup, falling back per
    `on_unknown_model: error|passthrough`. **Explicit rules always win
    over the registry**; the registry only catches misses.
-4. **Dispatch** (`egress/dispatch.py`). Decision enum drives one of
-   nine branches:
+4. **Dispatch** (`egress/dispatch.py`). The `RouteDecision`'s mode +
+   the request's streaming flag pick one of five code branches:
 
-| Mode          | Endpoint                       | Streaming | Implementation                       |
-|---------------|--------------------------------|-----------|--------------------------------------|
-| `count_tokens`| `/v1/messages/count_tokens`    | n/a       | `egress.tokens.count_tokens` (litellm) |
-| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | non-stream | `egress.passthrough.call_passthrough` |
-| `passthrough` | any of the six (incl. auxiliary GET/DELETE) | stream     | `egress.passthrough.stream_passthrough` |
-| `translate`   | `/v1/messages`                 | non-stream| `proxy_translate` + `anthropic.ADAPTER`         |
-| `translate`   | `/v1/messages`                 | stream    | `stream_translate` + `anthropic.ADAPTER`        |
-| `translate`   | `/v1/chat/completions`         | non-stream| `proxy_translate` + `openai_chat.ADAPTER`       |
-| `translate`   | `/v1/chat/completions`         | stream    | `stream_translate` + `openai_chat.ADAPTER`      |
-| `translate`   | `/v1/responses`                | non-stream| `proxy_translate` + `openai_responses.ADAPTER` |
-| `translate`   | `/v1/responses`                | stream    | `stream_translate` + `openai_responses.ADAPTER` |
+| Mode          | Streaming  | Implementation                                  |
+|---------------|------------|-------------------------------------------------|
+| `count_tokens`| n/a        | `egress.tokens.count_tokens` (litellm)          |
+| `passthrough` | non-stream | `egress.passthrough.call_passthrough`           |
+| `passthrough` | stream     | `egress.passthrough.stream_passthrough`         |
+| `translate`   | non-stream | `proxy_translate` (+ adapter from `TRANSLATE_HANDLERS`) |
+| `translate`   | stream     | `stream_translate` (+ adapter from `TRANSLATE_HANDLERS`) |
 
-All six translate cells delegate to the generic `proxy_translate` /
-`stream_translate` runners in `egress/translate/runner.py`. The
-per-shape `TranslateAdapter` constant (`ADAPTER` in `anthropic.py`,
-`openai_chat.py`, `openai_responses.py`) supplies the LiteLLM SDK
-callable, SSE framer, and payload coercion for that shape. The
-adapters are wired into `TRANSLATE_HANDLERS` in
-`egress/translate/__init__.py`, keyed by endpoint.
+`count_tokens` is selected by the inbound endpoint
+(`/v1/messages/count_tokens`); the other four come from the rule's
+`mode` and the body's `stream` flag. The translate branches are
+endpoint-agnostic at the dispatch level: they look up a per-shape
+`TranslateAdapter` from `TRANSLATE_HANDLERS` (`egress/translate/__init__.py`,
+keyed by endpoint) and hand it to the generic `proxy_translate` /
+`stream_translate` runners in `egress/translate/runner.py`. Each
+adapter (`anthropic.ADAPTER`, `openai_chat.ADAPTER`,
+`openai_responses.ADAPTER`) supplies the LiteLLM SDK callable, SSE
+framer, and payload coercion for that wire shape. Translate
+responses are also wrapped with `magos.ccr.wrap_response` /
+`wrap_stream` so any reversible-compression tool calls from the
+model are intercepted transparently.
 
 The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
@@ -119,6 +136,25 @@ dormant.
    (`tap_stream`) that forwards bytes verbatim while accumulating the
    terminal-event usage block. ``cache_write`` is Anthropic-only;
    OpenAI shapes always report 0.
+
+## Exception ladder
+
+`magos.process.process_routed_request` folds upstream failures into a
+`RoutedResponse` so the HTTP adapter never has to know about
+provider-specific exception types. The ladder:
+
+| Source                            | Branch                                    | Outcome |
+|-----------------------------------|-------------------------------------------|---------|
+| `route()` returns `RouteError`    | rendered as `error_envelope` JSON         | status from the error (400/404 unmatched, etc.) |
+| `dispatch_decision` raises `DispatchError` | logged `route.dispatch_error`     | 503 with `code: dispatch_error` |
+| `dispatch_decision` raises `pydantic.ValidationError` | re-raised through `process_routed_request` | the FastAPI adapter (`ingress/http/run.py`) maps to 400 with `exc.errors()` |
+| Any other exception                | logged `upstream_failure`                | 502 with `{"detail": "upstream failure: ..."}` |
+| Success                            | `_wrap_dispatch_result` (duck-typed on `body_iterator` / `body` / dict) | 200 stream / bytes / JSON |
+
+The duck-typing in `_wrap_dispatch_result` is deliberate: `magos.process`
+imports zero FastAPI types so it stays transport-agnostic. The
+adapter in `ingress/http/run.py` then converts the `RoutedResponse`
+into the appropriate FastAPI response class.
 
 ## The `body_dirty` contract
 
