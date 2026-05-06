@@ -11,7 +11,7 @@ from .build import ProviderName, build_pipeline
 from .config import PipelineConfig, pipeline_config_from_compress_options
 from .pipeline import ApplyResult, apply
 from .registry import PipelineRegistry, get_registry
-from .warmup import eager_warmup
+from .warmup import eager_warmup, prebuild_from_routing
 
 __all__ = [
     "ApplyResult",
@@ -23,4 +23,5 @@ __all__ = [
     "eager_warmup",
     "get_registry",
     "pipeline_config_from_compress_options",
+    "prebuild_from_routing",
 ]
