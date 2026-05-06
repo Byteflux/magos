@@ -231,3 +231,23 @@ def test_compress_options_accepts_legacy_shape() -> None:
 def test_compress_options_rejects_negative_keep_last_turns() -> None:
     with pytest.raises(ValidationError):
         CompressOptions(keep_last_turns=-1)
+
+
+def test_compress_options_ccr_defaults() -> None:
+    opts = CompressOptions()
+    assert opts.ccr_enabled is True
+    assert opts.ccr_inject_tool is True
+    assert opts.ccr_inject_instructions is True
+
+
+def test_compress_options_ccr_can_be_disabled() -> None:
+    opts = CompressOptions(ccr_enabled=False)
+    assert opts.ccr_enabled is False
+
+
+def test_compress_options_ccr_partial_opt_out() -> None:
+    """ccr_enabled stays True but instructions can be turned off independently."""
+    opts = CompressOptions(ccr_inject_instructions=False)
+    assert opts.ccr_enabled is True
+    assert opts.ccr_inject_tool is True
+    assert opts.ccr_inject_instructions is False

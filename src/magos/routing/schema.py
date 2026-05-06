@@ -156,6 +156,25 @@ class CompressOptions(_Frozen):
     keep_last_turns: int = Field(default=4, ge=0)
     """Recent turns the context manager must preserve verbatim."""
 
+    ccr_enabled: bool = True
+    """When True (default), the compress rewrite injects ``headroom_retrieve``
+    into the request whenever post-compression messages contain compression
+    markers, and dispatch intercepts the model's tool calls. Set False to
+    disable CCR for this rule (compression still runs; markers are emitted
+    but no tool / instruction injection)."""
+
+    ccr_inject_tool: bool = True
+    """Inject the ``headroom_retrieve`` tool definition into ``body.tools``.
+    Has effect only when ``ccr_enabled`` is True. Disable if a client
+    distributes the tool via MCP (server-side) and re-injection would
+    duplicate."""
+
+    ccr_inject_instructions: bool = True
+    """Inject system-message instructions describing how to call
+    ``headroom_retrieve``. Has effect only when ``ccr_enabled`` is True
+    and the prefix-cache freeze count is zero (otherwise instruction
+    injection is skipped to preserve the cache, regardless of this flag)."""
+
 
 class Compress(_Frozen):
     compress: CompressOptions = Field(default_factory=CompressOptions)
