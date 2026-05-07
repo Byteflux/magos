@@ -157,7 +157,7 @@ def test_responses_retrieve_passthrough_forwards_get(monkeypatch: pytest.MonkeyP
         captured["method"] = method
         return 200, b'{"id":"resp_abc","object":"response"}', "application/json"
 
-    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.gateway.passthrough.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(
@@ -207,7 +207,7 @@ def test_responses_cancel_passthrough_forwards_delete(monkeypatch: pytest.Monkey
         captured["method"] = method
         return 200, b'{"id":"resp_xyz","status":"cancelled"}', "application/json"
 
-    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.gateway.passthrough.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(
@@ -255,7 +255,7 @@ def test_responses_input_items_passthrough_forwards_get(
         captured["method"] = method
         return 200, b'{"object":"list","data":[]}', "application/json"
 
-    monkeypatch.setattr("magos.egress.dispatch.call_passthrough", fake_call_passthrough)
+    monkeypatch.setattr("magos.egress.gateway.passthrough.call_passthrough", fake_call_passthrough)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
 
     cfg = RoutingConfig.model_validate(

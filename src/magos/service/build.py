@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+from magos.egress.gateway import (
+    CountTokensGateway,
+    PassthroughGateway,
+    RoutedGateway,
+    TranslateGateway,
+)
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import RoutingConfig
@@ -17,8 +23,8 @@ def build_request_service(
 ) -> RequestService:
     """Construct the ``RequestService`` from long-lived collaborators.
 
-    Phases C2, C3 will expand this factory to wire injected ``Gateway``
-    and ``Compressor`` collaborators.
+    Phase C3 will expand this factory to wire injected ``Compressor`` /
+    ``Transform`` collaborators into the routing pipeline.
     """
     router = RuleBasedRouter(
         cfg,
@@ -28,4 +34,9 @@ def build_request_service(
         pins=registry_cfg.pins,
         provider_order=registry_cfg.provider_order,
     )
-    return RequestService(router=router)
+    gateway = RoutedGateway(
+        passthrough=PassthroughGateway(),
+        translate=TranslateGateway(),
+        count_tokens=CountTokensGateway(),
+    )
+    return RequestService(router=router, gateway=gateway)

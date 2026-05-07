@@ -1,4 +1,4 @@
-"""``dispatch_decision`` fires ``post_response_hooks`` after capturing usage."""
+"""``Gateway.dispatch`` fires ``post_response_hooks`` after capturing usage."""
 
 from __future__ import annotations
 
@@ -7,7 +7,29 @@ from typing import Any
 
 import pytest
 
+from magos.ccr import CCR_TOOL_NAME
+from magos.egress.gateway import (
+    CountTokensGateway,
+    PassthroughGateway,
+    RoutedGateway,
+    TranslateGateway,
+)
+from magos.egress.gateway import (
+    translate as translate_mod,
+)
 from magos.egress.usage import Usage
+from magos.routing import RoutingConfig
+from magos.routing.decision import RouteDecision
+from magos.routing.engine import route
+from magos.routing.request import RoutedRequest
+
+
+def _gateway() -> RoutedGateway:
+    return RoutedGateway(
+        passthrough=PassthroughGateway(),
+        translate=TranslateGateway(),
+        count_tokens=CountTokensGateway(),
+    )
 
 
 @pytest.fixture
@@ -27,12 +49,6 @@ def test_dispatch_fires_hooks_after_translate_non_streaming(
     fake_completion_factory: Any,
 ) -> None:
     """Translate path, non-streaming: hook receives the captured Usage."""
-    from magos.egress.dispatch import dispatch_decision  # noqa: PLC0415
-    from magos.routing import RoutingConfig  # noqa: PLC0415
-    from magos.routing.decision import RouteDecision  # noqa: PLC0415
-    from magos.routing.engine import route  # noqa: PLC0415
-    from magos.routing.request import RoutedRequest  # noqa: PLC0415
-
     seen: list[Usage] = []
 
     req = RoutedRequest(
@@ -63,7 +79,7 @@ def test_dispatch_fires_hooks_after_translate_non_streaming(
             "usage": {"prompt_tokens": 100, "completion_tokens": 50},
         }
     )
-    asyncio.run(dispatch_decision(decision, completion=completion))
+    asyncio.run(_gateway().dispatch(decision, completion=completion))
 
     assert len(seen) == 1
     assert seen[0].input == 100
@@ -71,12 +87,6 @@ def test_dispatch_fires_hooks_after_translate_non_streaming(
 
 def test_dispatch_swallows_hook_exceptions(fake_completion_factory: Any) -> None:
     """A raising hook must not break the response. Logged as compress.hook_failed."""
-    from magos.egress.dispatch import dispatch_decision  # noqa: PLC0415
-    from magos.routing import RoutingConfig  # noqa: PLC0415
-    from magos.routing.decision import RouteDecision  # noqa: PLC0415
-    from magos.routing.engine import route  # noqa: PLC0415
-    from magos.routing.request import RoutedRequest  # noqa: PLC0415
-
     fired: list[Usage] = []
 
     def boom(_: Usage) -> None:
@@ -112,7 +122,7 @@ def test_dispatch_swallows_hook_exceptions(fake_completion_factory: Any) -> None
             "usage": {"prompt_tokens": 100, "completion_tokens": 50},
         }
     )
-    asyncio.run(dispatch_decision(decision, completion=completion))
+    asyncio.run(_gateway().dispatch(decision, completion=completion))
 
     assert len(fired) == 1
 
@@ -122,21 +132,13 @@ def test_dispatch_translate_invokes_wrap_response_when_ccr_request(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When the request body has the CCR tool, dispatch wraps the response."""
-    from magos.ccr import CCR_TOOL_NAME  # noqa: PLC0415
-    from magos.egress import dispatch as dispatch_mod  # noqa: PLC0415
-    from magos.egress.dispatch import dispatch_decision  # noqa: PLC0415
-    from magos.routing import RoutingConfig  # noqa: PLC0415
-    from magos.routing.decision import RouteDecision  # noqa: PLC0415
-    from magos.routing.engine import route  # noqa: PLC0415
-    from magos.routing.request import RoutedRequest  # noqa: PLC0415
-
     wrap_calls: list[Any] = []
 
     async def fake_wrap_response(response: Any, **kwargs: Any) -> Any:
         wrap_calls.append((response, kwargs))
         return response
 
-    monkeypatch.setattr(dispatch_mod, "wrap_response", fake_wrap_response)
+    monkeypatch.setattr(translate_mod, "wrap_response", fake_wrap_response)
 
     req = RoutedRequest(
         endpoint="/v1/chat/completions",
@@ -168,7 +170,7 @@ def test_dispatch_translate_invokes_wrap_response_when_ccr_request(
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
     )
-    asyncio.run(dispatch_decision(decision, completion=completion))
+    asyncio.run(_gateway().dispatch(decision, completion=completion))
 
     assert len(wrap_calls) == 1
 
@@ -179,20 +181,13 @@ def test_dispatch_translate_skips_wrap_when_no_ccr_tool(
 ) -> None:
     """No CCR tool in body -> wrap_response is still called (it short-circuits
     internally), but no continuation kicks off."""
-    from magos.egress import dispatch as dispatch_mod  # noqa: PLC0415
-    from magos.egress.dispatch import dispatch_decision  # noqa: PLC0415
-    from magos.routing import RoutingConfig  # noqa: PLC0415
-    from magos.routing.decision import RouteDecision  # noqa: PLC0415
-    from magos.routing.engine import route  # noqa: PLC0415
-    from magos.routing.request import RoutedRequest  # noqa: PLC0415
-
     wrap_calls: list[Any] = []
 
     async def fake_wrap_response(response: Any, **kwargs: Any) -> Any:
         wrap_calls.append((response, kwargs))
         return response
 
-    monkeypatch.setattr(dispatch_mod, "wrap_response", fake_wrap_response)
+    monkeypatch.setattr(translate_mod, "wrap_response", fake_wrap_response)
 
     req = RoutedRequest(
         endpoint="/v1/chat/completions",
@@ -220,7 +215,7 @@ def test_dispatch_translate_skips_wrap_when_no_ccr_tool(
             "usage": {"prompt_tokens": 10, "completion_tokens": 5},
         }
     )
-    asyncio.run(dispatch_decision(decision, completion=completion))
+    asyncio.run(_gateway().dispatch(decision, completion=completion))
 
     # wrap_response is called unconditionally but receives a non-CCR request.
     assert len(wrap_calls) == 1

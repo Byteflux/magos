@@ -22,8 +22,8 @@ from typing import Any
 from pydantic import ValidationError
 
 from magos.egress import CompletionFn
-from magos.egress.dispatch import dispatch_decision
 from magos.egress.errors import DispatchError
+from magos.egress.gateway import Gateway
 from magos.routing import (
     Endpoint,
     RoutedRequest,
@@ -62,8 +62,10 @@ class RequestService:
         self,
         *,
         router: Router,
+        gateway: Gateway,
     ) -> None:
         self._router = router
+        self._gateway = gateway
 
     async def process(
         self,
@@ -89,7 +91,7 @@ class RequestService:
         )
 
         try:
-            raw = await dispatch_decision(decision_or_err, completion=completion)
+            raw = await self._gateway.dispatch(decision_or_err, completion=completion)
         except DispatchError as exc:
             log.warning(
                 "route.dispatch_error",
@@ -150,7 +152,7 @@ def _render_route_error(err: RouteError) -> RoutedResponse:
 
 
 def _wrap_dispatch_result(raw: Any) -> RoutedResponse:
-    """Wrap the heterogeneous return of ``dispatch_decision`` into a ``RoutedResponse``.
+    """Wrap the heterogeneous return of ``Gateway.dispatch`` into a ``RoutedResponse``.
 
     Uses duck-typing rather than FastAPI isinstance checks so this module
     stays transport-agnostic (no fastapi/starlette imports).
