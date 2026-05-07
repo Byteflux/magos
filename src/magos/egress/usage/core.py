@@ -11,13 +11,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
+from magos.shapes import Shape
 from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.usage")
-
-Shape = Literal["anthropic", "openai-chat", "openai-responses"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,17 +91,6 @@ _EXTRACTORS: dict[Shape, Callable[[Any], Usage]] = {
     "openai-chat": usage_from_openai_chat,
     "openai-responses": usage_from_openai_responses,
 }
-
-
-def shape_for_endpoint(endpoint: str) -> Shape | None:
-    """Map a routed endpoint to the response shape, or ``None`` for n/a."""
-    if endpoint == "/v1/messages":
-        return "anthropic"
-    if endpoint == "/v1/chat/completions":
-        return "openai-chat"
-    if endpoint in {"/v1/responses", "/v1/responses/{id}"}:
-        return "openai-responses"
-    return None
 
 
 def log_usage(

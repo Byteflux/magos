@@ -20,7 +20,8 @@ from magos.egress.translate.payload import (
     resolve_client_model,
 )
 from magos.egress.translate.sse import rewrite_data_in_stream
-from magos.egress.usage import Shape, Usage, log_usage_from_body, tap_stream
+from magos.egress.usage import Usage, log_usage_from_body, tap_stream
+from magos.shapes import Shape
 from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.translate")

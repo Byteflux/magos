@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from .core import Shape, Usage, _safe_int
+from magos.shapes import Shape
+
+from .core import Usage, _safe_int
 
 
 class UsageAccumulator:

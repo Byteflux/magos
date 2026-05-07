@@ -23,11 +23,11 @@ from magos.egress.translate.runner import proxy_translate, stream_translate
 from magos.egress.usage import (
     Usage,
     log_usage_from_body,
-    shape_for_endpoint,
     tap_stream,
 )
 from magos.routing import RouteDecision
 from magos.routing.request import PostResponseHook
+from magos.shapes import shape_for_endpoint
 from magos.telemetry import get_logger
 
 __all__ = ["dispatch_decision"]
