@@ -43,6 +43,7 @@ def create_app(
     app = FastAPI(title="magos", version=__version__, lifespan=lifespan)
     app.state.routing = cfg
     app.state.registry_config = registry_cfg
+    app.state.settings = settings
     app.state.refresher = (
         Refresher(
             registry_cfg,

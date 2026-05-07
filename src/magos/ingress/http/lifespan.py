@@ -105,7 +105,7 @@ class KompressBackendOverride:
     name = "kompress_backend_override"
 
     async def start(self, app: FastAPI) -> None:
-        settings = MagosSettings()
+        settings = cast(MagosSettings, app.state.settings)
         if settings.kompress_backend == "pytorch":
             _force_kompress_pytorch()
 
@@ -119,7 +119,7 @@ class MetricsMeter:
     name = "metrics_meter"
 
     async def start(self, app: FastAPI) -> None:
-        settings = MagosSettings()
+        settings = cast(MagosSettings, app.state.settings)
         if settings.metrics_enabled:
             configure_meter_provider()
 
@@ -180,7 +180,7 @@ class KompressPreload:
 
     async def start(self, app: FastAPI) -> None:
         cfg = cast(RoutingConfig, app.state.routing)
-        settings = MagosSettings()
+        settings = cast(MagosSettings, app.state.settings)
         if config_uses_compress(cfg) and settings.kompress_preload:
             self._task = asyncio.create_task(
                 _preload_kompress_model(), name="magos.kompress.preload"
@@ -234,7 +234,7 @@ _COMPONENTS: list[LifespanComponent] = [
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     cfg = cast(RoutingConfig, app.state.routing)
-    settings = MagosSettings()
+    settings = cast(MagosSettings, app.state.settings)
 
     async with AsyncExitStack() as stack:
         for component in _COMPONENTS:
