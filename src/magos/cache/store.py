@@ -15,9 +15,9 @@ from __future__ import annotations
 import threading
 import time  # noqa: F401  -- retained for monkeypatching; see module docstring
 
-from magos.compression import ProviderName
+from headroom.cache.prefix_tracker import PrefixCacheTracker, PrefixFreezeConfig
 
-from .tracker import PrefixCacheTracker, PrefixFreezeConfig
+from magos.compression import ProviderName
 
 
 class TrackerStore:

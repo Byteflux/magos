@@ -9,20 +9,13 @@ from __future__ import annotations
 
 from magos.registry.state import RegistryState
 from magos.routing.request import RoutedRequest
-from magos.routing.schema import Compress, CompressOptions
+from magos.routing.schema import Compress
 from magos.telemetry import get_logger
 
 from ._preload import _preload_sentence_transformers
 from .cache_mode import _apply_cache_aligner, _apply_compress_responses
 from .model_limit import _DEFAULT_MODEL_LIMIT, _MODEL_LIMIT_CACHE, _resolve_model_limit
 from .token_mode import _apply_token_mode
-
-# Public surface consumed by callers:
-#   apply_compress        - ingress/http/run.py, routing/rewrites/__init__.py
-#   _preload_sentence_transformers - cli/serve.py, ingress/http/lifespan.py
-#   _MODEL_LIMIT_CACHE    - tests (monkeypatched)
-#   _resolve_model_limit  - tests, test_compress_registry.py
-#   _DEFAULT_MODEL_LIMIT  - tests
 
 __all__ = [
     "_DEFAULT_MODEL_LIMIT",
@@ -45,15 +38,7 @@ def apply_compress(
     req: RoutedRequest, rw: Compress, *, registry: RegistryState | None = None
 ) -> RoutedRequest:
     """Dispatch by endpoint and mode."""
-    return _apply_compress(req, rw.compress, registry=registry)
-
-
-def _apply_compress(
-    req: RoutedRequest,
-    opts: CompressOptions,
-    *,
-    registry: RegistryState | None = None,
-) -> RoutedRequest:
+    opts = rw.compress
     if req.endpoint == "/v1/responses":
         return _apply_compress_responses(req, opts)
 

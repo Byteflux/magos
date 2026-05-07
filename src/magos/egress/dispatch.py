@@ -74,7 +74,12 @@ async def dispatch_decision(
     action = decision.action
 
     if req.endpoint == "/v1/messages/count_tokens":
-        return await _dispatch_count_tokens(decision, completion=completion)
+        n = await count_tokens(
+            dict(req.body),
+            dispatch_model=decision.dispatch_model,
+            count=completion,
+        )
+        return {"input_tokens": n}
 
     forward_headers = maybe_inject_api_key(dict(req.headers), action)
     is_streaming = bool(req.body.get("stream"))
@@ -169,16 +174,3 @@ async def dispatch_decision(
         )
     response = await proxy_translate(adapter, dict(req.body), **common)
     return await wrap_response(response, **ccr_kwargs)
-
-
-async def _dispatch_count_tokens(
-    decision: RouteDecision, *, completion: CompletionFn
-) -> dict[str, int]:
-    """Dispatch a count_tokens request via ``litellm.acount_tokens``."""
-    body = dict(decision.request.body)
-    n = await count_tokens(
-        body,
-        dispatch_model=decision.dispatch_model,
-        count=completion,
-    )
-    return {"input_tokens": n}

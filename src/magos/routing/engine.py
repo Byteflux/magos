@@ -37,16 +37,6 @@ def apply_pre_rewrites(
     return out
 
 
-def apply_post_rewrites(
-    req: RoutedRequest,
-    rule: Rule,
-    *,
-    registry: RegistryState | None = None,
-) -> RoutedRequest:
-    """Run the matched rule's rewrites against ``req``."""
-    return apply_rewrites(req, rule.rewrites, registry=registry)
-
-
 def route(
     req: RoutedRequest,
     cfg: RoutingConfig,
@@ -66,7 +56,7 @@ def route(
         if not matches(rule.match, pre_applied, registry=registry):
             continue
         try:
-            post_applied = apply_post_rewrites(pre_applied, rule, registry=registry)
+            post_applied = apply_rewrites(pre_applied, rule.rewrites, registry=registry)
         except RewriteError as exc:
             model = str(pre_applied.body.get("model", ""))
             return RouteError(

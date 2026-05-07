@@ -55,15 +55,13 @@ src/magos/
 
   cache/             # owns headroom PrefixCacheTracker (per-session prefix tracking)
     __init__.py     # public surface (TrackerStore, get_store, derive_session_id, PrefixCacheTracker)
-    tracker.py      # re-export of headroom's PrefixCacheTracker + PrefixFreezeConfig
     session_id.py   # derive_session_id(headers, body, provider) -> str
     store.py        # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
 
   ccr/               # owns CCR (reversible compression) integration with headroom.ccr
     __init__.py     # public surface (is_ccr_request, wrap_response, wrap_stream, make_continuation_callable)
-    detection.py    # is_ccr_request(req) -> bool: scans body.tools for headroom_retrieve
     continuation.py # closure builder; re-runs translate adapter with substituted messages/tools
-    handler.py      # wrap_response (non-streaming) + wrap_stream (streaming) wrappers
+    handler.py      # is_ccr_request + wrap_response (non-streaming) + wrap_stream (streaming) wrappers
 
   compression/      # owns headroom TransformPipeline lifecycle (see also magos.cache)
     __init__.py     # public surface (PipelineConfig, apply, eager_warmup, prebuild_from_routing, get_registry)

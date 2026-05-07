@@ -60,18 +60,20 @@ class TranslateAdapter:
     preprocess_body: Callable[[dict[str, Any], str, str], dict[str, Any]] | None = None
 
 
-async def _proxy_translate_inner(
+async def proxy_translate(
     adapter: TranslateAdapter,
     request: dict[str, Any],
     *,
-    dispatch: Callable[..., Awaitable[Any]],
     dispatch_model: str,
-    provider: str | None,
-    forward_headers: dict[str, str] | None,
-    api_key: str | None,
-    api_base: str | None,
+    provider: str | None = None,
+    completion: CompletionFn | None = None,
+    forward_headers: dict[str, str] | None = None,
+    api_key: str | None = None,
+    api_base: str | None = None,
     on_complete: Callable[[Usage], None] | None = None,
 ) -> dict[str, Any]:
+    """Generic non-streaming translate runner."""
+    dispatch: Callable[..., Awaitable[Any]] = completion or adapter.default_dispatch
     client_model = resolve_client_model(request.get("model", ""), provider, dispatch_model)
     body = request
     if adapter.preprocess_body is not None:
@@ -88,33 +90,6 @@ async def _proxy_translate_inner(
     adapter.set_model_in_response(result, client_model)
     log_usage_from_body(adapter.shape, result, endpoint=adapter.endpoint, on_complete=on_complete)
     return result
-
-
-async def proxy_translate(
-    adapter: TranslateAdapter,
-    request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-    on_complete: Callable[[Usage], None] | None = None,
-) -> dict[str, Any]:
-    """Generic non-streaming translate runner."""
-    dispatch: Callable[..., Awaitable[Any]] = completion or adapter.default_dispatch
-    return await _proxy_translate_inner(
-        adapter,
-        request,
-        dispatch=dispatch,
-        dispatch_model=dispatch_model,
-        provider=provider,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-        on_complete=on_complete,
-    )
 
 
 def stream_translate(

@@ -3,11 +3,7 @@
 from __future__ import annotations
 
 from magos.routing.decision import RouteDecision
-from magos.routing.engine import (
-    apply_post_rewrites,
-    apply_pre_rewrites,
-    route,
-)
+from magos.routing.engine import apply_pre_rewrites, route
 from magos.routing.errors import (
     RouteError,
     error_envelope,
@@ -88,7 +84,6 @@ __all__ = [
     "Rule",
     "SetHeader",
     "SetModel",
-    "apply_post_rewrites",
     "apply_pre_rewrites",
     "apply_rewrites",
     "config_uses_compress",

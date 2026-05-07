@@ -9,9 +9,10 @@ the upstream's reported cache_read / cache_write tokens.
 
 from __future__ import annotations
 
+from headroom.cache.prefix_tracker import PrefixCacheTracker, PrefixFreezeConfig
+
 from .session_id import derive_session_id
 from .store import TrackerStore, get_store
-from .tracker import PrefixCacheTracker, PrefixFreezeConfig
 
 __all__ = [
     "PrefixCacheTracker",

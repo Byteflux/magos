@@ -1,10 +1,10 @@
-"""``magos.cache.tracker`` re-exports headroom's PrefixCacheTracker."""
+"""``magos.cache`` re-exports headroom's PrefixCacheTracker."""
 
 from __future__ import annotations
 
 
 def test_tracker_re_exports_are_importable() -> None:
-    from magos.cache.tracker import PrefixCacheTracker, PrefixFreezeConfig  # noqa: PLC0415
+    from magos.cache import PrefixCacheTracker, PrefixFreezeConfig  # noqa: PLC0415
 
     tracker = PrefixCacheTracker("anthropic")
     assert tracker.provider == "anthropic"
@@ -12,14 +12,14 @@ def test_tracker_re_exports_are_importable() -> None:
 
 
 def test_tracker_get_frozen_message_count_starts_zero() -> None:
-    from magos.cache.tracker import PrefixCacheTracker  # noqa: PLC0415
+    from magos.cache import PrefixCacheTracker  # noqa: PLC0415
 
     tracker = PrefixCacheTracker("anthropic")
     assert tracker.get_frozen_message_count() == 0
 
 
 def test_tracker_update_from_response_advances_state() -> None:
-    from magos.cache.tracker import PrefixCacheTracker  # noqa: PLC0415
+    from magos.cache import PrefixCacheTracker  # noqa: PLC0415
 
     tracker = PrefixCacheTracker("anthropic")
     tracker.update_from_response(
