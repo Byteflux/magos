@@ -18,7 +18,7 @@ from litellm.llms.anthropic.experimental_pass_through.adapters.transformation im
 )
 from litellm.types.utils import ModelResponse
 
-from magos.egress.translate.payload import CompletionFn
+from magos.egress import CompletionFn
 from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
 from magos.egress.translate.sse import sse_named_event
 from magos.telemetry import get_logger

@@ -8,7 +8,8 @@ from typing import Any
 
 import litellm
 
-from magos.egress.translate.payload import CompletionFn, coerce_to_dict
+from magos.egress import CompletionFn
+from magos.egress.translate.payload import coerce_to_dict
 from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
 from magos.egress.translate.sse import sse_event
 

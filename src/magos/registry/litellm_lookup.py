@@ -11,6 +11,7 @@ from typing import Any, Protocol
 
 import litellm
 
+from magos.registry.discovery._coerce import coerce_float, per_token_to_per_million
 from magos.telemetry import get_logger
 
 log = get_logger("magos.registry.litellm_lookup")
@@ -90,20 +91,15 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
         context_size=info_dict.get("max_input_tokens") or info_dict.get("max_tokens"),
         max_output=info_dict.get("max_output_tokens"),
         # LiteLLM reports USD per token; magos tracks USD per million tokens.
-        input_cost=_per_token_to_per_million(info_dict.get("input_cost_per_token")),
-        output_cost=_per_token_to_per_million(info_dict.get("output_cost_per_token")),
-        cache_read_cost=_per_token_to_per_million(info_dict.get("cache_read_input_token_cost")),
-        cache_write_cost=_per_token_to_per_million(
-            info_dict.get("cache_creation_input_token_cost")
-        ),
+        input_cost=_per_token(info_dict.get("input_cost_per_token")),
+        output_cost=_per_token(info_dict.get("output_cost_per_token")),
+        cache_read_cost=_per_token(info_dict.get("cache_read_input_token_cost")),
+        cache_write_cost=_per_token(info_dict.get("cache_creation_input_token_cost")),
         input_modalities=_coerce_input_modalities(info_dict),
         output_modalities=_coerce_output_modalities(info_dict),
     )
 
 
-def _per_token_to_per_million(value: Any) -> float | None:
-    if isinstance(value, bool):
-        return None
-    if not isinstance(value, (int, float)):
-        return None
-    return float(value) * 1_000_000
+def _per_token(value: Any) -> float | None:
+    """``Any`` -> per-million USD; drops bools, non-numeric, and negatives."""
+    return per_token_to_per_million(coerce_float(value))

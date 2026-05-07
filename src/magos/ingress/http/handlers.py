@@ -10,18 +10,16 @@ the concrete path is forwarded via ``RoutedRequest.actual_path``.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, cast
 
 import litellm
 from fastapi import Depends, FastAPI, Request
 
 from magos.config.settings import MagosSettings, get_settings
+from magos.egress import CompletionFn
 from magos.egress.translate.anthropic import _dispatch_anthropic_messages
 from magos.ingress.http.run import run_endpoint
 from magos.routing import Endpoint
-
-CompletionFn = Callable[..., Awaitable[Any]]
 
 
 def get_completion() -> CompletionFn:

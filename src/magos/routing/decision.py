@@ -9,6 +9,19 @@ from magos.routing.request import RoutedRequest
 from magos.routing.schema import Action, Rule
 
 
+def format_rule_label(rule: Rule, idx: int | None = None) -> str:
+    """Stable identifier for logs: rule's ``name`` if set, else ``rule[idx]``.
+
+    ``idx is None`` is rendered as ``rule[?]`` for diagnostics where the
+    rule's position in the chain is unknown.
+    """
+    if rule.name is not None:
+        return rule.name
+    if idx is None:
+        return "rule[?]"
+    return f"rule[{idx}]"
+
+
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
     """Successful route lookup. ``entry`` is set on auto-routed decisions only."""
@@ -28,8 +41,4 @@ class RouteDecision:
 
     def rule_label(self, idx: int | None = None) -> str:
         """Stable identifier for logs."""
-        if self.rule.name is not None:
-            return self.rule.name
-        if idx is not None:
-            return f"rule[{idx}]"
-        return "rule[?]"
+        return format_rule_label(self.rule, idx)

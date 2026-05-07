@@ -69,10 +69,7 @@ def _registry_context_size(model: str, registry: RegistryState | None) -> int | 
     """Registry ``context_size`` for ``model`` if known."""
     if registry is None:
         return None
-    direct = registry.get(model)
-    if direct is not None and direct.context_size is not None:
-        return direct.context_size
-    matches = [e for e in registry.entries.values() if e.raw_id == model]
-    if len(matches) == 1 and matches[0].context_size is not None:
-        return matches[0].context_size
-    return None
+    entry = registry.find_by_model_id(model)
+    if entry is None:
+        return None
+    return entry.context_size

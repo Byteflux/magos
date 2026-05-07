@@ -216,3 +216,19 @@ PreRewrite = Rewrite | GuardedRewrites
 class RoutingConfig(_Frozen):
     pre_rewrites: list[PreRewrite] = Field(default_factory=list)
     rules: list[Rule] = Field(min_length=1)
+
+
+def config_uses_compress(cfg: RoutingConfig) -> bool:
+    """True iff any pre-rewrite or rule rewrite is a ``compress`` op.
+
+    Walks into ``GuardedRewrites`` so a guarded pre-rewrite still
+    counts; the engine evaluates them at request time.
+    """
+    for entry in cfg.pre_rewrites:
+        if isinstance(entry, Compress):
+            return True
+        if isinstance(entry, GuardedRewrites) and any(
+            isinstance(rw, Compress) for rw in entry.rewrites
+        ):
+            return True
+    return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)

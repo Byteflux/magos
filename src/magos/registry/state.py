@@ -103,6 +103,24 @@ class RegistryState:
         """Providers whose registry entries carry ``raw_id`` (empty if none)."""
         return self.by_raw_id.get(raw_id, frozenset())
 
+    def find_by_model_id(self, model: str) -> ModelEntry | None:
+        """Best-effort entry lookup for an inbound body model field.
+
+        First tries an exact namespaced match (``<provider>/<raw_id>``);
+        on miss, falls back to a raw-id lookup. Returns ``None`` when
+        the raw-id lookup is ambiguous (more than one provider serves
+        the same raw id) so callers can refuse to guess. For the
+        bare-id auto-route path see :func:`magos.registry.provider_order.resolve_provider`.
+        """
+        direct = self.get(model)
+        if direct is not None:
+            return direct
+        providers = self.providers_for_raw_id(model)
+        if len(providers) != 1:
+            return None
+        provider = next(iter(providers))
+        return self.get(f"{provider}/{model}")
+
     def resolve_for_dispatch(self, model: str, provider: str | None) -> str | None:
         """Return the litellm id for ``model``, or ``None`` if unknown.
 

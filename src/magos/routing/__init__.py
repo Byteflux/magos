@@ -48,6 +48,7 @@ from magos.routing.schema import (
     Rule,
     SetHeader,
     SetModel,
+    config_uses_compress,
 )
 
 __all__ = [
@@ -90,6 +91,7 @@ __all__ = [
     "apply_post_rewrites",
     "apply_pre_rewrites",
     "apply_rewrites",
+    "config_uses_compress",
     "error_envelope",
     "format_dispatch_error_message",
     "format_unmatched_message",

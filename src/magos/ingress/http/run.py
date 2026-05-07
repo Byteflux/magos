@@ -15,8 +15,9 @@ from fastapi import HTTPException, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
+from magos.egress import CompletionFn
 from magos.ingress.http.headers import forwardable_headers
-from magos.process import CompletionFn, RoutedResponse, process_routed_request
+from magos.process import RoutedResponse, process_routed_request
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import Endpoint, RoutedRequest, RoutingConfig

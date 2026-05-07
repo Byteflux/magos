@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from magos import __version__
 from magos.config.settings import MagosSettings
 from magos.registry.refresher import Refresher
-from magos.routing import Compress, RoutingConfig
+from magos.routing import RoutingConfig, config_uses_compress
 from magos.telemetry import get_logger
 from magos.telemetry.metrics import configure_meter_provider
 
@@ -24,12 +24,6 @@ log = get_logger("magos.ingress.http.lifespan")
 # ---------------------------------------------------------------------------
 # Helpers (used by components below)
 # ---------------------------------------------------------------------------
-
-
-def _config_uses_compress(cfg: RoutingConfig) -> bool:
-    if any(isinstance(rw, Compress) for rw in cfg.pre_rewrites):
-        return True
-    return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)
 
 
 def _force_kompress_pytorch() -> None:
@@ -145,7 +139,7 @@ class MagosCompressionWarmup:
 
     async def start(self, app: FastAPI) -> None:
         cfg = cast(RoutingConfig, app.state.routing)
-        if not _config_uses_compress(cfg):
+        if not config_uses_compress(cfg):
             return
         try:
             from magos.compression import prebuild_from_routing  # noqa: PLC0415
@@ -187,7 +181,7 @@ class KompressPreload:
     async def start(self, app: FastAPI) -> None:
         cfg = cast(RoutingConfig, app.state.routing)
         settings = MagosSettings()
-        if _config_uses_compress(cfg) and settings.kompress_preload:
+        if config_uses_compress(cfg) and settings.kompress_preload:
             self._task = asyncio.create_task(
                 _preload_kompress_model(), name="magos.kompress.preload"
             )

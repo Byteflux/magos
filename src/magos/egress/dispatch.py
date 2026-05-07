@@ -6,13 +6,14 @@ See ``docs/architecture/request-flow.md``.
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from fastapi import Response
 from fastapi.responses import StreamingResponse
 
 from magos.ccr import wrap_response, wrap_stream
+from magos.egress import CompletionFn
 from magos.egress.auth import maybe_inject_api_key, resolve_api_key
 from magos.egress.errors import DispatchError
 from magos.egress.passthrough import _HTTP_ERROR_THRESHOLD, call_passthrough, stream_passthrough
@@ -32,8 +33,6 @@ from magos.telemetry import get_logger
 __all__ = ["dispatch_decision"]
 
 log = get_logger("magos.egress.dispatch")
-
-CompletionFn = Callable[..., Awaitable[Any]]
 
 
 def _make_on_complete(

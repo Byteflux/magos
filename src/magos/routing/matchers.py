@@ -6,7 +6,7 @@ import fnmatch
 import functools
 import re
 
-from magos.registry.state import ModelEntry, RegistryState
+from magos.registry.state import RegistryState
 from magos.routing.jq_compat import evaluate_predicate
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import (
@@ -95,20 +95,10 @@ def _model_field_matches(
     model = str(req.body.get("model", ""))
     if not model:
         return False
-    entry = _resolve_entry(model, registry)
+    entry = registry.find_by_model_id(model)
     if entry is None:
         return False
     return _apply_op(getattr(entry, expr.field), expr.op, expr.value)
-
-
-def _resolve_entry(model: str, registry: RegistryState) -> ModelEntry | None:
-    direct = registry.get(model)
-    if direct is not None:
-        return direct
-    candidates = [e for e in registry.entries.values() if e.raw_id == model]
-    if len(candidates) == 1:
-        return candidates[0]
-    return None
 
 
 def _apply_op(  # noqa: PLR0911

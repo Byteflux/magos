@@ -66,16 +66,14 @@ def _preload_native_load_order(settings: MagosSettings) -> None:
     since the import is multi-second.
     """
     from magos.config.loader import load_full_config  # noqa: PLC0415
-    from magos.routing.schema import Compress  # noqa: PLC0415
+    from magos.routing import config_uses_compress  # noqa: PLC0415
 
     try:
         cfg = load_full_config(settings.config_path).routing
     except Exception:
         return  # malformed config; let serve_orchestrator surface the error
 
-    if not any(isinstance(rw, Compress) for rw in cfg.pre_rewrites) and not any(
-        isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites
-    ):
+    if not config_uses_compress(cfg):
         return
 
     from magos.routing.rewrites.compress import (  # noqa: PLC0415

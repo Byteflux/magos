@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from magos.routing.decision import format_rule_label
 from magos.routing.jq_compat import JqCompileError, check_program
 from magos.routing.schema import (
     AllOf,
@@ -29,7 +30,6 @@ from magos.routing.schema import (
     RegexMatcher,
     Rewrite,
     RoutingConfig,
-    Rule,
     SetModel,
 )
 from magos.telemetry import get_logger
@@ -55,19 +55,25 @@ def load_config(path: str | Path) -> RoutingConfig:
         raise RoutingConfigError(
             f"{p}: top-level YAML must be a mapping, got {type(data).__name__}"
         )
+    return load_from_data(data, source=str(p))
+
+
+def load_from_data(data: dict[str, object], *, source: str) -> RoutingConfig:
+    """Validate a pre-parsed YAML mapping into ``RoutingConfig``.
+
+    Used by :func:`magos.config.loader.load_full_config` so the source
+    file is parsed once and shared across the routing / registry /
+    ingress parsers.
+    """
     routing_subset = {k: v for k, v in data.items() if k in _ROUTING_KEYS}
     try:
         cfg = RoutingConfig.model_validate(routing_subset)
     except ValidationError as exc:
-        raise RoutingConfigError(f"{p}: invalid routing config: {exc}") from exc
-    _validate_compiled(cfg, source=str(p))
-    _validate_passthrough_base_url(cfg, source=str(p))
+        raise RoutingConfigError(f"{source}: invalid routing config: {exc}") from exc
+    _validate_compiled(cfg, source=source)
+    _validate_passthrough_base_url(cfg, source=source)
     _warn_passthrough_body_touch(cfg)
     return cfg
-
-
-def _rule_label(rule: Rule, idx: int) -> str:
-    return rule.name or f"rule[{idx}]"
 
 
 def _iter_match_atoms(expr: MatchExpr) -> Iterator[MatchExpr]:
@@ -105,7 +111,7 @@ def _iter_jq_atoms(expr: MatchExpr) -> Iterator[JqAtom]:
 def _validate_compiled(cfg: RoutingConfig, *, source: str) -> None:
     """Compile every regex, glob, and jq program; raise on first failure with rule label."""
     for idx, rule in enumerate(cfg.rules):
-        label = _rule_label(rule, idx)
+        label = format_rule_label(rule, idx)
         for matcher in _iter_matchers(rule.match):
             _check_matcher(matcher, where=f"{source}: {label} match")
         for atom in _iter_jq_atoms(rule.match):
@@ -157,7 +163,7 @@ def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
     """Reject ``mode: passthrough`` rules that omit ``base_url`` (no upstream to forward to)."""
     for idx, rule in enumerate(cfg.rules):
         if rule.action.mode == "passthrough" and not rule.action.base_url:
-            label = _rule_label(rule, idx)
+            label = format_rule_label(rule, idx)
             raise RoutingConfigError(
                 f"{source}: {label}: mode='passthrough' requires action.base_url"
             )
@@ -183,7 +189,7 @@ def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:
         if pre_touches or post_touches:
             log.debug(
                 "routing.passthrough_body_touch",
-                rule=_rule_label(rule, idx),
+                rule=format_rule_label(rule, idx),
                 pre_rewrites_touch=pre_touches,
                 post_rewrites_touch=post_touches,
             )

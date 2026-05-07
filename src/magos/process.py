@@ -13,12 +13,13 @@ exception ladder.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import ValidationError
 
+from magos.egress import CompletionFn
 from magos.egress.dispatch import dispatch_decision
 from magos.egress.errors import DispatchError
 from magos.registry.refresher import Refresher
@@ -35,8 +36,6 @@ from magos.routing import (
 from magos.telemetry import get_logger
 
 log = get_logger("magos.process")
-
-CompletionFn = Callable[..., Awaitable[Any]]
 
 
 @dataclass(frozen=True)

@@ -6,8 +6,7 @@ Per-endpoint shape massaging lives in the sibling endpoint modules. See
 
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from typing import Any, Protocol
+from typing import Any
 
 import litellm
 
@@ -29,10 +28,6 @@ _DISPATCH_BLOCKED_HEADERS: frozenset[str] = frozenset(
 # override the ``api_key`` kwarg, so leaking the inbound bearer to a
 # different upstream produces a misleading "Invalid API key" 401.
 _INBOUND_AUTH_HEADERS: frozenset[str] = frozenset({"authorization", "x-api-key"})
-
-
-class CompletionFn(Protocol):
-    def __call__(self, **kwargs: Any) -> Awaitable[Any]: ...
 
 
 def resolve_client_model(request_model: str, provider: str | None, dispatch_model: str) -> str:

@@ -13,8 +13,8 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from magos.egress import CompletionFn
 from magos.egress.translate.payload import (
-    CompletionFn,
     build_payload,
     coerce_to_dict,
     resolve_client_model,
