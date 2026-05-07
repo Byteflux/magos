@@ -1,24 +1,40 @@
 """Unit tests for the ``litellm.anthropic_messages`` translate path.
 
-``proxy_anthropic_messages`` is a thin marshalling layer over
+The Anthropic ``ADAPTER`` is a thin marshalling layer over
 ``litellm.anthropic_messages``: there is no per-field translation
 happening in magos, so these tests assert the marshalling contract:
 payload composition (model rewrite, header forwarding, api_key
-threading) and response coercion. The cross-provider behaviour LiteLLM
-itself implements is covered by the e2e suite (``MAGOS_E2E=1``).
+threading) and response coercion. Routed via the generic
+``proxy_translate`` / ``stream_translate`` runners. The cross-provider
+behaviour LiteLLM itself implements is covered by the e2e suite
+(``MAGOS_E2E=1``).
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from typing import Any
 
 import litellm
 import pytest
 from litellm.types.utils import Choices, Message, ModelResponse, Usage
 
-from magos.egress.translate import proxy_anthropic_messages, stream_anthropic_messages
+from magos.egress.translate import TRANSLATE_HANDLERS
 from magos.egress.translate.anthropic import _dispatch_anthropic_messages
+from magos.egress.translate.runner import proxy_translate, stream_translate
+
+ADAPTER = TRANSLATE_HANDLERS["/v1/messages"]
+
+
+def proxy_anthropic_messages(body: dict[str, Any], **kwargs: Any) -> Any:
+    """Test alias: keeps the call sites readable."""
+    return proxy_translate(ADAPTER, body, **kwargs)
+
+
+def stream_anthropic_messages(body: dict[str, Any], **kwargs: Any) -> AsyncIterator[bytes]:
+    """Test alias: keeps the call sites readable."""
+    return stream_translate(ADAPTER, body, **kwargs)
 
 
 @pytest.mark.unit

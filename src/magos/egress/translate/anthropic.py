@@ -18,8 +18,7 @@ from litellm.llms.anthropic.experimental_pass_through.adapters.transformation im
 )
 from litellm.types.utils import ModelResponse
 
-from magos.egress import CompletionFn
-from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
+from magos.egress.translate.runner import TranslateAdapter
 from magos.egress.translate.sse import sse_named_event
 from magos.telemetry import get_logger
 
@@ -292,53 +291,3 @@ ADAPTER = TranslateAdapter(
     log_shape="anthropic",
     preprocess_body=_anthropic_preprocess_body,
 )
-
-
-async def proxy_anthropic_messages(
-    anthropic_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> dict[str, Any]:
-    """Round-trip an Anthropic Messages request through ``litellm.anthropic_messages``."""
-    return await proxy_translate(
-        ADAPTER,
-        anthropic_request,
-        dispatch_model=dispatch_model,
-        provider=provider,
-        completion=completion,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
-
-
-def stream_anthropic_messages(
-    anthropic_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Stream an Anthropic Messages request as Anthropic SSE bytes.
-
-    Sync-returning so a malformed request surfaces as 400 before any
-    bytes are emitted (LiteLLM raises ``pydantic.ValidationError``).
-    """
-    return stream_translate(
-        ADAPTER,
-        anthropic_request,
-        dispatch_model=dispatch_model,
-        provider=provider,
-        completion=completion,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )

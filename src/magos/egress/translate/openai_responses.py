@@ -10,9 +10,8 @@ from typing import Any
 
 import litellm
 
-from magos.egress import CompletionFn
 from magos.egress.translate.payload import coerce_to_dict
-from magos.egress.translate.runner import TranslateAdapter, proxy_translate, stream_translate
+from magos.egress.translate.runner import TranslateAdapter
 from magos.egress.translate.sse import sse_named_event
 
 
@@ -58,49 +57,3 @@ ADAPTER = TranslateAdapter(
     stream_bytes_iter=_openai_responses_bytes_iter,
     log_shape="openai-responses",
 )
-
-
-async def proxy_openai_responses(
-    openai_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> dict[str, Any]:
-    """Pass an OpenAI Responses request through litellm without translation."""
-    return await proxy_translate(
-        ADAPTER,
-        openai_request,
-        dispatch_model=dispatch_model,
-        provider=provider,
-        completion=completion,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
-
-
-def stream_openai_responses(
-    openai_request: dict[str, Any],
-    *,
-    dispatch_model: str,
-    provider: str | None = None,
-    completion: CompletionFn | None = None,
-    forward_headers: dict[str, str] | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-) -> AsyncIterator[bytes]:
-    """Stream OpenAI Responses events as SSE bytes."""
-    return stream_translate(
-        ADAPTER,
-        openai_request,
-        dispatch_model=dispatch_model,
-        provider=provider,
-        completion=completion,
-        forward_headers=forward_headers,
-        api_key=api_key,
-        api_base=api_base,
-    )
