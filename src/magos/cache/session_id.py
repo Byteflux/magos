@@ -12,9 +12,20 @@ from collections.abc import Mapping
 from typing import Any
 
 from magos.compression import ProviderName
+from magos.shapes import SHAPES, Shape
 
 _AUTH_PREFIX_LEN = 16
 _BEARER_PREFIX = "Bearer "
+
+# Compression providers map to a representative wire shape for body
+# extraction. Both OpenAI shapes encode system identically (no top-level
+# field; first ``role=system`` entry inside ``messages``), so ``openai-chat``
+# stands in for both — Responses bodies have neither ``messages`` nor a
+# system-prompt field, so the extractor returns empty bytes either way.
+_PROVIDER_SHAPE: dict[ProviderName, Shape] = {
+    "anthropic": "anthropic",
+    "openai": "openai-chat",
+}
 
 
 def derive_session_id(
@@ -48,31 +59,33 @@ def _extract_auth_prefix(headers: Mapping[str, str]) -> str:
 
 
 def _extract_system_bytes(body: Mapping[str, Any], provider: ProviderName) -> bytes:
-    """Provider-specific system-prompt extraction. Empty bytes if absent."""
-    if provider == "anthropic":
-        return _anthropic_system_bytes(body)
-    return _openai_system_bytes(body)
+    """Extract system-prompt bytes via the shape's body-field declaration."""
+    spec = SHAPES[_PROVIDER_SHAPE[provider]]
+    if spec.system_field is not None:
+        return _from_top_level_field(body, spec.system_field)
+    if spec.messages_field is not None:
+        return _from_messages_field(body, spec.messages_field)
+    return b""
 
 
-def _anthropic_system_bytes(body: Mapping[str, Any]) -> bytes:
-    """Extract system bytes from an Anthropic-shape request body."""
-    system = body.get("system", "")
-    if isinstance(system, str):
-        return system.encode("utf-8")
-    if isinstance(system, list):
-        # Anthropic also accepts a list of text blocks.
+def _from_top_level_field(body: Mapping[str, Any], field: str) -> bytes:
+    """Read a top-level system field that may be a string or a list of text blocks."""
+    value = body.get(field, "")
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    if isinstance(value, list):
         parts: list[str] = [
             block["text"]
-            for block in system
+            for block in value
             if isinstance(block, dict) and isinstance(block.get("text"), str)
         ]
         return "".join(parts).encode("utf-8")
     return b""
 
 
-def _openai_system_bytes(body: Mapping[str, Any]) -> bytes:
-    """Extract system bytes from the first system-role message in an OpenAI-shape body."""
-    messages = body.get("messages", [])
+def _from_messages_field(body: Mapping[str, Any], field: str) -> bytes:
+    """Read the first ``role=system`` entry from a messages-style list."""
+    messages = body.get(field, [])
     if not isinstance(messages, list):
         return b""
     for msg in messages:

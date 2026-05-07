@@ -76,6 +76,13 @@ src/magos/
     schema.py        # MagosIngressConfig + HttpIngressConfig + MitmIngressConfig (yaml `ingress:` block)
     loader.py        # load_full_config -> MagosConfig (routing + registry + ingress) + resolve_models_path
 
+  shapes/            # wire-shape data: per-shape field locations + usage maps
+    __init__.py     # public surface (Shape, ShapeSpec, SHAPES, shape_for_endpoint)
+    _spec.py        # ShapeSpec + StreamEvent dataclasses + Shape / CompressionProvider literals
+    anthropic.py    # /v1/messages spec
+    openai_chat.py  # /v1/chat/completions spec
+    openai_responses.py # /v1/responses{,/{id}} spec
+
   telemetry/         # observability scaffolding
     logging.py       # structlog setup, get_logger
     tracing.py       # OTel + traced decorator
@@ -83,7 +90,10 @@ src/magos/
   ingress/           # how requests enter
     http/            # FastAPI entry
       app.py        # create_app, app.state wiring
-      lifespan.py   # ordered LifespanComponent runner: kompress backend override, OTel meter, magos.compression warmup, kompress preload, refresher start
+      lifespan/     # ordered LifespanComponent runner
+        __init__.py # Protocol + _COMPONENTS list + lifespan asynccontextmanager
+        kompress.py # KompressBackendOverride + KompressPreload + helpers
+        components.py # MetricsMeter + MagosCompressionWarmup + RegistryRefresher
       handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
       run.py        # shared dispatch helper called by every handler
       headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
@@ -95,7 +105,12 @@ src/magos/
       log_bridge.py # mitmproxy stdlib-logging records -> structlog
 
   routing/           # the rule engine (the product)
-    schema.py        # pydantic schemas for magos.yaml rules (incl. GuardedRewrites)
+    schema/          # pydantic schemas for magos.yaml rules
+      __init__.py    # public surface + config_uses_compress walker
+      _base.py       # _Frozen base
+      grammar.py     # matchers + atoms + combinators + MatchExpr
+      rewrites.py    # rewrite primitives + CompressOptions + Rewrite union
+      structure.py   # Action + Rule + GuardedRewrites + RoutingConfig
     request.py       # RoutedRequest dataclass
     decision.py      # RouteDecision frozen value (engine output, dispatch input)
     matchers.py      # match-expression evaluator (registry-aware)
@@ -121,13 +136,21 @@ src/magos/
     auth.py          # provider-aware API-key + header injection
     passthrough.py   # byte-exact same-shape forwarding
     tokens.py        # async count_tokens via litellm.acount_tokens
-    usage.py         # per-response token-usage logging (UsageAccumulator, tap_stream)
+    usage/           # per-response token-usage logging
+      __init__.py    # public surface
+      core.py        # Usage dataclass + usage_from_body + log_usage helpers
+      accumulator.py # UsageAccumulator (streaming SSE event aggregator, shape-driven)
+      tap.py         # tap_stream byte passthrough generator
     observer.py      # mitmproxy egress observer addon
     translate/       # LiteLLM SDK marshalling
       payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
       runner.py      # generic proxy_translate / stream_translate (per-adapter dispatch)
-      anthropic.py   # anthropic_messages flows + output_config translation
+      anthropic/     # /v1/messages translate path
+        __init__.py  # re-exports ADAPTER + _dispatch_anthropic_messages
+        translation.py # output_config / additionalProperties / unknown-field stripping
+        dispatch.py  # anthropic_messages vs acompletion routing
+        adapter.py   # TranslateAdapter wiring + model rewrite hooks
       openai_chat.py # acompletion flows
       openai_responses.py # aresponses flows
 
@@ -223,6 +246,7 @@ wire-shape translation across providers.
 | (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
 | (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.cache` |
 | (none) | reversible-compression integration with `headroom.ccr` (request injection + response handling) | `magos.ccr` |
+| (none) | wire-shape data: per-shape field locations + usage maps consumed by usage / cache / etc. | `magos.shapes` |
 | LiteLLM | wire-shape translator | `magos.egress.translate` |
 | httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
 
