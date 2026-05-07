@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from magos.shapes import Shape, Usage
-from magos.shapes._base import _safe_int, _walk
+from magos.shapes.base import _safe_int, _walk
 
 _FIELD_ATTR: dict[str, str] = {
     "input": "_input",

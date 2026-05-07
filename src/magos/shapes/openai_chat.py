@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._base import Shape, StreamEvent
+from .base import Shape, StreamEvent
 
 SPEC = Shape(
     name="openai-chat",
