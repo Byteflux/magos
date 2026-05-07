@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from ._base import _Frozen
+from .base import _Frozen
 from .grammar import MatchExpr
 from .rewrites import AddHeader, Compress, JqPatch, RemoveHeader, SetHeader, SetModel
 

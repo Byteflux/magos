@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from ._base import _Frozen
+from .base import _Frozen
 
 
 class LiteralMatcher(_Frozen):
