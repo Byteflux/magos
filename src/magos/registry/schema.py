@@ -106,4 +106,13 @@ class RegistryYaml(_Frozen):
 
     providers: dict[str, ProviderConfig] = Field(default_factory=dict)
     provider_order: tuple[str, ...] = ()
+    pins: dict[str, str] = Field(default_factory=dict)
+    """Per-raw-id provider pins for bare-id auto-routing.
+
+    Keyed by ``raw_id`` (the upstream model id without the magos
+    namespace prefix), value is the preferred provider name. Beats
+    ``provider_order`` and lex-smallest fallback. Pins to providers
+    absent from the candidate set are ignored. See
+    ``docs/registry/auto-routing.md``.
+    """
     registry: RegistrySettings = Field(default_factory=RegistrySettings)

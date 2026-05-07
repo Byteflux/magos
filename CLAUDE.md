@@ -135,7 +135,7 @@ src/magos/
 
   registry/          # model registry: discovery, lifecycle, lookup
     state.py         # ModelEntry / RegistryState frozen dataclasses
-    schema.py        # pydantic for providers/provider_order/registry blocks
+    schema.py        # pydantic for providers/provider_order/pins/registry blocks
     store.py         # atomic JSON persistence (models.json)
     merge.py         # field precedence: override > discovery > litellm > null
     deprecation.py   # soft-delete state machine

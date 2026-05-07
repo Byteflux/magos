@@ -145,3 +145,99 @@ def test_try_auto_route_decision_is_auto_routed() -> None:
     decision = try_auto_route(req, registry, settings=None, providers=None)
     assert isinstance(decision, RouteDecision)
     assert decision.auto_routed is True
+
+
+# --- try_auto_route: bare-id resolution across providers ---
+
+
+def test_bare_id_resolves_via_provider_order() -> None:
+    """Bare ``model`` with multiple providers picks via ``provider_order``."""
+    a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
+    b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
+    registry = make_registry(a, b)
+    req = _req(body={"model": "claude-x"})
+    decision = try_auto_route(
+        req,
+        registry,
+        settings=None,
+        providers=None,
+        provider_order=("openrouter", "anthropic"),
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.entry is b
+    assert decision.action.provider == "openrouter"
+
+
+def test_bare_id_pin_beats_provider_order() -> None:
+    """A pin overrides ``provider_order`` for that raw id."""
+    a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
+    b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
+    registry = make_registry(a, b)
+    req = _req(body={"model": "claude-x"})
+    decision = try_auto_route(
+        req,
+        registry,
+        settings=None,
+        providers=None,
+        pins={"claude-x": "anthropic"},
+        provider_order=("openrouter", "anthropic"),
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.entry is a
+
+
+def test_bare_id_falls_back_to_lex_smallest() -> None:
+    """No pin, no ``provider_order`` match: lex-smallest provider wins."""
+    a = _entry(provider="zeta", raw_id="claude-x", litellm_id="zeta/claude-x")
+    b = _entry(provider="alpha", raw_id="claude-x", litellm_id="alpha/claude-x")
+    registry = make_registry(a, b)
+    req = _req(body={"model": "claude-x"})
+    decision = try_auto_route(req, registry, settings=None, providers=None)
+    assert isinstance(decision, RouteDecision)
+    assert decision.entry is b
+    assert decision.action.provider == "alpha"
+
+
+def test_bare_id_pin_to_absent_provider_is_ignored() -> None:
+    """A pin to a provider that doesn't serve this model is ignored."""
+    a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
+    registry = make_registry(a)
+    req = _req(body={"model": "claude-x"})
+    decision = try_auto_route(
+        req,
+        registry,
+        settings=None,
+        providers=None,
+        pins={"claude-x": "openrouter"},  # openrouter has no claude-x entry
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.entry is a
+
+
+def test_bare_id_miss_falls_through_to_unknown_passthrough() -> None:
+    """Bare id with no candidates honours ``on_unknown_model: passthrough``."""
+    registry = RegistryState()
+    settings = RegistrySettings(on_unknown_model="passthrough")
+    req = _req(body={"model": "ghost"})
+    decision = try_auto_route(
+        req, registry, settings=settings, providers=None, provider_order=("a",)
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.dispatch_model == "ghost"
+
+
+def test_namespaced_hit_short_circuits_bare_id_path() -> None:
+    """A direct namespaced hit ignores ``provider_order``."""
+    a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
+    b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
+    registry = make_registry(a, b)
+    req = _req(body={"model": "anthropic/claude-x"})
+    decision = try_auto_route(
+        req,
+        registry,
+        settings=None,
+        providers=None,
+        provider_order=("openrouter",),
+    )
+    assert isinstance(decision, RouteDecision)
+    assert decision.entry is a

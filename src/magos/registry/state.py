@@ -56,6 +56,15 @@ def _freeze_by_provider(
     return MappingProxyType({k: frozenset(v) for k, v in by_provider.items()})
 
 
+def _freeze_by_raw_id(
+    entries: Mapping[str, ModelEntry],
+) -> Mapping[str, frozenset[str]]:
+    by_raw_id: dict[str, set[str]] = {}
+    for entry in entries.values():
+        by_raw_id.setdefault(entry.raw_id, set()).add(entry.provider)
+    return MappingProxyType({k: frozenset(v) for k, v in by_raw_id.items()})
+
+
 def _freeze_refreshed(refreshed: Mapping[str, datetime]) -> Mapping[str, datetime]:
     return MappingProxyType(dict(refreshed))
 
@@ -78,12 +87,21 @@ class RegistryState:
         """Index of namespaced ids grouped by provider, computed on demand."""
         return _freeze_by_provider(self.entries)
 
+    @property
+    def by_raw_id(self) -> Mapping[str, frozenset[str]]:
+        """Index of providers serving each raw model id, computed on demand."""
+        return _freeze_by_raw_id(self.entries)
+
     def get(self, namespaced_id: str) -> ModelEntry | None:
         return self.entries.get(namespaced_id)
 
     def for_provider(self, provider: str) -> tuple[ModelEntry, ...]:
         keys = self.by_provider.get(provider, frozenset())
         return tuple(self.entries[k] for k in sorted(keys))
+
+    def providers_for_raw_id(self, raw_id: str) -> frozenset[str]:
+        """Providers whose registry entries carry ``raw_id`` (empty if none)."""
+        return self.by_raw_id.get(raw_id, frozenset())
 
     def resolve_for_dispatch(self, model: str, provider: str | None) -> str | None:
         """Return the litellm id for ``model``, or ``None`` if unknown.

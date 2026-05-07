@@ -75,6 +75,8 @@ async def process_routed_request(
         registry=refresher.state if refresher is not None else None,
         registry_settings=registry_cfg.registry if refresher is not None else None,
         providers=registry_cfg.providers if refresher is not None else None,
+        pins=registry_cfg.pins if refresher is not None else None,
+        provider_order=registry_cfg.provider_order if refresher is not None else (),
     )
 
     if isinstance(decision_or_err, RouteError):

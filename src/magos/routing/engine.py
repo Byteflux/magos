@@ -54,6 +54,8 @@ def route(
     registry: RegistryState | None = None,
     registry_settings: RegistrySettings | None = None,
     providers: Mapping[str, ProviderConfig] | None = None,
+    pins: Mapping[str, str] | None = None,
+    provider_order: tuple[str, ...] = (),
 ) -> RouteDecision | RouteError:
     """Resolve ``req`` against ``cfg``; first matching rule wins, else auto-route.
 
@@ -82,7 +84,14 @@ def route(
         )
 
     if registry is not None:
-        auto = try_auto_route(pre_applied, registry, registry_settings, providers)
+        auto = try_auto_route(
+            pre_applied,
+            registry,
+            registry_settings,
+            providers,
+            pins=pins,
+            provider_order=provider_order,
+        )
         if auto is not None:
             return auto
 

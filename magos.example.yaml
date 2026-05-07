@@ -194,6 +194,11 @@ rules:
 #
 provider_order: [anthropic, openai, openrouter, vultr]
 
+# Optional per-raw-id pins; beat provider_order for bare-id auto-routing.
+# pins:
+#   claude-sonnet-4-6: anthropic
+#   gpt-4o: openai
+
 providers:
   anthropic:
     api_key_env: ANTHROPIC_API_KEY

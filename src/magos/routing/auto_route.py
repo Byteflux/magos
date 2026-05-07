@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from magos.registry.provider_order import resolve_provider
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.decision import RouteDecision
@@ -18,8 +19,21 @@ def try_auto_route(
     registry: RegistryState,
     settings: RegistrySettings | None,
     providers: Mapping[str, ProviderConfig] | None,
+    *,
+    pins: Mapping[str, str] | None = None,
+    provider_order: tuple[str, ...] = (),
 ) -> RouteDecision | None:
-    """Synthesize a decision from a registry hit, or honour ``on_unknown_model`` on miss."""
+    """Synthesize a decision from a registry hit, or honour ``on_unknown_model`` on miss.
+
+    Resolution order:
+
+    1. **Namespaced hit** — ``model`` is already ``<provider>/<raw_id>`` and
+       matches a registry entry directly.
+    2. **Bare-id hit** — ``model`` matches one or more entries' ``raw_id``;
+       provider picked via :func:`resolve_provider` (pin > ``provider_order``
+       > lex-smallest).
+    3. **Miss** — fall through to ``on_unknown_model``.
+    """
     model = str(req.body.get("model", ""))
     if not model:
         return None
@@ -27,6 +41,22 @@ def try_auto_route(
     if entry is not None:
         provider_cfg = providers.get(entry.provider) if providers else None
         return _decision_from_entry(req, entry, provider_cfg)
+
+    candidates = registry.providers_for_raw_id(model)
+    if candidates:
+        provider = resolve_provider(
+            raw_id=model,
+            candidates=candidates,
+            pins=pins,
+            provider_order=provider_order,
+        )
+        if provider is not None:
+            namespaced = f"{provider}/{model}"
+            chosen = registry.get(namespaced)
+            if chosen is not None:
+                provider_cfg = providers.get(chosen.provider) if providers else None
+                return _decision_from_entry(req, chosen, provider_cfg)
+
     if settings is not None and settings.on_unknown_model == "passthrough":
         return _decision_for_unknown_passthrough(req, model)
     return None

@@ -1,17 +1,51 @@
 # Auto-routing
 
-Explicit rules win. After the rules loop falls through, magos attempts
-`registry.get(<inbound model id>)`:
+Explicit rules win. After the rules loop falls through, magos resolves
+the inbound model in two passes:
 
-- Hit → synthesize a translate-mode `Action` for the entry's provider,
-  hand the entry's `litellm_id` to the dispatcher.
-- Miss + `on_unknown_model: error` → 404.
-- Miss + `on_unknown_model: passthrough` → hand the raw model string to
+1. **Namespaced lookup** — `registry.get(<inbound model id>)`. Matches
+   when the client already sent a `<provider>/<raw_id>` key (e.g.
+   `openrouter/anthropic/claude-sonnet-4-6`).
+2. **Bare-id fallback** — when the namespaced lookup misses, magos
+   collects every provider whose entry has `raw_id == <inbound model
+   id>` (e.g. a request for `claude-sonnet-4-6` matches both
+   `anthropic/claude-sonnet-4-6` and `openrouter/anthropic/claude-sonnet-4-6`
+   if both are in the registry). One provider wins via the tie-break
+   rule below; magos then re-keys to that provider's namespaced entry.
+
+If both passes miss:
+
+- `on_unknown_model: error` → 404.
+- `on_unknown_model: passthrough` → hand the raw model string to
   LiteLLM and let it resolve via its bundled registry (works for names
   like `openai/gpt-4o`).
 
-When multiple providers serve the same logical model, tie-breaking:
-explicit pin > `provider_order` > lexicographically smallest provider.
+## Tie-breaking when multiple providers serve the same model
+
+Resolution order: **explicit pin > `provider_order` > lexicographically
+smallest provider**.
+
+```yaml
+# magos.yaml (top-level, alongside `providers:`)
+provider_order:
+  - openrouter   # preferred when no pin matches
+  - anthropic
+pins:
+  claude-sonnet-4-6: anthropic   # always pick anthropic for this raw id
+```
+
+- `pins` is keyed by `raw_id` (no namespace prefix). A pin to a
+  provider that doesn't actually serve the raw id is ignored — the
+  resolution falls through to `provider_order` then lex.
+- `provider_order` is a global preference list. The first listed
+  provider that serves the raw id wins.
+- If neither knob matches, the lex-smallest provider name wins
+  (deterministic; not a quality signal).
+
+The tie-break only fires for the bare-id fallback. A namespaced hit
+in pass 1 short-circuits the whole machinery — operators who want a
+specific provider should send the namespaced id and skip auto-routing
+entirely.
 
 ## LiteLLM provider naming for openai-compatible upstreams
 

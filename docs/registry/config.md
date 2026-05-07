@@ -3,7 +3,11 @@
 ## Config grammar
 
 ```yaml
-provider_order: [openrouter, anthropic, openai]    # tie-break order
+provider_order: [openrouter, anthropic, openai]    # tie-break for bare-id auto-routing
+
+pins:                                              # per-raw-id pin; beats provider_order
+  claude-sonnet-4-6: anthropic
+  gpt-4o: openai
 
 providers:
   openrouter:
