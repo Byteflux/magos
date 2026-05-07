@@ -20,8 +20,8 @@
   YAML round-trip. `build_api` accepts both kwargs
   (`api/build.py`). The
   `app.state.{routing,refresher,registry_config}` slots are designed
-  for direct replacement too (per `ingress/http/app.py`'s docstring),
-  but no current test exercises that path.
+  for direct replacement too, but no current test exercises that
+  path.
 - **Completion mocking**: tests use FastAPI's `dependency_overrides`
   against all four DI seams:
   `get_completion`, `get_anthropic_messages_completion`,

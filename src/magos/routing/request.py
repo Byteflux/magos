@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     from magos.shapes import Usage
 
 PostResponseHook = Callable[["Usage"], None]
-"""Closure fired by egress dispatch after the upstream's ``Usage`` is captured.
+"""Closure fired by the gateway after the upstream's ``Usage`` is captured.
 
-Used by the compress rewrite (Phase 1.5) to feed cache_read / cache_write
-tokens back into the per-session ``PrefixCacheTracker``. Hooks should not
-raise; dispatch swallows + logs failures so one bad hook can't break the
-client response.
+Used by the compress transform to feed cache_read / cache_write tokens back
+into the per-session ``PrefixCacheTracker``. Hooks should not raise; the
+gateway swallows + logs failures so one bad hook can't break the client
+response.
 """
 
 Endpoint = Literal[
@@ -44,10 +44,10 @@ class RoutedRequest:
     """Inputs to the routing pipeline. See ``docs/routing/pipeline.md``.
 
     ``headers`` keys are lowercased. ``body_dirty`` flips on body-touching
-    rewrites. ``actual_path`` overrides ``endpoint`` for upstream forwarding
+    transforms. ``actual_path`` overrides ``endpoint`` for upstream forwarding
     on templated paths. ``post_response_hooks`` is a mutable list of closures
-    appended by rewrites and fired by dispatch after the upstream response's
-    ``Usage`` is captured.
+    appended by transforms and fired by the gateway after the upstream
+    response's ``Usage`` is captured.
     """
 
     endpoint: Endpoint

@@ -5,7 +5,7 @@
 - `503`: a rule matched but dispatch failed (jq_patch result not an
   object, missing api_key_env). Body: `route configuration error: ...`.
 - `502`: upstream returned an error or the connection failed.
-  Untouched by routing; the existing handler in `ingress/http/` wraps it.
+  Untouched by routing; the existing handler in `api/` wraps it.
 
 Endpoint-shaped envelopes:
 

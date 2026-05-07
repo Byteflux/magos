@@ -12,13 +12,13 @@ interception too. See `docs/ingress.md` for the operator guide.
 ```
                        ┌─────────────────── single magos process ──────────────────┐
 client (direct) ──────▶│ FastAPI (uvicorn) :6246                                   │──▶ provider API
-                       │   ingress.http → magos.process → routing.engine          │
-                       │                                  → egress.dispatch        │
+                       │   magos.api → magos.service → magos.routing               │
+                       │                             → magos.dispatch              │
                        │                                                           │
 client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :6247  (optional)                    │
-                       │   ├── ingress.mitm.addon (TLS terminate + rewrite to :6246)│
-                       │   ├── egress.observer    (egress logging)                 │
-                       │   └── ingress.mitm.log_bridge (mitmproxy log → structlog) │
+                       │   ├── proxy.addons.ingress (TLS terminate + rewrite :6246)│
+                       │   ├── proxy.addons.observer (egress logging)              │
+                       │   └── proxy.log_bridge      (mitmproxy log → structlog)   │
                        └───────────────────────────────────────────────────────────┘
 ```
 
@@ -33,11 +33,11 @@ Three roles for the mitmproxy machinery:
    outbound LLM provider traffic when magos's own outbound transits
    mitmproxy (which it doesn't by default; see `docs/ingress.md`
    "Loop hazard"). Can also be run standalone via
-   `mitmdump -s src/magos/dispatch/observer.py --listen-port 8080` if
+   `mitmdump -s src/magos/proxy/addons/observer.py --listen-port 8080` if
    the operator prefers an out-of-process observer.
 3. **Transitive runtime dependency**: `mitmproxy.http` is imported
    directly by `tests/proxy/test_addon.py`, and transitively by
-   `tests/dispatch/test_observer.py` (via `magos.proxy.addons.observer`),
+   `tests/proxy/test_observer.py` (via `magos.proxy.addons.observer`),
    regardless of whether ingress is enabled. That import triggers the
    Windows pyarrow load-order
    workaround in `tests/conftest.py`. See [headroom/pipeline.md](../headroom/pipeline.md)
@@ -53,9 +53,9 @@ of how the request entered.
 
 Per request, the FastAPI app does this:
 
-1. **Inbound parsing** (`ingress/http/run.py`). Body parsed to dict
+1. **Inbound parsing** (`api/run.py`). Body parsed to dict
    (or kept as `raw_body` bytes); inbound headers filtered through
-   `_BLOCKED_FORWARD_HEADERS` in `ingress/http/headers.py`, which drops
+   `_BLOCKED_FORWARD_HEADERS` in `api/headers.py`, which drops
    hop-by-hop (RFC 7230) plus content-shaping headers
    (`content-length`, `content-encoding`, `host`, etc.). The filtered
    headers are lowercased into a dict.
@@ -69,11 +69,11 @@ Per request, the FastAPI app does this:
    returns `actual_path` when set, else falls back to `endpoint`.
 
    The handler then hands the `RoutedRequest` to
-   :func:`magos.process.process_routed_request`. `magos.process` is
+   :meth:`magos.service.RequestService.process`. `magos.service` is
    the transport-agnostic core: it owns routing + dispatch
    orchestration and the exception ladder, and returns a transport-
    agnostic `RoutedResponse` (status, headers, body-or-stream). The
-   FastAPI handler in `ingress/http/run.py` is a thin adapter that
+   FastAPI handler in `api/run.py` is a thin adapter that
    converts `Request` to `RoutedRequest` and `RoutedResponse` to a
    `Response` / `StreamingResponse` / `JSONResponse`. Routing is
    sync but offloaded to a worker thread (`asyncio.to_thread`) so a
@@ -85,24 +85,26 @@ Per request, the FastAPI app does this:
    `<provider>/<raw_id>` lookup, falling back per
    `on_unknown_model: error|passthrough`. **Explicit rules always win
    over the registry**; the registry only catches misses.
-4. **Dispatch** (`egress/dispatch.py`). The `RouteDecision`'s mode +
-   the request's streaming flag pick one of five code branches:
+4. **Dispatch** (`dispatch/gateway/`). `RoutedGateway` selects one
+   of three per-mode `Gateway` implementations based on
+   `decision.target.gateway` and the request's streaming flag, giving
+   five code branches:
 
-| Mode          | Streaming  | Implementation                                  |
+| Gateway       | Streaming  | Implementation                                  |
 |---------------|------------|-------------------------------------------------|
-| `count_tokens`| n/a        | `egress.tokens.count_tokens` (litellm)          |
-| `passthrough` | non-stream | `egress.passthrough.call_passthrough`           |
-| `passthrough` | stream     | `egress.passthrough.stream_passthrough`         |
+| `count_tokens`| n/a        | `dispatch.tokens.count_tokens` (litellm)        |
+| `passthrough` | non-stream | `dispatch.passthrough.call_passthrough`         |
+| `passthrough` | stream     | `dispatch.passthrough.stream_passthrough`       |
 | `translate`   | non-stream | `proxy_translate` (+ adapter from `TRANSLATE_HANDLERS`) |
 | `translate`   | stream     | `stream_translate` (+ adapter from `TRANSLATE_HANDLERS`) |
 
 `count_tokens` is selected by the inbound endpoint
 (`/v1/messages/count_tokens`); the other four come from the rule's
-`mode` and the body's `stream` flag. The translate branches are
-endpoint-agnostic at the dispatch level: they look up a per-shape
-`TranslateAdapter` from `TRANSLATE_HANDLERS` (`egress/translate/__init__.py`,
+`target.gateway` and the body's `stream` flag. The translate branches
+are endpoint-agnostic at the dispatch level: they look up a per-shape
+`TranslateAdapter` from `TRANSLATE_HANDLERS` (`dispatch/translate/__init__.py`,
 keyed by endpoint) and hand it to the generic `proxy_translate` /
-`stream_translate` runners in `egress/translate/runner.py`. Each
+`stream_translate` runners in `dispatch/translate/runner.py`. Each
 adapter (`anthropic.ADAPTER`, `openai_chat.ADAPTER`,
 `openai_responses.ADAPTER`) supplies the LiteLLM SDK callable, SSE
 framer, and payload coercion for that wire shape. Translate
@@ -113,10 +115,10 @@ model are intercepted transparently.
 The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
 `/v1/responses/{id}`, `/v1/responses/{id}/input_items`. **Translate
-mode requires POST** (enforced in `egress/dispatch.py`); auxiliary
-GET/DELETE endpoints must use `gateway: passthrough`.
+gateway requires POST** (enforced in `dispatch/gateway/translate.py`);
+auxiliary GET/DELETE endpoints must use `gateway: passthrough`.
 
-`GET /v1/models` (`ingress/http/models.py`) sits beside the routed
+`GET /v1/models` (`api/models.py`) sits beside the routed
 endpoints but skips the rule engine entirely: it lists registry
 entries (`app.state.refresher.state.entries`, deprecated entries
 omitted, sorted by `namespaced_id`) in OpenAI shape by default, or
@@ -132,28 +134,28 @@ dormant.
    passthrough, streaming or not, all three shapes) emits a single
    `egress.usage` event with normalised `input` / `output` /
    `cache_read` / `cache_write` token counts. Field mapping lives in
-   `egress/usage.py`; streaming paths use a byte-level SSE tap
+   `dispatch/usage/`; streaming paths use a byte-level SSE tap
    (`tap_stream`) that forwards bytes verbatim while accumulating the
    terminal-event usage block. ``cache_write`` is Anthropic-only;
    OpenAI shapes always report 0.
 
 ## Exception ladder
 
-`magos.process.process_routed_request` folds upstream failures into a
+`magos.service.RequestService.process` folds upstream failures into a
 `RoutedResponse` so the HTTP adapter never has to know about
 provider-specific exception types. The ladder:
 
 | Source                            | Branch                                    | Outcome |
 |-----------------------------------|-------------------------------------------|---------|
 | `route()` returns `RouteError`    | rendered as `error_envelope` JSON         | status from the error (400/404 unmatched, etc.) |
-| `dispatch_decision` raises `DispatchError` | logged `route.dispatch_error`     | 503 with `code: dispatch_error` |
-| `dispatch_decision` raises `pydantic.ValidationError` | re-raised through `process_routed_request` | the FastAPI adapter (`ingress/http/run.py`) maps to 400 with `exc.errors()` |
+| `Gateway.dispatch` raises `DispatchError` | logged `route.dispatch_error`     | 503 with `code: dispatch_error` |
+| `Gateway.dispatch` raises `pydantic.ValidationError` | re-raised through `RequestService.process` | the FastAPI adapter (`api/run.py`) maps to 400 with `exc.errors()` |
 | Any other exception                | logged `upstream_failure`                | 502 with `{"detail": "upstream failure: ..."}` |
 | Success                            | `_wrap_dispatch_result` (duck-typed on `body_iterator` / `body` / dict) | 200 stream / bytes / JSON |
 
-The duck-typing in `_wrap_dispatch_result` is deliberate: `magos.process`
+The duck-typing in `_wrap_dispatch_result` is deliberate: `magos.service`
 imports zero FastAPI types so it stays transport-agnostic. The
-adapter in `ingress/http/run.py` then converts the `RoutedResponse`
+adapter in `api/run.py` then converts the `RoutedResponse`
 into the appropriate FastAPI response class.
 
 ## The `body_dirty` contract
@@ -163,7 +165,7 @@ that decides whether passthrough re-serialises JSON or sends bytes
 verbatim:
 
 ```python
-# egress/dispatch.py
+# dispatch/gateway/passthrough.py
 body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
 ```
 
@@ -197,5 +199,5 @@ correctness reasons:
    shape.
 
 **Don't** add JSON normalisation, header reordering, or "cleanup" to
-`egress/passthrough.py`. Don't route it through LiteLLM "for
+`dispatch/passthrough.py`. Don't route it through LiteLLM "for
 consistency".

@@ -35,9 +35,9 @@ against an OAuth-only account.
 
 | Stage                         | What's blocked                                           | Why                                              |
 |-------------------------------|----------------------------------------------------------|--------------------------------------------------|
-| Ingress inbound (`ingress/http/headers.py`) | RFC 7230 hop-by-hop + `host` / `content-length` / `content-encoding` / `accept-encoding` | Don't propagate transport-layer junk             |
-| Pre-LiteLLM body shape (`egress/translate/payload.py`) | `content-type` / `content-length` / `content-encoding` / `accept-encoding` | LiteLLM regenerates these; overriding causes "unexpected keyword argument" errors at the SDK boundary |
-| Pre-LiteLLM auth (`egress/translate/payload.py`) | `authorization` / `x-api-key` (**only when** the rule's `api_key` was resolved) | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
+| Ingress inbound (`api/headers.py`) | RFC 7230 hop-by-hop + `host` / `content-length` / `content-encoding` / `accept-encoding` | Don't propagate transport-layer junk             |
+| Pre-LiteLLM body shape (`dispatch/translate/payload.py`) | `content-type` / `content-length` / `content-encoding` / `accept-encoding` | LiteLLM regenerates these; overriding causes "unexpected keyword argument" errors at the SDK boundary |
+| Pre-LiteLLM auth (`dispatch/translate/payload.py`) | `authorization` / `x-api-key` (**only when** the rule's `api_key` was resolved) | Stops the inbound bearer from leaking into `extra_headers` and overriding the operator-chosen upstream key |
 | Pre-passthrough               | nothing additional                                       | Byte-exact forwarding (cache hashes)             |
 
 If a header you expect to see at the provider isn't arriving, check

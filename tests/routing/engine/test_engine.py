@@ -11,9 +11,8 @@ from magos.routing import RoutingConfig
 from magos.routing.decision import RouteDecision
 from magos.routing.engine import route
 from magos.routing.errors import RouteError
-
-from ._helpers import make_registry
-from ._helpers import make_req as _req
+from tests.routing._helpers import make_registry
+from tests.routing._helpers import make_req as _req
 
 
 def _cfg(spec: dict[str, Any]) -> RoutingConfig:

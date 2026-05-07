@@ -24,7 +24,7 @@ Two distinct init costs:
    pipeline, the underlying tokenizer, and the transform instances;
    subsequent calls reuse. Magos warms the default `PipelineConfig` for
    both providers once at FastAPI startup via `MagosCompressionWarmup`
-   in `ingress/http/lifespan.py`, but only when at least one routing
+   in `api/lifespan/components.py`, but only when at least one routing
    rule uses `compress`.
 
 2. **Kompress weight load.** Separate from pipeline construction

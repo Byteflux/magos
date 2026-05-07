@@ -10,9 +10,8 @@ from magos.routing.engine.auto import (
     AutoRouter,
     provider_cred_overrides,
 )
-
-from ._helpers import make_registry
-from ._helpers import make_req as _req
+from tests.routing._helpers import make_registry
+from tests.routing._helpers import make_req as _req
 
 
 def _router(

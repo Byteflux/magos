@@ -6,7 +6,7 @@
 provider mapped via routing) goes through
 `litellm.anthropic_messages`. LiteLLM accepts Anthropic-shape *in* and
 emits Anthropic-shape *out* regardless of upstream provider, but two
-preprocessing steps happen in `egress/translate/anthropic.py` first:
+preprocessing steps happen in `dispatch/translate/anthropic/` first:
 
 - **Anthropic-only fields stripped** for non-Anthropic upstreams
   (`_strip_anthropic_extras`): `context_management` and similar fields

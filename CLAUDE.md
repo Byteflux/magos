@@ -4,7 +4,7 @@ Declarative LLM API routing proxy with provider-discovered model
 registry and context compression. Inbound requests (Anthropic Messages,
 OpenAI Chat Completions, OpenAI Responses) hit a rule engine that
 decides per request: which provider, byte-exact passthrough vs
-LiteLLM-translated dispatch, which rewrites apply (including Headroom
+LiteLLM-translated dispatch, which transforms apply (including Headroom
 context compression). A provider-discovered model registry catches
 anything the rules don't match. An optional embedded mitmproxy
 listener handles `HTTPS_PROXY`-style ingress for clients that can't be
@@ -18,7 +18,7 @@ Three layers, in flow order:
   mitmproxy is the optional `HTTPS_PROXY` entry point. Both feed the
   same routing engine.
 - **Routing**: the rule engine in `magos.routing`. The product. Reads
-  `magos.yaml`, decides per request: provider, mode, rewrites,
+  `magos.yaml`, decides per request: provider, gateway, transforms,
   dispatch model id.
 - **Egress**: how requests leave. Three paths: byte-exact passthrough,
   wire-shape-translated via LiteLLM, or count-tokens.
@@ -262,7 +262,7 @@ wire-shape translation across providers.
 | FastAPI | HTTP-level entry routing | `magos.api` |
 | mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.proxy` |
 | (none) | rule-based router (the product) | `magos.routing` |
-| (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
+| (none) | transport-agnostic request orchestrator (route -> transform -> dispatch) | `magos.service` |
 | (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
 | (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.compression.tracker` |
 | (none) | reversible-compression integration with `headroom.ccr` (request injection + response handling) | `magos.compression.ccr` |

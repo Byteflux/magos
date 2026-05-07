@@ -55,7 +55,7 @@ Resolution order, highest first:
 
 1. CLI flags (`--config`, `--host`, `--port`).
 2. Environment variables (`MAGOS_*`, optionally via `.env`).
-3. `magos.yaml` blocks: `pre_rewrites` / `rules` (routing), `providers` / `provider_order` / `registry` (the model registry), `ingress` (FastAPI bind + optional mitmproxy proxy).
+3. `magos.yaml` blocks: `pre_transforms` / `rules` (routing), `providers` / `provider_order` / `registry` (the model registry), `ingress` (FastAPI bind + optional mitmproxy proxy).
 4. Built-in defaults.
 
 `MAGOS_HOME` (default `~/.magos`) anchors `MAGOS_CONFIG_PATH` and `MAGOS_MODELS_PATH`. Full env-var table in [`docs/cli.md`](docs/cli.md).

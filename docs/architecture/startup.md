@@ -34,12 +34,12 @@ objects (`api/lifespan/`); each component implements
    `providers:` is empty).
 2. Mount `/metrics` endpoint via `telemetry.metrics` if
    `MAGOS_METRICS_ENABLED=1`.
-3. Mount `/admin/registry/*` endpoints (`ingress/http/admin.py`) if a
+3. Mount `/admin/registry/*` endpoints (`api/admin.py`) if a
    Refresher exists.
 4. Register the four POST handlers + three auxiliary GET/DELETE
-   handlers (`ingress/http/handlers.py`) for `/v1/responses/{id}*`.
+   handlers (`api/handlers.py`) for `/v1/responses/{id}*`.
 5. Register the `GET /v1/models` registry-backed endpoint
-   (`ingress/http/models.py`).
+   (`api/models.py`).
 
 **`lifespan()`, async, runs at startup.** Each step is a separate
 `LifespanComponent`; they are started in order and stopped in reverse
@@ -85,7 +85,7 @@ directly.
 
 ## `litellm.drop_params = True` is process-global
 
-Set once at module import in `egress/translate/payload.py`. LiteLLM
+Set once at module import in `dispatch/translate/payload.py`. LiteLLM
 silently drops any parameter the destination provider doesn't accept
 (e.g. `reasoning_effort` against a non-reasoning model). This is
 **not per-rule** and not toggleable.

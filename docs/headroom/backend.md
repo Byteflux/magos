@@ -13,7 +13,7 @@ replaces `headroom.transforms.kompress_compressor._is_onnx_available`
 with a False-returning stub. Headroom's `_load_kompress` resolves that
 name from the module namespace at call time, so the override flips
 backend selection without patching Headroom itself. See
-`_force_kompress_pytorch` in `ingress/http/lifespan.py`.
+`KompressBackendOverride` in `api/lifespan/kompress.py`.
 
 Caveats:
 
