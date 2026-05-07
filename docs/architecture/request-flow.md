@@ -24,27 +24,27 @@ client (HTTPS_PROXY)──▶│ mitmproxy DumpMaster :6247  (optional)         
 
 Three roles for the mitmproxy machinery:
 
-1. **In-process ingress (when configured)**: `magos.ingress.mitm`
+1. **In-process ingress (when configured)**: `magos.proxy`
    rewrites incoming intercepted requests to the FastAPI loopback.
    Same process, same asyncio loop; `magos.serve.serve_async` gathers
    both as named tasks and shuts both down on first-task-done.
-2. **In-process egress observer**: `magos.egress.observer` is loaded
+2. **In-process egress observer**: `magos.proxy.addons.observer` is loaded
    by the in-process master alongside the ingress addon, logging
    outbound LLM provider traffic when magos's own outbound transits
    mitmproxy (which it doesn't by default; see `docs/ingress.md`
    "Loop hazard"). Can also be run standalone via
-   `mitmdump -s src/magos/egress/observer.py --listen-port 8080` if
+   `mitmdump -s src/magos/dispatch/observer.py --listen-port 8080` if
    the operator prefers an out-of-process observer.
 3. **Transitive runtime dependency**: `mitmproxy.http` is imported
-   directly by `tests/ingress/mitm/test_addon.py`, and transitively by
-   `tests/egress/test_observer.py` (via `magos.egress.observer`),
+   directly by `tests/proxy/test_addon.py`, and transitively by
+   `tests/dispatch/test_observer.py` (via `magos.proxy.addons.observer`),
    regardless of whether ingress is enabled. That import triggers the
    Windows pyarrow load-order
    workaround in `tests/conftest.py`. See [headroom/pipeline.md](../headroom/pipeline.md)
    "CacheAligner".
 
-When ingress is **disabled**, both `magos.ingress.mitm` and
-`magos.egress.observer` are dormant. Routing-layer bugs are still
+When ingress is **disabled**, both `magos.proxy` and
+`magos.proxy.addons.observer` are dormant. Routing-layer bugs are still
 
 never in either; routing always lives in `magos.routing` regardless
 of how the request entered.
@@ -106,7 +106,7 @@ keyed by endpoint) and hand it to the generic `proxy_translate` /
 adapter (`anthropic.ADAPTER`, `openai_chat.ADAPTER`,
 `openai_responses.ADAPTER`) supplies the LiteLLM SDK callable, SSE
 framer, and payload coercion for that wire shape. Translate
-responses are also wrapped with `magos.ccr.wrap_response` /
+responses are also wrapped with `magos.compression.ccr.wrap_response` /
 `wrap_stream` so any reversible-compression tool calls from the
 model are intercepted transparently.
 
@@ -184,7 +184,7 @@ body-mutating rewrite op and forget the flag, passthrough sends the
 
 ## Passthrough is byte-exact on purpose
 
-`magos.egress.passthrough` is a deliberate non-LiteLLM path. Two
+`magos.dispatch.passthrough` is a deliberate non-LiteLLM path. Two
 correctness reasons:
 
 1. **Anthropic prompt cache.** Hash stability requires byte-identical

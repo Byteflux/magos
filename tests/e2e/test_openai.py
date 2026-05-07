@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from magos.ingress.http import create_app
+from magos.api import create_app
 
 from ._helpers import MODEL, PROMPT
 

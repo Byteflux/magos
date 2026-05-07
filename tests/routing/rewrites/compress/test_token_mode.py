@@ -187,7 +187,7 @@ def test_compress_token_mode_passes_frozen_count_from_tracker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """First-turn cold-start: tracker reports frozen_count=0."""
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     captured: dict[str, Any] = {}
 
@@ -212,7 +212,7 @@ def test_compress_token_mode_registers_post_response_hook(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The compress rewrite appends exactly one hook to req.post_response_hooks."""
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     def fake_apply(**kwargs: Any) -> ApplyResult:
         return ApplyResult(
@@ -238,8 +238,8 @@ def test_compress_token_mode_hook_updates_tracker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Firing the registered hook reaches PrefixCacheTracker.update_from_response."""
-    from magos.cache import PrefixCacheTracker, store as store_mod  # noqa: PLC0415, I001
-    from magos.egress.usage import Usage  # noqa: PLC0415
+    from magos.compression.tracker import PrefixCacheTracker, store as store_mod  # noqa: PLC0415, I001
+    from magos.dispatch.usage import Usage  # noqa: PLC0415
 
     update_calls: list[dict[str, Any]] = []
 
@@ -288,7 +288,7 @@ def test_compress_token_mode_no_hook_when_inflation_reverted(
     """If apply() returns inflation_reverted=True, no rewrite happens. The hook
     still registers though, because the upstream cache state still needs to be
     tracked to inform the next turn."""
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     def fake_apply(**kwargs: Any) -> ApplyResult:
         return ApplyResult(

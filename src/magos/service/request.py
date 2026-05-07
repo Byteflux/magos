@@ -21,9 +21,9 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from magos.egress import CompletionFn
-from magos.egress.errors import DispatchError
-from magos.egress.gateway import Gateway
+from magos.dispatch import CompletionFn
+from magos.dispatch.errors import DispatchError
+from magos.dispatch.gateway import Gateway
 from magos.routing import (
     Endpoint,
     RoutedRequest,

@@ -54,7 +54,7 @@ def magos_server() -> Iterator[int]:
     """Start magos uvicorn in a background thread on a free port."""
     port = _free_port()
     config = uvicorn.Config(
-        "magos.ingress.http.app:create_app",
+        "magos.api.app:create_app",
         factory=True,
         host="127.0.0.1",
         port=port,

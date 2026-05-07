@@ -6,7 +6,7 @@ LiteLLM and other libraries read keys directly from the process
 environment, not from pydantic-settings, hence the explicit population.
 
 Also points ``MAGOS_CONFIG_PATH`` at the test fixture YAML before any test
-imports ``magos.ingress.http``, so ``create_app()`` calls without an explicit
+imports ``magos.api``, so ``create_app()`` calls without an explicit
 ``routing`` argument find a real config file.
 """
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 # Force-load sentence_transformers before any other test import. Required to
 # neutralise a Windows native-load order bug: importing
 # ``cryptography.hazmat.bindings._rust`` (transitively pulled by
-# ``mitmproxy.http`` in ``tests/ingress/mitm/test_addon.py``) before
+# ``mitmproxy.http`` in ``tests/proxy/test_addon.py``) before
 # ``sentence_transformers`` causes pyarrow's ``.pyd`` to segfault during
 # ``create_module`` when the Headroom DynamicContentDetector is later
 # imported by the cache_align tests. Costs ~6s on first session import

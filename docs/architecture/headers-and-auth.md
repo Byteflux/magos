@@ -2,7 +2,7 @@
 
 ## Auth-header injection
 
-`magos.egress.auth` injects an outbound auth header iff:
+`magos.dispatch.auth` injects an outbound auth header iff:
 
 - `action.mode == "passthrough"` AND
 - The inbound request lacks both `Authorization` and `x-api-key`, AND

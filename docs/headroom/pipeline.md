@@ -14,7 +14,7 @@ library entry. This buys us:
 - Provider-bound pipelines (Anthropic for `/v1/messages` family, OpenAI
   for `/v1/chat/completions`) so token counting matches the destination.
 - Prefix-cache awareness via `frozen_message_count`: the routing rewrite
-  fetches a per-session `PrefixCacheTracker` from `magos.cache.get_store()`,
+  fetches a per-session `PrefixCacheTracker` from `magos.compression.tracker.get_store()`,
   reads how many leading messages the upstream had already cached on the
   previous turn, and passes that to `pipeline.apply` so the pipeline
   doesn't bust the cache. After the response, a `post_response_hook`
@@ -87,7 +87,7 @@ CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager
 
   - `_preload_native_load_order()` in `cli/serve.py` runs **before**
     `magos.serve` is imported. This is the load-bearing one: importing
-    `magos.serve` transitively pulls in `magos.ingress.http.handlers`,
+    `magos.serve` transitively pulls in `magos.api.handlers`,
     which does `import litellm` at module top, and litellm pulls in
     PyO3 Rust bindings (cryptography, tokenizers) on import. Once any
     PyO3 ext has initialized on the main thread, importing pyarrow's
@@ -99,7 +99,7 @@ CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager
     and `_apply_cache_aligner`. Belt-and-suspenders for callers that
     don't go through `cli/serve.py` (e.g. tests, embedded use).
   - `tests/conftest.py` does the preload at session start. Required
-    because `tests/ingress/mitm/test_addon.py` imports `mitmproxy.http` which loads
+    because `tests/proxy/test_addon.py` imports `mitmproxy.http` which loads
     cryptography Rust before the cache-align test gets a chance to
     preload.
 
@@ -250,8 +250,8 @@ the original content on demand:
   it injects the `headroom_retrieve` tool definition into `body.tools`
   and (when no prefix is frozen) prepends a system-message instruction
   block describing how to call the tool.
-- Egress dispatch (`magos.egress.dispatch`) wraps the upstream response
-  with `magos.ccr.wrap_response` (non-streaming) or `magos.ccr.wrap_stream`
+- Egress dispatch (`magos.dispatch.dispatch`) wraps the upstream response
+  with `magos.compression.ccr.wrap_response` (non-streaming) or `magos.compression.ccr.wrap_stream`
   (streaming). The wrappers short-circuit when the request didn't carry
   the CCR tool. When the model calls `headroom_retrieve`, the wrappers
   retrieve from `headroom.cache.compression_store`, build a continuation

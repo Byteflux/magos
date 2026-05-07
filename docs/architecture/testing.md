@@ -26,7 +26,7 @@
   against all four DI seams:
   `get_completion`, `get_anthropic_messages_completion`,
   `get_responses_completion`, `get_count_tokens_completion`. The
-  shared TestClient factory lives in `tests/ingress/http/_helpers.py`;
+  shared TestClient factory lives in `tests/api/_helpers.py`;
   per-endpoint files (`test_messages.py`, `test_chat_completions.py`,
   `test_count_tokens.py`, `test_responses.py`) wire each completion
   override.

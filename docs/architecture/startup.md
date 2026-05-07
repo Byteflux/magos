@@ -27,7 +27,7 @@ objects (`ingress/http/lifespan.py`); each component implements
    the other to shut down (uvicorn `should_exit`, mitm `shutdown()`),
    then surface any exception.
 
-**`magos.ingress.http.app.create_app()`, sync, builds app object:**
+**`magos.api.app.create_app()`, sync, builds app object:**
 
 1. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
    (RegistryYaml), `refresher` (Refresher | None, None when

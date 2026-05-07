@@ -1,7 +1,7 @@
 """Token-mode compression engine step.
 
 Calls ``magos.compression.apply`` after fetching a per-session
-``PrefixCacheTracker`` from the ``magos.cache`` store, so the pipeline
+``PrefixCacheTracker`` from the ``magos.compression.tracker`` store, so the pipeline
 knows how many leading messages are already cached upstream and must
 not be modified. Also appends a ``post_response_hook`` that feeds the
 upstream's reported cache_read / cache_write tokens back into the
@@ -16,9 +16,9 @@ from typing import Any
 
 from headroom.ccr import CCRToolInjector
 
-from magos.cache import PrefixCacheTracker, derive_session_id, get_store
 from magos.compression import ProviderName, apply, pipeline_config_from_compress_options
 from magos.compression.engine.base import Compressor
+from magos.compression.tracker import PrefixCacheTracker, derive_session_id, get_store
 from magos.registry.state import RegistryState
 from magos.routing.request import PostResponseHook, RoutedRequest
 from magos.routing.rewrites.compress.model_limit import _resolve_model_limit

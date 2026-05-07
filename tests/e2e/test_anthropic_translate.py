@@ -13,7 +13,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.ingress.http import create_app
+from magos.api import create_app
 
 from ._helpers import (
     ANTHROPIC_MODEL,

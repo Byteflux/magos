@@ -13,7 +13,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from magos.ingress.http import create_app
+from magos.api import create_app
 
 from ._helpers import ANTHROPIC_MODEL, MODEL, PROMPT, maybe_skip_anthropic_oauth
 
@@ -66,7 +66,7 @@ def test_compress_token_mode_freezes_prefix_across_turns() -> None:
     upstream actually cached anything).
     """
     maybe_skip_anthropic_oauth()
-    from magos.cache import derive_session_id, get_store  # noqa: PLC0415
+    from magos.compression.tracker import derive_session_id, get_store  # noqa: PLC0415
     from magos.routing import RoutingConfig  # noqa: PLC0415
 
     cfg = RoutingConfig.model_validate(

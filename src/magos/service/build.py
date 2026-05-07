@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from magos.egress.gateway import (
+from magos.dispatch.gateway import (
     CountTokensGateway,
     PassthroughGateway,
     RoutedGateway,

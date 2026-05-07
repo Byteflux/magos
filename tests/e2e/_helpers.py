@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from magos.ingress.http import create_app
+from magos.api import create_app
 
 MODEL = os.environ.get("MAGOS_E2E_MODEL", "gpt-4o-mini")
 ANTHROPIC_MODEL = os.environ.get("MAGOS_E2E_ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")

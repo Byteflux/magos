@@ -25,9 +25,9 @@
 | `src/magos/routing/rewrites/compress/model_limit.py` | `_resolve_model_limit` (registry + LiteLLM)        |
 | `src/magos/routing/rewrites/compress/_preload.py` | `_preload_sentence_transformers` workaround          |
 | `src/magos/routing/loader.py`                    | `Compress` listed in `_rewrites_touch_body`          |
-| `src/magos/ingress/http/lifespan.py`             | Lifespan warmup hook + kompress backend override     |
+| `src/magos/api/lifespan.py`             | Lifespan warmup hook + kompress backend override     |
 | `tests/routing/rewrites/test_compress.py`        | Unit tests for both modes + endpoint scoping         |
 | `tests/routing/rewrites/test_compress_registry.py` | `model_limit` resolution against registry           |
 | `tests/routing/test_loader.py`                   | YAML round-trip + body-touch warning                 |
-| `tests/ingress/http/test_lifespan.py`            | Lifespan warmup + kompress backend behaviour         |
+| `tests/api/test_lifespan.py`            | Lifespan warmup + kompress backend behaviour         |
 | `docs/routing/grammar.md`                        | Operator-facing rewrite-op docs                      |

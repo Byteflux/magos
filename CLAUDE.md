@@ -51,25 +51,53 @@ Three layers, in flow order:
 src/magos/
   __main__.py        # entrypoint (`magos [serve|models …]`)
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
-  process.py         # transport-agnostic request processing core (process_routed_request)
 
-  cache/             # owns headroom PrefixCacheTracker (per-session prefix tracking)
-    __init__.py     # public surface (TrackerStore, get_store, derive_session_id, PrefixCacheTracker)
-    session_id.py   # derive_session_id(headers, body, provider) -> str
-    store.py        # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
+  api/               # FastAPI entry point for client traffic
+    __init__.py     # re-exports create_app
+    app.py          # create_app, app.state wiring
+    lifespan/       # ordered LifespanComponent runner
+      __init__.py   # Protocol + _COMPONENTS list + lifespan asynccontextmanager
+      kompress.py   # KompressBackendOverride + KompressPreload + helpers
+      components.py # MetricsMeter + MagosCompressionWarmup + RegistryRefresher
+    handlers.py     # 7 endpoint handlers (4 POST + 3 auxiliary)
+    run.py          # shared dispatch helper called by every handler
+    headers.py      # _BLOCKED_FORWARD_HEADERS + forwardable_headers
+    models.py       # GET /v1/models (registry-backed, OpenAI/Anthropic shape)
+    admin.py        # /admin/registry/* mount
 
-  ccr/               # owns CCR (reversible compression) integration with headroom.ccr
-    __init__.py     # public surface (is_ccr_request, wrap_response, wrap_stream, make_continuation_callable)
-    continuation.py # closure builder; re-runs translate adapter with substituted messages/tools
-    handler.py      # is_ccr_request + wrap_response (non-streaming) + wrap_stream (streaming) wrappers
+  proxy/             # mitmproxy ingress + egress observer
+    __init__.py     # public surface (MagosIngressAddon, build_ingress_master, install_log_bridge)
+    listener.py     # build_ingress_master factory (DumpMaster + addons)
+    log_bridge.py   # mitmproxy stdlib-logging records -> structlog
+    addons/
+      ingress.py    # MagosIngressAddon: TLS termination + rewrite to api
+      observer.py   # mitmproxy egress observer addon
 
-  compression/      # owns headroom TransformPipeline lifecycle (see also magos.cache)
+  service/           # application service layer
+    __init__.py
+    request.py      # RequestService (Service Layer)
+    build.py        # build_request_service(cfg, refresher)
+
+  compression/      # owns headroom TransformPipeline lifecycle + tracker + CCR
     __init__.py     # public surface (PipelineConfig, apply, eager_warmup, prebuild_from_routing, get_registry)
     config.py       # PipelineConfig + fingerprint + pipeline_config_from_compress_options
     build.py        # build_pipeline(config, provider_name) -> TransformPipeline
     registry.py     # PipelineRegistry caches by (fingerprint, provider_name)
     pipeline.py     # apply() + ApplyResult; inflation guard
     warmup.py       # eager_warmup + prebuild_from_routing (per-rule pipeline pre-warm)
+    tracker/        # per-session prefix-cache tracking
+      __init__.py   # public surface (TrackerStore, get_store, derive_session_id, PrefixCacheTracker)
+      session_id.py # derive_session_id(headers, body, provider) -> str
+      store.py      # TrackerStore: dict[(session_id, provider), PrefixCacheTracker]; TTL evict
+    ccr/            # CCR (reversible compression) integration with headroom.ccr
+      __init__.py   # public surface (is_ccr_request, wrap_response, wrap_stream, make_continuation_callable)
+      continuation.py # closure builder; re-runs translate adapter with substituted messages/tools
+      handler.py    # is_ccr_request + wrap_response (non-streaming) + wrap_stream (streaming) wrappers
+    engine/         # compressor strategy implementations
+      base.py       # Compressor ABC
+      token.py      # TokenCompressor
+      cache.py      # CacheCompressor
+      responses.py  # ResponsesCompressor
 
   config/            # process + yaml configuration
     settings.py      # MagosSettings (pydantic-settings; env-only overrides) + magos_home()
@@ -87,22 +115,6 @@ src/magos/
     logging.py       # structlog setup, get_logger
     tracing.py       # OTel + traced decorator
     metrics.py       # Prometheus exporter + OTel meter provider
-  ingress/           # how requests enter
-    http/            # FastAPI entry
-      app.py        # create_app, app.state wiring
-      lifespan/     # ordered LifespanComponent runner
-        __init__.py # Protocol + _COMPONENTS list + lifespan asynccontextmanager
-        kompress.py # KompressBackendOverride + KompressPreload + helpers
-        components.py # MetricsMeter + MagosCompressionWarmup + RegistryRefresher
-      handlers.py   # 7 endpoint handlers (4 POST + 3 auxiliary)
-      run.py        # shared dispatch helper called by every handler
-      headers.py    # _BLOCKED_FORWARD_HEADERS + forwardable_headers
-      models.py     # GET /v1/models (registry-backed, OpenAI/Anthropic shape)
-      admin.py      # /admin/registry/* mount
-    mitm/            # optional in-process mitmproxy ingress (HTTPS_PROXY interception)
-      addon.py      # MagosIngressAddon: TLS termination + rewrite to FastAPI
-      master.py     # build_ingress_master factory (DumpMaster + addons)
-      log_bridge.py # mitmproxy stdlib-logging records -> structlog
 
   routing/           # the rule engine (the product)
     schema/          # pydantic schemas for magos.yaml rules
@@ -130,9 +142,9 @@ src/magos/
         model_limit.py   # registry/litellm-driven context-window resolution
         _preload.py      # sentence_transformers native-load preload
 
-  egress/            # how requests leave
-    dispatch.py      # RouteDecision -> execution branch
-    errors.py        # DispatchError shared across egress branches
+  dispatch/          # how requests leave
+    __init__.py      # CompletionFn Protocol
+    errors.py        # DispatchError shared across dispatch branches
     auth.py          # provider-aware API-key + header injection
     passthrough.py   # byte-exact same-shape forwarding
     tokens.py        # async count_tokens via litellm.acount_tokens
@@ -141,7 +153,13 @@ src/magos/
       core.py        # Usage dataclass + usage_from_body + log_usage helpers
       accumulator.py # UsageAccumulator (streaming SSE event aggregator, shape-driven)
       tap.py         # tap_stream byte passthrough generator
-    observer.py      # mitmproxy egress observer addon
+    gateway/         # Gateway ABC + canonical implementations
+      __init__.py    # public surface
+      base.py        # Gateway ABC + make_on_complete
+      passthrough.py # PassthroughGateway
+      translate.py   # TranslateGateway (LiteLLM SDK + CCR wrap)
+      count_tokens.py # CountTokensGateway
+      routed.py      # RoutedGateway (selector by target.gateway)
     translate/       # LiteLLM SDK marshalling
       payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
@@ -208,15 +226,15 @@ position. Drop redundant prefixes (`test_routing_engine.py` → `tests/routing/t
 tests/
   conftest.py            # pytest fixtures (loaded automatically)
   fixtures/              # test routing yaml
-  cache/, ccr/, cli/, compression/, config/, egress/{translate/},
-  ingress/{http,mitm}/, registry/, routing/{rewrites/}/, telemetry/
-  e2e/                   # MAGOS_E2E=1-gated full-stack tests (FastAPI -> egress -> real provider, plus agent-sdk)
+  api/, proxy/, cli/, compression/{tracker/,ccr/}, config/, dispatch/{translate/},
+  registry/, routing/{rewrites/}/, telemetry/
+  e2e/                   # MAGOS_E2E=1-gated full-stack tests (FastAPI -> dispatch -> real provider, plus agent-sdk)
   test_main_module.py, test_serve.py, test_smoke.py
 ```
 
 Plain helper functions (request builders, sample payloads, TestClient
 factories) live in `_helpers.py` modules at the appropriate scope:
-`tests/routing/_helpers.py`, `tests/ingress/http/_helpers.py`, etc. Tests
+`tests/routing/_helpers.py`, `tests/api/_helpers.py`, etc. Tests
 import them via relative imports (`from ._helpers import make_req`).
 `conftest.py` is reserved for pytest fixtures; do not put plain helpers
 there.
@@ -230,25 +248,25 @@ LiteLLM's SDK (``litellm.anthropic_messages`` for ``/v1/messages``,
 ``litellm.acompletion`` for ``/v1/chat/completions``,
 ``litellm.aresponses`` for ``/v1/responses``,
 ``litellm.acount_tokens`` for ``/v1/messages/count_tokens``). The
-calling code lives under ``magos.egress.translate``. Magos owns
+calling code lives under ``magos.dispatch.translate``. Magos owns
 routing, header forwarding, byte-exact passthrough
-(``magos.egress.passthrough``), and observability; LiteLLM owns
+(``magos.dispatch.passthrough``), and observability; LiteLLM owns
 wire-shape translation across providers.
 
 ## Library roles
 
 | Library | Role | Magos package |
 |---------|------|---------------|
-| FastAPI | HTTP-level entry routing | `magos.ingress.http` |
-| mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.ingress.mitm` |
+| FastAPI | HTTP-level entry routing | `magos.api` |
+| mitmproxy | optional HTTPS_PROXY ingress (TLS termination) | `magos.proxy` |
 | (none) | rule-based router (the product) | `magos.routing` |
 | (none) | transport-agnostic request orchestrator (route -> rewrite -> dispatch) | `magos.process` |
 | (none) | compression pipeline ownership over `headroom.transforms` (lifecycle, registry, inflation guard) | `magos.compression` |
-| (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.cache` |
-| (none) | reversible-compression integration with `headroom.ccr` (request injection + response handling) | `magos.ccr` |
+| (none) | per-session prefix-cache tracker store wrapping `headroom.cache.prefix_tracker` | `magos.compression.tracker` |
+| (none) | reversible-compression integration with `headroom.ccr` (request injection + response handling) | `magos.compression.ccr` |
 | (none) | wire-shape data: per-shape field locations + usage maps consumed by usage / cache / etc. | `magos.shapes` |
-| LiteLLM | wire-shape translator | `magos.egress.translate` |
-| httpx | byte-exact egress forwarder | `magos.egress.passthrough` |
+| LiteLLM | wire-shape translator | `magos.dispatch.translate` |
+| httpx | byte-exact egress forwarder | `magos.dispatch.passthrough` |
 
 ## Common commands
 
@@ -267,12 +285,12 @@ uv run pre-commit run --all-files
 
 ### Layout & module shape
 
-- **Direction-of-flow top-level packages**. `ingress/` (how requests
-  enter), `routing/` (the rule engine, the product), `egress/` (how
-  they leave). New code goes into one of these, picked by which side of
+- **Direction-of-flow top-level packages**. `api/` and `proxy/` (how
+  requests enter), `routing/` (the rule engine, the product), `dispatch/`
+  (how they leave). New code goes into one of these, picked by which side of
   the request lifecycle it touches. Cross-cutting infrastructure
-  (`telemetry/`, `config/`, `registry/`, `cli/`) gets its own peer
-  package; do not bury it under a flow package.
+  (`telemetry/`, `config/`, `registry/`, `cli/`, `compression/`) gets its
+  own peer package; do not bury it under a flow package.
 - **Name modules for what they do, not what they are.** `translate`
   (LiteLLM SDK marshalling), `passthrough` (byte-exact forwarding),
   `observer` (mitmproxy log addon), not `proxy.py`, `addon.py`,
@@ -291,8 +309,8 @@ uv run pre-commit run --all-files
   / primitives / endpoint families, split it into a package: per-variant
   files plus a thin `__init__.py` that re-exports the public surface and
   holds the dispatcher. Recent examples: `routing/rewrites/`
-  (per-primitive), `egress/translate/` (per-endpoint family),
-  `ingress/http/` (per-handler).
+  (per-primitive), `dispatch/translate/` (per-endpoint family),
+  `api/` (per-handler).
 - **No backwards-compat re-exports during reorgs.** Move the symbol and
   update every importer. A two-line `from .new import old` shim is
   technical debt that ages badly.
@@ -332,7 +350,7 @@ uv run pre-commit run --all-files
   `MAGOS_HOME=<repo root>` makes the spawned `magos serve` use them
   rather than the operator's `~/.magos/` (which may point at a
   Docker-mounted config or other unrelated state). The e2e fixtures
-  in `tests/ingress/mitm/test_e2e.py` already do this; mirror that
+  in `tests/proxy/test_e2e.py` already do this; mirror that
   pattern in any new subprocess-spawning e2e.
 
 ### Tests

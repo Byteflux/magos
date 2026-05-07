@@ -72,7 +72,7 @@ def test_compress_ccr_injects_tool_when_markers_present(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """When apply() output has compression markers, CCR tool gets injected."""
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     def fake_apply(**kwargs: Any) -> ApplyResult:
         return ApplyResult(
@@ -110,7 +110,7 @@ def test_compress_ccr_injects_tool_when_markers_present(
 def test_compress_ccr_disabled_skips_injection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     def fake_apply(**kwargs: Any) -> ApplyResult:
         return ApplyResult(
@@ -147,7 +147,7 @@ def test_compress_ccr_no_markers_no_injection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """If apply() output has no compression markers, nothing is injected."""
-    from magos.cache import store as store_mod  # noqa: PLC0415
+    from magos.compression.tracker import store as store_mod  # noqa: PLC0415
 
     def fake_apply(**kwargs: Any) -> ApplyResult:
         return ApplyResult(

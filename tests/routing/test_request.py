@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from magos.egress.usage import Usage
+from magos.dispatch.usage import Usage
 from magos.routing.request import RoutedRequest
 
 
