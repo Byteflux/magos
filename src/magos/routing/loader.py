@@ -160,12 +160,12 @@ def _check_rewrite(rw: Rewrite, *, where: str) -> None:
 
 
 def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
-    """Reject ``mode: passthrough`` rules that omit ``base_url`` (no upstream to forward to)."""
+    """Reject ``gateway: passthrough`` rules that omit ``base_url`` (no upstream to forward to)."""
     for idx, rule in enumerate(cfg.rules):
-        if rule.action.mode == "passthrough" and not rule.action.base_url:
+        if rule.target.gateway == "passthrough" and not rule.target.base_url:
             label = format_rule_label(rule, idx)
             raise RoutingConfigError(
-                f"{source}: {label}: mode='passthrough' requires action.base_url"
+                f"{source}: {label}: gateway='passthrough' requires target.base_url"
             )
 
 
@@ -183,7 +183,7 @@ def _warn_passthrough_body_touch(cfg: RoutingConfig) -> None:
     """Debug-log passthrough rules that body-touching rewrites would re-serialise."""
     pre_touches = _pre_rewrites_unconditionally_touch_body(cfg.pre_rewrites)
     for idx, rule in enumerate(cfg.rules):
-        if rule.action.mode != "passthrough":
+        if rule.target.gateway != "passthrough":
             continue
         post_touches = _rewrites_touch_body(rule.rewrites)
         if pre_touches or post_touches:

@@ -22,7 +22,7 @@ def _routing_cfg() -> RoutingConfig:
                 {
                     "name": "explicit",
                     "match": {"model": {"literal": "pinned-model"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -40,7 +40,7 @@ def test_explicit_rule_wins_over_registry_match() -> None:
     )
     result = route(_request("pinned-model"), cfg, registry=registry)
     assert isinstance(result, RouteDecision)
-    assert result.action.provider == "openai"  # rule won
+    assert result.target.provider == "openai"  # rule won
     assert result.entry is None
 
 
@@ -83,7 +83,7 @@ def test_unmatched_unknown_model_returns_passthrough_when_configured() -> None:
     assert isinstance(result, RouteDecision)
     assert result.dispatch_model == "openai/gpt-4o"
     assert result.entry is None
-    assert result.action.provider == "openai"  # parsed from prefix
+    assert result.target.provider == "openai"  # parsed from prefix
 
 
 def test_route_without_registry_returns_404_for_unmatched_model() -> None:
@@ -126,13 +126,13 @@ def test_auto_route_propagates_provider_api_key_env_and_base_url() -> None:
     )
     assert isinstance(result, RouteDecision)
     assert result.auto_routed is True
-    assert result.action.api_key_env == "VULTR_API_KEY"
-    assert result.action.base_url == "https://api.vultrinference.com/v1"
+    assert result.target.api_key_env == "VULTR_API_KEY"
+    assert result.target.base_url == "https://api.vultrinference.com/v1"
     assert result.dispatch_model == "custom_openai/zai-org/GLM-5.1-FP8"
 
 
 def test_explicit_rule_inherits_creds_from_provider_config() -> None:
-    """Action declaring only ``provider:`` picks up creds from ``providers:``.
+    """Target declaring only ``provider:`` picks up creds from ``providers:``.
 
     Without this, an explicit ``rewrites: [set_model: vultr/...]`` rule
     with ``action: { provider: vultr, mode: translate }`` would dispatch
@@ -144,7 +144,7 @@ def test_explicit_rule_inherits_creds_from_provider_config() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "vultr", "mode": "translate"},
+                    "target": {"provider": "vultr", "gateway": "translate"},
                 }
             ]
         }
@@ -159,8 +159,8 @@ def test_explicit_rule_inherits_creds_from_provider_config() -> None:
     }
     result = route(_request("vultr/some-model"), cfg, providers=providers)
     assert isinstance(result, RouteDecision)
-    assert result.action.api_key_env == "VULTR_API_KEY"
-    assert result.action.base_url == "https://api.vultrinference.com/v1"
+    assert result.target.api_key_env == "VULTR_API_KEY"
+    assert result.target.base_url == "https://api.vultrinference.com/v1"
 
 
 def test_explicit_rule_action_wins_over_provider_config() -> None:
@@ -170,9 +170,9 @@ def test_explicit_rule_action_wins_over_provider_config() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {
+                    "target": {
                         "provider": "vultr",
-                        "mode": "translate",
+                        "gateway": "translate",
                         "api_key_env": "OVERRIDE_KEY",
                         "base_url": "https://override.example/v1",
                     },
@@ -190,8 +190,8 @@ def test_explicit_rule_action_wins_over_provider_config() -> None:
     }
     result = route(_request("anything"), cfg, providers=providers)
     assert isinstance(result, RouteDecision)
-    assert result.action.api_key_env == "OVERRIDE_KEY"
-    assert result.action.base_url == "https://override.example/v1"
+    assert result.target.api_key_env == "OVERRIDE_KEY"
+    assert result.target.base_url == "https://override.example/v1"
 
 
 def test_auto_route_omits_creds_when_provider_config_missing() -> None:
@@ -213,5 +213,5 @@ def test_auto_route_omits_creds_when_provider_config_missing() -> None:
     )
     result = route(_request("anthropic/claude-x"), cfg, registry=registry)
     assert isinstance(result, RouteDecision)
-    assert result.action.api_key_env is None
-    assert result.action.base_url is None
+    assert result.target.api_key_env is None
+    assert result.target.base_url is None

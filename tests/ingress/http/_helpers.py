@@ -35,15 +35,15 @@ def translate_only_cfg(provider: str = "openai") -> RoutingConfig:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": provider, "mode": "translate"},
+                    "target": {"provider": provider, "gateway": "translate"},
                 },
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                    "action": {"provider": provider, "mode": "translate"},
+                    "target": {"provider": provider, "gateway": "translate"},
                 },
                 {
                     "match": {"endpoint": {"literal": "/v1/messages/count_tokens"}},
-                    "action": {"provider": provider, "mode": "translate"},
+                    "target": {"provider": provider, "gateway": "translate"},
                 },
             ]
         }
@@ -56,7 +56,7 @@ def anthropic_translate_cfg() -> RoutingConfig:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "translate"},
+                    "target": {"provider": "anthropic", "gateway": "translate"},
                 }
             ]
         }

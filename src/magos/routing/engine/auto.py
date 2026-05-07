@@ -9,7 +9,7 @@ from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.decision import RouteDecision
 from magos.routing.request import RoutedRequest
-from magos.routing.schema import Action, Rule
+from magos.routing.schema import Rule, Target
 
 _AUTO_ROUTE_RULE_NAME = "auto-route"
 
@@ -95,23 +95,23 @@ def _decision_from_entry(
     entry: ModelEntry,
     provider_cfg: ProviderConfig | None,
 ) -> RouteDecision:
-    """Build a synthetic Rule + RouteDecision; stamps provider creds onto the action.
+    """Build a synthetic Rule + RouteDecision; stamps provider creds onto the target.
 
     Without the cred stamp, LiteLLM falls back to per-provider defaults
     (e.g. ``OPENAI_API_KEY`` / ``api.openai.com``) and yields misleading
     401s for ``custom_openai``-style providers. See ``docs/routing/api-keys.md``.
     """
-    action_payload: dict[str, str | None] = {
+    target_payload: dict[str, str | None] = {
         "provider": entry.provider,
-        "mode": "translate",
+        "gateway": "translate",
         **provider_cred_overrides(provider_cfg),
     }
-    action = Action.model_validate(action_payload)
+    target = Target.model_validate(target_payload)
     rule = Rule.model_validate(
         {
             "name": _AUTO_ROUTE_RULE_NAME,
             "match": {"model": {"literal": entry.raw_id}},
-            "action": action.model_dump(),
+            "target": target.model_dump(),
         }
     )
     return RouteDecision(
@@ -125,12 +125,12 @@ def _decision_from_entry(
 def _decision_for_unknown_passthrough(req: RoutedRequest, model: str) -> RouteDecision:
     """Forward an unknown model to LiteLLM; its bundled router resolves or errors."""
     provider = model.split("/", 1)[0] if "/" in model else "auto"
-    action = Action.model_validate({"provider": provider, "mode": "translate"})
+    target = Target.model_validate({"provider": provider, "gateway": "translate"})
     rule = Rule.model_validate(
         {
             "name": "auto-passthrough",
             "match": {"model": {"literal": model}},
-            "action": action.model_dump(),
+            "target": target.model_dump(),
         }
     )
     return RouteDecision(rule=rule, request=req, dispatch_model=model)

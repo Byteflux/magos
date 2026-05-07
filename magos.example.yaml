@@ -11,8 +11,8 @@
 #   - combinators: all_of / any_of / not (recursive)
 # Rewrite ops:
 #   - set_model / set_header / add_header / remove_header / jq_patch / compress
-# Action fields:
-#   - provider, mode (translate|passthrough), base_url, api_key_env, auth_header
+# Target fields:
+#   - provider, gateway (translate|passthrough), base_url, api_key_env, auth_header
 
 # ingress: how requests reach magos. Two channels feed the same routing
 # engine -- the always-on FastAPI HTTP listener (ingress.http) and the
@@ -59,9 +59,9 @@ rules:
       all_of:
         - endpoint: { literal: /v1/messages }
         - model: { regex: "^(anthropic/)?claude-.*" }
-    action:
+    target:
       provider: anthropic
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
 
@@ -73,9 +73,9 @@ rules:
       all_of:
         - endpoint: { literal: /v1/messages/count_tokens }
         - model: { regex: "^(anthropic/)?claude-.*" }
-    action:
+    target:
       provider: anthropic
-      mode: translate
+      gateway: translate
       api_key_env: ANTHROPIC_API_KEY
 
   # Anthropic-shape requests targeting OpenAI / o-series models -> translate.
@@ -86,9 +86,9 @@ rules:
       all_of:
         - endpoint: { literal: /v1/messages }
         - model: { regex: "^(openai/)?(gpt-|o[134]-).*" }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
       api_key_env: OPENAI_API_KEY
 
   # OpenAI-shape requests pass through litellm with whatever provider the
@@ -98,9 +98,9 @@ rules:
       all_of:
         - endpoint: { literal: /v1/chat/completions }
         - model: { regex: "^(openai/)?(gpt-|o[134]-).*" }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
       api_key_env: OPENAI_API_KEY
 
   # OpenAI-shape requests for claude-* go to anthropic via litellm
@@ -110,18 +110,18 @@ rules:
       all_of:
         - endpoint: { literal: /v1/chat/completions }
         - model: { regex: "^(anthropic/)?claude-.*" }
-    action:
+    target:
       provider: anthropic
-      mode: translate
+      gateway: translate
       api_key_env: ANTHROPIC_API_KEY
 
   # OpenAI Responses API: translate-mode through litellm.aresponses.
   - name: openai-responses
     match:
       endpoint: { literal: /v1/responses }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
       api_key_env: OPENAI_API_KEY
 
   # Auxiliary OpenAI Responses endpoints (retrieve / cancel / list input
@@ -133,9 +133,9 @@ rules:
       any_of:
         - endpoint: { literal: "/v1/responses/{id}" }
         - endpoint: { literal: "/v1/responses/{id}/input_items" }
-    action:
+    target:
       provider: openai
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.openai.com
       api_key_env: OPENAI_API_KEY
 
@@ -145,9 +145,9 @@ rules:
   - name: count-tokens-fallback
     match:
       endpoint: { literal: /v1/messages/count_tokens }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
   # Example: enable Headroom compression for long-context Claude requests.
   # ``mode: token`` runs the full pipeline (CacheAligner + ContentRouter +
@@ -169,9 +169,9 @@ rules:
   #         # ``ccr_enabled: false`` to disable tool/instruction injection,
   #         # or ``ccr_inject_tool: false`` if a client already distributes
   #         # the ``headroom_retrieve`` tool via MCP. See docs/routing/grammar.md.
-  #   action:
+  #   target:
   #     provider: anthropic
-  #     mode: translate
+  #     gateway: translate
 
   # Example: cache-align the OpenAI Responses ``instructions`` prefix.
   # /v1/responses supports ``mode: cache`` only (against ``instructions``);
@@ -182,9 +182,9 @@ rules:
   #     endpoint: { literal: /v1/responses }
   #   rewrites:
   #     - compress: { mode: cache }
-  #   action:
+  #   target:
   #     provider: openai
-  #     mode: translate
+  #     gateway: translate
 
 # Optional: model registry. When ``providers:`` is non-empty, magos polls
 # each provider's discovery endpoint, persists ``models.json``, and falls

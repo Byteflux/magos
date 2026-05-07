@@ -85,7 +85,7 @@ class RequestService:
             rule=decision_or_err.rule_label(),
             endpoint=endpoint,
             model=str(routed.body.get("model", "")),
-            mode=decision_or_err.action.mode,
+            gateway=decision_or_err.target.gateway,
         )
 
         try:

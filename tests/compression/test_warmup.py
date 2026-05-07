@@ -79,13 +79,13 @@ def _make_routing_config(
       GuardedRewrites pre_rewrite (all share one match).
     """
     from magos.routing.schema import (  # noqa: PLC0415
-        Action,
         Compress,
         EndpointAtom,
         GuardedRewrites,
         LiteralMatcher,
         RoutingConfig,
         Rule,
+        Target,
     )
 
     match = EndpointAtom(endpoint=LiteralMatcher(literal="/v1/messages"))
@@ -93,7 +93,7 @@ def _make_routing_config(
         Rule(
             match=match,
             rewrites=[Compress(compress=opts)],
-            action=Action(provider="anthropic", mode="passthrough", base_url="https://x"),
+            target=Target(provider="anthropic", gateway="passthrough", base_url="https://x"),
         )
         for opts in (rule_compress_options or [])
     ]
@@ -103,7 +103,7 @@ def _make_routing_config(
             Rule(
                 match=match,
                 rewrites=[],
-                action=Action(provider="anthropic", mode="passthrough", base_url="https://x"),
+                target=Target(provider="anthropic", gateway="passthrough", base_url="https://x"),
             )
         ]
     pre: list[Any] = [Compress(compress=opts) for opts in (pre_rewrites_compress_options or [])]

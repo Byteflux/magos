@@ -33,7 +33,7 @@ def test_rewrite_dispatch(payload: dict[str, object], cls: type) -> None:
         {
             "match": {"endpoint": {"literal": "/v1/messages"}},
             "rewrites": [payload],
-            "action": {"provider": "openai", "mode": "translate"},
+            "target": {"provider": "openai", "gateway": "translate"},
         }
     )
     assert isinstance(rule.rewrites[0], cls)

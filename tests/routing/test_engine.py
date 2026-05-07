@@ -30,16 +30,16 @@ def test_first_matching_rule_wins() -> None:
                 {
                     "name": "claude",
                     "match": {"model": {"glob": "claude-*"}},
-                    "action": {
+                    "target": {
                         "provider": "anthropic",
-                        "mode": "passthrough",
+                        "gateway": "passthrough",
                         "api_key_env": "ANTHROPIC_API_KEY",
                     },
                 },
                 {
                     "name": "fallback",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 },
             ]
         }
@@ -56,12 +56,12 @@ def test_falls_through_to_later_rule_when_earlier_does_not_match() -> None:
                 {
                     "name": "claude-only",
                     "match": {"model": {"glob": "claude-*"}},
-                    "action": {"provider": "anthropic", "mode": "passthrough"},
+                    "target": {"provider": "anthropic", "gateway": "passthrough"},
                 },
                 {
                     "name": "default",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 },
             ]
         }
@@ -80,7 +80,7 @@ def test_unmatched_returns_404_route_error() -> None:
             "rules": [
                 {
                     "match": {"model": {"literal": "anthropic-only"}},
-                    "action": {"provider": "anthropic", "mode": "passthrough"},
+                    "target": {"provider": "anthropic", "gateway": "passthrough"},
                 }
             ]
         }
@@ -99,7 +99,7 @@ def test_unmatched_carries_endpoint_for_envelope_shaping() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "passthrough"},
+                    "target": {"provider": "anthropic", "gateway": "passthrough"},
                 }
             ]
         }
@@ -128,7 +128,7 @@ def test_pre_rewrite_changes_what_matches() -> None:
             "rules": [
                 {
                     "match": {"model": {"literal": "claude-haiku-4-5-20251001"}},
-                    "action": {"provider": "anthropic", "mode": "passthrough"},
+                    "target": {"provider": "anthropic", "gateway": "passthrough"},
                 }
             ],
         }
@@ -150,7 +150,7 @@ def _guarded_cfg(pre: list[dict[str, Any]]) -> RoutingConfig:
                 {
                     "name": "translate",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ],
         }
@@ -211,7 +211,7 @@ def test_post_rewrites_run_for_matched_rule() -> None:
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
                     "rewrites": [{"set_header": {"name": "x-magos-route", "value": "openai"}}],
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -229,7 +229,7 @@ def test_post_rewrite_failure_returns_503() -> None:
                     "name": "broken",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
                     "rewrites": [{"jq_patch": ".model"}],  # returns scalar, not object
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -250,7 +250,7 @@ def test_translate_mode_prepends_provider_prefix() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -266,7 +266,7 @@ def test_translate_mode_preserves_existing_prefix() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -282,7 +282,7 @@ def test_passthrough_mode_keeps_bare_model() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "anthropic", "mode": "passthrough"},
+                    "target": {"provider": "anthropic", "gateway": "passthrough"},
                 }
             ]
         }
@@ -324,7 +324,7 @@ def test_translate_mode_dispatch_model_resolution(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": provider, "mode": "translate"},
+                    "target": {"provider": provider, "gateway": "translate"},
                 }
             ]
         }
@@ -357,7 +357,7 @@ def test_rule_label_uses_name_when_present() -> None:
                 {
                     "name": "named",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -373,7 +373,7 @@ def test_rule_label_falls_back_to_index() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -392,12 +392,12 @@ def test_decision_action_property_returns_rule_action() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
     )
     decision = route(_req(body={"model": "x"}), cfg)
     assert isinstance(decision, RouteDecision)
-    assert decision.action.provider == "openai"
-    assert decision.action.mode == "translate"
+    assert decision.target.provider == "openai"
+    assert decision.target.gateway == "translate"

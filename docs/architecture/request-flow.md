@@ -114,7 +114,7 @@ The full endpoint set (`routing/request.py`): `/v1/messages`,
 `/v1/messages/count_tokens`, `/v1/chat/completions`, `/v1/responses`,
 `/v1/responses/{id}`, `/v1/responses/{id}/input_items`. **Translate
 mode requires POST** (enforced in `egress/dispatch.py`); auxiliary
-GET/DELETE endpoints must use `mode: passthrough`.
+GET/DELETE endpoints must use `gateway: passthrough`.
 
 `GET /v1/models` (`ingress/http/models.py`) sits beside the routed
 endpoints but skips the rule engine entirely: it lists registry

@@ -1,4 +1,4 @@
-"""Top-level structure: ``Action`` constraints, ``extra='forbid'``,
+"""Top-level structure: ``Target`` constraints, ``extra='forbid'``,
 frozen-immutability, ``RoutingConfig`` invariants.
 """
 
@@ -8,23 +8,23 @@ import pytest
 from pydantic import ValidationError
 
 from magos.routing.schema import (
-    Action,
     RoutingConfig,
     Rule,
     SetHeader,
+    Target,
 )
 
-# --- Action constraints ---
+# --- Target constraints ---
 
 
-def test_action_rejects_unknown_mode() -> None:
+def test_target_rejects_unknown_gateway() -> None:
     with pytest.raises(ValidationError):
-        Action.model_validate({"provider": "openai", "mode": "swerve"})
+        Target.model_validate({"provider": "openai", "gateway": "swerve"})
 
 
-def test_action_rejects_blank_provider() -> None:
+def test_target_rejects_blank_provider() -> None:
     with pytest.raises(ValidationError):
-        Action.model_validate({"provider": "", "mode": "translate"})
+        Target.model_validate({"provider": "", "gateway": "translate"})
 
 
 # --- extra="forbid" + frozen ---
@@ -35,7 +35,7 @@ def test_unknown_field_is_rejected() -> None:
         Rule.model_validate(
             {
                 "match": {"endpoint": {"literal": "/v1/messages"}},
-                "action": {"provider": "openai", "mode": "translate"},
+                "target": {"provider": "openai", "gateway": "translate"},
                 "unexpected": True,
             }
         )
@@ -45,11 +45,11 @@ def test_frozen_models_cannot_mutate() -> None:
     rule = Rule.model_validate(
         {
             "match": {"endpoint": {"literal": "/v1/messages"}},
-            "action": {"provider": "openai", "mode": "translate"},
+            "target": {"provider": "openai", "gateway": "translate"},
         }
     )
     with pytest.raises(ValidationError):
-        rule.action.provider = "anthropic"
+        rule.target.provider = "anthropic"
 
 
 # --- Top-level invariants ---
@@ -68,7 +68,7 @@ def test_routing_config_round_trips() -> None:
                 {
                     "name": "default",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ],
         }

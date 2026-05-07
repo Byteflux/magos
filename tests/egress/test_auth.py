@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from magos.egress.auth import maybe_inject_api_key
-from magos.routing.schema import Action
+from magos.routing.schema import Target
 
 
 @pytest.mark.unit
@@ -14,10 +14,10 @@ def test_inject_api_key_defaults_to_bearer_for_non_anthropic(
 ) -> None:
     """openai/openrouter/vultr providers get ``Authorization: Bearer`` by default."""
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
-    action = Action.model_validate(
+    action = Target.model_validate(
         {
             "provider": "vultr",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.vultrinference.com",
             "api_key_env": "VULTR_API_KEY",
         }
@@ -33,10 +33,10 @@ def test_inject_api_key_anthropic_default_uses_x_api_key(
 ) -> None:
     """Anthropic provider keeps the official ``x-api-key`` header shape."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-    action = Action.model_validate(
+    action = Target.model_validate(
         {
             "provider": "anthropic",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.anthropic.com",
             "api_key_env": "ANTHROPIC_API_KEY",
         }
@@ -60,10 +60,10 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
     """
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-oat01-deadbeef")
 
-    default_shape = Action.model_validate(
+    default_shape = Target.model_validate(
         {
             "provider": "anthropic",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.anthropic.com",
             "api_key_env": "ANTHROPIC_API_KEY",
         }
@@ -74,10 +74,10 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
     }
 
     # Explicit x-api-key override is intentionally ignored for OAuth tokens.
-    explicit_xapikey = Action.model_validate(
+    explicit_xapikey = Target.model_validate(
         {
             "provider": "anthropic",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.anthropic.com",
             "api_key_env": "ANTHROPIC_API_KEY",
             "auth_header": "x-api-key",
@@ -91,14 +91,14 @@ def test_inject_api_key_anthropic_oauth_token_uses_bearer_plus_beta(
 
 @pytest.mark.unit
 def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``action.auth_header`` overrides the per-provider default both ways."""
+    """``target.auth_header`` overrides the per-provider default both ways."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
-    anthropic_bearer = Action.model_validate(
+    anthropic_bearer = Target.model_validate(
         {
             "provider": "anthropic",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.anthropic.com",
             "api_key_env": "ANTHROPIC_API_KEY",
             "auth_header": "bearer",
@@ -106,10 +106,10 @@ def test_inject_api_key_explicit_override_wins(monkeypatch: pytest.MonkeyPatch) 
     )
     assert maybe_inject_api_key({}, anthropic_bearer) == {"authorization": "Bearer sk-ant-test"}
 
-    openai_xapikey = Action.model_validate(
+    openai_xapikey = Target.model_validate(
         {
             "provider": "openai",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.openai.com",
             "api_key_env": "OPENAI_API_KEY",
             "auth_header": "x-api-key",
@@ -124,10 +124,10 @@ def test_inject_api_key_skips_when_inbound_auth_present(
 ) -> None:
     """Client-supplied auth always wins; injection never overwrites it."""
     monkeypatch.setenv("VULTR_API_KEY", "vk-test")
-    action = Action.model_validate(
+    action = Target.model_validate(
         {
             "provider": "vultr",
-            "mode": "passthrough",
+            "gateway": "passthrough",
             "base_url": "https://api.vultrinference.com",
             "api_key_env": "VULTR_API_KEY",
         }
@@ -143,10 +143,10 @@ def test_inject_api_key_skips_when_inbound_auth_present(
 def test_inject_api_key_noop_in_translate_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Translate mode never injects; api_key plumbing happens via litellm kwargs."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    action = Action.model_validate(
+    action = Target.model_validate(
         {
             "provider": "openai",
-            "mode": "translate",
+            "gateway": "translate",
             "api_key_env": "OPENAI_API_KEY",
         }
     )

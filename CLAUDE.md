@@ -110,7 +110,7 @@ src/magos/
       _base.py       # _Frozen base
       grammar.py     # matchers + atoms + combinators + MatchExpr
       rewrites.py    # rewrite primitives + CompressOptions + Rewrite union
-      structure.py   # Action + Rule + GuardedRewrites + RoutingConfig
+      structure.py   # Target + Rule + GuardedRewrites + RoutingConfig
     request.py       # RoutedRequest dataclass
     decision.py      # RouteDecision frozen value (engine output, dispatch input)
     matchers.py      # match-expression evaluator (registry-aware)

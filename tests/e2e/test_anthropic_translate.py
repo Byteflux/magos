@@ -59,7 +59,7 @@ def test_anthropic_streaming_real() -> None:
 def test_anthropic_tool_use_round_trip_real() -> None:
     """Anthropic tool_use round-trip via the translate route.
 
-    Forces ``mode: translate`` so the request takes the
+    Forces ``gateway: translate`` so the request takes the
     ``litellm.anthropic_messages`` path with an Anthropic upstream, which
     handles OAuth keys correctly. Cross-provider routing (Anthropic shape
     -> OpenAI upstream) currently hits a LiteLLM tool_choice mapping bug
@@ -215,7 +215,7 @@ def test_anthropic_streaming_tool_use_real() -> None:
 
     Asserts the SSE stream contains a ``content_block_start`` with
     ``type=tool_use`` and at least one ``input_json_delta``. Forces
-    ``mode: translate`` so the request takes the ``litellm.anthropic_messages``
+    ``gateway: translate`` so the request takes the ``litellm.anthropic_messages``
     streaming path; the bytes that come back are forwarded verbatim by magos.
     """
     maybe_skip_anthropic_oauth()
@@ -252,7 +252,7 @@ def test_anthropic_streaming_tool_use_real() -> None:
 def test_anthropic_tool_result_followup_real() -> None:
     """Full agent-loop turn: tool_use -> tool_result -> final text.
 
-    Forces ``mode: translate`` so the request takes the
+    Forces ``gateway: translate`` so the request takes the
     ``litellm.anthropic_messages`` path with the Anthropic upstream, which
     handles OAuth keys correctly. Validates that magos preserves
     ``tool_use_id`` correlation across turns.

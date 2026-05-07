@@ -10,9 +10,9 @@ pre_rewrites:
 
 rules:
   - match: { model: { literal: "claude-haiku-4-5-20251001" } }
-    action:
+    target:
       provider: anthropic
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
 ```
@@ -30,16 +30,16 @@ rules:
             value: { literal: cheap }
     rewrites:
       - set_model: gpt-4o-mini
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
       api_key_env: OPENAI_API_KEY_TIER_CHEAP
 
   - name: default
     match: { model: { glob: "gpt-*" } }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
       api_key_env: OPENAI_API_KEY
 ```
 
@@ -54,9 +54,9 @@ rules:
   - name: responses-self-hosted
     match:
       endpoint: { literal: /v1/responses }
-    action:
+    target:
       provider: openai
-      mode: passthrough
+      gateway: passthrough
       base_url: https://my-openai-compat.internal
       api_key_env: SELF_HOSTED_API_KEY
 ```
@@ -70,7 +70,7 @@ served by a non-OpenAI provider supported by litellm).
 The Responses API is stateful: clients chain follow-ups with
 `previous_response_id` and may want to retrieve, cancel, or inspect a
 prior response. These endpoints have no litellm equivalent, so they must
-be routed via `mode: passthrough`:
+be routed via `gateway: passthrough`:
 
 ```yaml
 rules:
@@ -79,9 +79,9 @@ rules:
       any_of:
         - endpoint: { literal: "/v1/responses/{id}" }
         - endpoint: { literal: "/v1/responses/{id}/input_items" }
-    action:
+    target:
       provider: openai
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.openai.com
       api_key_env: OPENAI_API_KEY
 ```
@@ -89,7 +89,7 @@ rules:
 Match expressions see the templated path; the dispatcher forwards the
 concrete inbound path (e.g. `/v1/responses/resp_abc`) and HTTP method
 (GET for retrieve / list, DELETE for cancel) verbatim. Pointing a
-`mode: translate` rule at one of these endpoints produces a `503
+`gateway: translate` rule at one of these endpoints produces a `503
 dispatch_error` because the dispatcher cannot translate non-POST
 traffic.
 
@@ -102,9 +102,9 @@ rules:
       all_of:
         - model: { literal: "claude-haiku-4-5-20251001" }
         - not: { jq: ".stream == true" }
-    action:
+    target:
       provider: anthropic
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
   # Streaming claude requests fall through and 404.

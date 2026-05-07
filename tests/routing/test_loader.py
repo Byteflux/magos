@@ -49,12 +49,12 @@ def test_round_trip_minimal(tmp_path: Path) -> None:
         """
         rules:
           - match: { endpoint: { literal: /v1/messages } }
-            action: { provider: openai, mode: translate }
-        """,
+            target: { provider: openai, gateway: translate }
+""",
     )
     cfg = load_config(p)
     assert len(cfg.rules) == 1
-    assert cfg.rules[0].action.provider == "openai"
+    assert cfg.rules[0].target.provider == "openai"
 
 
 def test_top_level_must_be_mapping(tmp_path: Path) -> None:
@@ -70,7 +70,7 @@ def test_invalid_pydantic_shape(tmp_path: Path) -> None:
         """
         rules:
           - match: { endpoint: { literal: /v1/messages } }
-            action: { provider: openai }
+            target: { provider: openai }
         """,
     )
     with pytest.raises(RoutingConfigError, match="invalid routing config"):
@@ -84,8 +84,8 @@ def test_invalid_regex_includes_rule_label(tmp_path: Path) -> None:
         rules:
           - name: broken
             match: { model: { regex: '[unclosed' } }
-            action: { provider: openai, mode: translate }
-        """,
+            target: { provider: openai, gateway: translate }
+""",
     )
     with pytest.raises(RoutingConfigError, match="broken"):
         load_config(p)
@@ -98,8 +98,8 @@ def test_invalid_jq_atom_includes_rule_label(tmp_path: Path) -> None:
         rules:
           - name: jqfail
             match: { jq: 'this is not valid jq <<<' }
-            action: { provider: openai, mode: translate }
-        """,
+            target: { provider: openai, gateway: translate }
+""",
     )
     with pytest.raises(RoutingConfigError, match="jqfail"):
         load_config(p)
@@ -114,8 +114,8 @@ def test_invalid_jq_patch_in_rewrites(tmp_path: Path) -> None:
             match: { endpoint: { literal: /v1/messages } }
             rewrites:
               - jq_patch: '<<< not jq'
-            action: { provider: openai, mode: translate }
-        """,
+            target: { provider: openai, gateway: translate }
+""",
     )
     with pytest.raises(RoutingConfigError, match="rewrite-fail"):
         load_config(p)
@@ -128,9 +128,9 @@ def test_passthrough_mode_requires_base_url(tmp_path: Path) -> None:
         rules:
           - name: pt-no-base
             match: { endpoint: { literal: /v1/messages } }
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
         """,
     )
     with pytest.raises(RoutingConfigError, match="base_url"):
@@ -148,9 +148,9 @@ def test_body_touch_logs_under_passthrough(tmp_path: Path, monkeypatch: pytest.M
             match: { endpoint: { literal: /v1/messages } }
             rewrites:
               - set_model: claude-haiku-4-5-20251001
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
               base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
@@ -176,9 +176,9 @@ def test_header_only_rewrites_under_passthrough_silent(
             rewrites:
               - set_header: { name: x-magos, value: '1' }
               - remove_header: x-debug
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
               base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
@@ -201,16 +201,16 @@ def test_pre_rewrite_body_touch_logs_per_passthrough_rule(
         rules:
           - name: pt
             match: { endpoint: { literal: /v1/messages } }
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
               base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
           - name: tr
             match: { endpoint: { literal: /v1/chat/completions } }
-            action:
+            target:
               provider: openai
-              mode: translate
+              gateway: translate
         """,
     )
     load_config(p)
@@ -238,9 +238,9 @@ def test_guarded_pre_rewrite_does_not_log_on_passthrough(
         rules:
           - name: pt
             match: { endpoint: { literal: /v1/messages } }
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
               base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
@@ -262,7 +262,7 @@ def test_compress_rewrite_round_trip(tmp_path: Path) -> None:
                   mode: token
                   target_ratio: 0.5
                   protect_recent: 8
-            action: { provider: anthropic, mode: translate }
+            target: { provider: anthropic, gateway: translate }
         """,
     )
     cfg = load_config(p)
@@ -285,7 +285,7 @@ def test_compress_rewrite_default_options(tmp_path: Path) -> None:
           - match: { endpoint: { literal: /v1/messages } }
             rewrites:
               - compress: {}
-            action: { provider: anthropic, mode: translate }
+            target: { provider: anthropic, gateway: translate }
         """,
     )
     cfg = load_config(p)
@@ -309,9 +309,9 @@ def test_compress_rewrite_under_passthrough_warns(
             match: { endpoint: { literal: /v1/messages } }
             rewrites:
               - compress: { mode: token }
-            action:
+            target:
               provider: anthropic
-              mode: passthrough
+              gateway: passthrough
               base_url: https://api.anthropic.com
               api_key_env: ANTHROPIC_API_KEY
         """,
@@ -331,7 +331,7 @@ def test_compress_invalid_mode_rejected(tmp_path: Path) -> None:
           - match: { endpoint: { literal: /v1/messages } }
             rewrites:
               - compress: { mode: bogus }
-            action: { provider: anthropic, mode: translate }
+            target: { provider: anthropic, gateway: translate }
         """,
     )
     with pytest.raises(RoutingConfigError, match="invalid routing config"):

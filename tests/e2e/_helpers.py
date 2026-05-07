@@ -19,7 +19,7 @@ PROMPT = "Reply with the single word: pong"
 
 
 def anthropic_translate_app() -> Any:
-    """Build a magos app that forces ``mode: translate`` for /v1/messages.
+    """Build a magos app that forces ``gateway: translate`` for /v1/messages.
 
     The shipped config routes claude-* through byte-exact passthrough,
     which Anthropic's native API rejects when the inbound auth is an OAuth
@@ -36,9 +36,9 @@ def anthropic_translate_app() -> Any:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {
+                    "target": {
                         "provider": "anthropic",
-                        "mode": "translate",
+                        "gateway": "translate",
                         "api_key_env": "ANTHROPIC_API_KEY",
                     },
                 }

@@ -54,7 +54,7 @@ def test_responses_endpoint_translates_via_litellm() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -91,7 +91,7 @@ def test_responses_endpoint_streams_sse() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -120,7 +120,7 @@ def test_unmatched_responses_endpoint_returns_404_openai_envelope() -> None:
             "rules": [
                 {
                     "match": {"model": {"literal": "only-this-model"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -165,9 +165,9 @@ def test_responses_retrieve_passthrough_forwards_get(monkeypatch: pytest.MonkeyP
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
-                    "action": {
+                    "target": {
                         "provider": "openai",
-                        "mode": "passthrough",
+                        "gateway": "passthrough",
                         "base_url": "https://api.openai.com",
                         "api_key_env": "OPENAI_API_KEY",
                     },
@@ -215,9 +215,9 @@ def test_responses_cancel_passthrough_forwards_delete(monkeypatch: pytest.Monkey
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
-                    "action": {
+                    "target": {
                         "provider": "openai",
-                        "mode": "passthrough",
+                        "gateway": "passthrough",
                         "base_url": "https://api.openai.com",
                         "api_key_env": "OPENAI_API_KEY",
                     },
@@ -263,9 +263,9 @@ def test_responses_input_items_passthrough_forwards_get(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses/{id}/input_items"}},
-                    "action": {
+                    "target": {
                         "provider": "openai",
-                        "mode": "passthrough",
+                        "gateway": "passthrough",
                         "base_url": "https://api.openai.com",
                         "api_key_env": "OPENAI_API_KEY",
                     },
@@ -289,7 +289,7 @@ def test_responses_retrieve_unmatched_returns_404_openai_envelope() -> None:
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -313,7 +313,7 @@ def test_responses_retrieve_translate_mode_returns_503(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/responses/{id}"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }

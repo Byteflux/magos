@@ -48,7 +48,7 @@ def test_dispatch_fires_hooks_after_translate_non_streaming(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -97,7 +97,7 @@ def test_dispatch_swallows_hook_exceptions(fake_completion_factory: Any) -> None
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -153,7 +153,7 @@ def test_dispatch_translate_invokes_wrap_response_when_ccr_request(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }
@@ -205,7 +205,7 @@ def test_dispatch_translate_skips_wrap_when_no_ccr_tool(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }

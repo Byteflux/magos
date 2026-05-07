@@ -18,7 +18,7 @@ from magos.routing.errors import (
 from magos.routing.match import matches
 from magos.routing.request import RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
-from magos.routing.schema import Action, GuardedRewrites, RoutingConfig, Rule
+from magos.routing.schema import GuardedRewrites, RoutingConfig, Rule, Target
 
 
 class RuleBasedRouter(Router):
@@ -112,11 +112,11 @@ def _route(
                 model=model,
                 endpoint=pre_applied.endpoint,
             )
-        effective_rule = _fill_action_from_provider_config(rule, providers)
+        effective_rule = _fill_target_from_provider_config(rule, providers)
         return RouteDecision(
             rule=effective_rule,
             request=post_applied,
-            dispatch_model=_compute_dispatch_model(post_applied, effective_rule.action, registry),
+            dispatch_model=_compute_dispatch_model(post_applied, effective_rule.target, registry),
         )
 
     if registry is not None:
@@ -141,7 +141,7 @@ def _route(
     )
 
 
-def _fill_action_from_provider_config(
+def _fill_target_from_provider_config(
     rule: Rule, providers: Mapping[str, ProviderConfig] | None
 ) -> Rule:
     """Backfill missing ``api_key_env`` / ``base_url`` from ``providers``.
@@ -151,27 +151,27 @@ def _fill_action_from_provider_config(
     providers like Vultr or hosted vLLM), producing misleading 401s.
     See ``docs/routing/api-keys.md``.
     """
-    if providers is None or not rule.action.provider:
+    if providers is None or not rule.target.provider:
         return rule
-    overrides = provider_cred_overrides(providers.get(rule.action.provider))
-    updates = {key: value for key, value in overrides.items() if getattr(rule.action, key) is None}
+    overrides = provider_cred_overrides(providers.get(rule.target.provider))
+    updates = {key: value for key, value in overrides.items() if getattr(rule.target, key) is None}
     if not updates:
         return rule
-    new_action = rule.action.model_copy(update=updates)
-    return rule.model_copy(update={"action": new_action})
+    new_target = rule.target.model_copy(update=updates)
+    return rule.model_copy(update={"target": new_target})
 
 
 def _compute_dispatch_model(
-    req: RoutedRequest, action: Action, registry: RegistryState | None
+    req: RoutedRequest, target: Target, registry: RegistryState | None
 ) -> str:
     """Return the model id to hand LiteLLM. See ``docs/registry/auto-routing.md``."""
     model = str(req.body.get("model", ""))
-    if action.mode == "passthrough":
+    if target.gateway == "passthrough":
         return model
     if registry is not None and model:
-        resolved = registry.resolve_for_dispatch(model, action.provider)
+        resolved = registry.resolve_for_dispatch(model, target.provider)
         if resolved is not None:
             return resolved
     if "/" in model:
         return model
-    return f"{action.provider}/{model}"
+    return f"{target.provider}/{model}"

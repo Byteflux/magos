@@ -23,10 +23,10 @@ Endpoint-shaped envelopes:
 Loader rejects (raises `RoutingConfigError`):
 
 - regex / glob / jq programs that fail to compile
-- `mode: passthrough` rules without `base_url`
+- `gateway: passthrough` rules without `base_url`
 
 Loader debug-logs (structlog `routing.passthrough_body_touch`):
 
-- a `mode: passthrough` rule combined with a body-touching rewrite
+- a `gateway: passthrough` rule combined with a body-touching rewrite
   (`set_model` or `jq_patch`); re-serialisation breaks byte-exact
   cache hits.

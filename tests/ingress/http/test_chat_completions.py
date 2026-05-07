@@ -127,7 +127,7 @@ def test_unmatched_request_returns_404_with_openai_envelope() -> None:
             "rules": [
                 {
                     "match": {"model": {"literal": "only-this-model"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }

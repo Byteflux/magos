@@ -31,9 +31,9 @@ def test_compress_token_mode_uses_magos_compression_registry() -> None:
                 {
                     "match": {"endpoint": {"literal": "/v1/chat/completions"}},
                     "rewrites": [{"compress": {"mode": "token"}}],
-                    "action": {
+                    "target": {
                         "provider": "openai",
-                        "mode": "translate",
+                        "gateway": "translate",
                         "api_key_env": "OPENAI_API_KEY",
                     },
                 }
@@ -75,9 +75,9 @@ def test_compress_token_mode_freezes_prefix_across_turns() -> None:
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
                     "rewrites": [{"compress": {"mode": "token"}}],
-                    "action": {
+                    "target": {
                         "provider": "anthropic",
-                        "mode": "translate",
+                        "gateway": "translate",
                         "api_key_env": "ANTHROPIC_API_KEY",
                     },
                 }
@@ -137,9 +137,9 @@ def test_ccr_end_to_end_with_compression() -> None:
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
                     "rewrites": [{"compress": {"mode": "token"}}],
-                    "action": {
+                    "target": {
                         "provider": "anthropic",
-                        "mode": "translate",
+                        "gateway": "translate",
                         "api_key_env": "ANTHROPIC_API_KEY",
                     },
                 }

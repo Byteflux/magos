@@ -14,7 +14,7 @@ from `magos.yaml`. The supported endpoints are:
 | `GET /v1/responses/{id}/input_items`      | List the input items used to produce a response (passthrough-only)                           |
 
 Auxiliary `/v1/responses/{id}*` endpoints have no litellm equivalent, so a
-matching rule must use `mode: passthrough`. Match expressions see the
+matching rule must use `gateway: passthrough`. Match expressions see the
 templated path (e.g. `/v1/responses/{id}`) so rules stay stable across
 response IDs; the dispatcher forwards the concrete inbound path so the
 upstream sees the real id.

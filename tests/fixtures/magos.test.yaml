@@ -14,47 +14,47 @@ rules:
       all_of:
         - endpoint: { literal: /v1/messages }
         - model: { regex: "^claude-.*" }
-    action:
+    target:
       provider: anthropic
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.anthropic.com
       api_key_env: ANTHROPIC_API_KEY
 
   - name: openai-translate-messages
     match:
       endpoint: { literal: /v1/messages }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
   - name: openai-translate-chat
     match:
       endpoint: { literal: /v1/chat/completions }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
   - name: openai-translate-responses
     match:
       endpoint: { literal: /v1/responses }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
   - name: openai-responses-aux
     match:
       any_of:
         - endpoint: { literal: "/v1/responses/{id}" }
         - endpoint: { literal: "/v1/responses/{id}/input_items" }
-    action:
+    target:
       provider: openai
-      mode: passthrough
+      gateway: passthrough
       base_url: https://api.openai.com
       api_key_env: OPENAI_API_KEY
 
   - name: count-tokens-fallback
     match:
       endpoint: { literal: /v1/messages/count_tokens }
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate

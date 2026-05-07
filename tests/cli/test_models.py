@@ -48,9 +48,9 @@ rules:
     match:
       model:
         literal: never-matches
-    action:
+    target:
       provider: x
-      mode: translate
+      gateway: translate
 
 registry:
   models_path: """

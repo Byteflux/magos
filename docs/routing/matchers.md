@@ -14,7 +14,7 @@ rules:
             field: context_size
             op: gte
             value: 200000
-    action: { provider: anthropic, mode: translate }
+    target: { provider: anthropic, gateway: translate }
 
   - name: vision-routing
     match:
@@ -22,7 +22,7 @@ rules:
         field: input_modalities
         op: contains
         value: image
-    action: { provider: openrouter, mode: translate }
+    target: { provider: openrouter, gateway: translate }
 ```
 
 Operators: `eq`, `gt`, `gte`, `lt`, `lte` (numeric/string scalars),

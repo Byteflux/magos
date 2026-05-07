@@ -261,6 +261,6 @@ the original content on demand:
   `compress.ccr_enabled: false`. For finer control, the
   `ccr_inject_tool` and `ccr_inject_instructions` flags scope the
   injection separately.
-- v1 supports `action.mode: translate` only. Passthrough-mode CCR is
+- v1 supports `target.gateway: translate` only. Passthrough-mode CCR is
   deferred. `/v1/responses` does not support compress in token mode,
   so CCR is naturally out for that endpoint.

@@ -133,7 +133,7 @@ def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "action": {"provider": "vultr", "mode": "translate"},
+                    "target": {"provider": "vultr", "gateway": "translate"},
                 }
             ]
         }
@@ -227,7 +227,7 @@ def test_unmatched_request_returns_404_with_anthropic_envelope() -> None:
             "rules": [
                 {
                     "match": {"model": {"literal": "only-this-model"}},
-                    "action": {"provider": "openai", "mode": "translate"},
+                    "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
         }

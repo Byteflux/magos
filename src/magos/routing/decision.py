@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from magos.registry.state import ModelEntry
 from magos.routing.request import RoutedRequest
-from magos.routing.schema import Action, Rule
+from magos.routing.schema import Rule, Target
 
 
 def format_rule_label(rule: Rule, idx: int | None = None) -> str:
@@ -32,8 +32,8 @@ class RouteDecision:
     entry: ModelEntry | None = None
 
     @property
-    def action(self) -> Action:
-        return self.rule.action
+    def target(self) -> Target:
+        return self.rule.target
 
     @property
     def auto_routed(self) -> bool:

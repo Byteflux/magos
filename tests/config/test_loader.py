@@ -24,9 +24,9 @@ rules:
     match:
       model:
         literal: claude-haiku-4-5
-    action:
+    target:
       provider: anthropic
-      mode: translate
+      gateway: translate
 
 provider_order:
   - openrouter
@@ -62,9 +62,9 @@ rules:
     match:
       model:
         literal: x
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 """,
     )
     cfg = load_full_config(cfg_path)
@@ -81,9 +81,9 @@ rules:
     match:
       model:
         literal: x
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
 registry:
   refresh_interval: not-a-duration
@@ -108,9 +108,9 @@ rules:
     match:
       model:
         literal: x
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
 providers:
   vultr:
@@ -142,9 +142,9 @@ rules:
     match:
       model:
         literal: x
-    action:
+    target:
       provider: openai
-      mode: translate
+      gateway: translate
 
 providers:
   vultr:

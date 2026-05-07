@@ -71,7 +71,7 @@ async def dispatch_decision(
 ) -> Response | StreamingResponse | dict[str, Any]:
     """Hand ``decision`` off to the right downstream call site."""
     req = decision.request
-    action = decision.action
+    target = decision.target
 
     if req.endpoint == "/v1/messages/count_tokens":
         n = await count_tokens(
@@ -81,13 +81,13 @@ async def dispatch_decision(
         )
         return {"input_tokens": n}
 
-    forward_headers = maybe_inject_api_key(dict(req.headers), action)
+    forward_headers = maybe_inject_api_key(dict(req.headers), target)
     is_streaming = bool(req.body.get("stream"))
 
     on_complete = _make_on_complete(req.post_response_hooks)
 
-    if action.mode == "passthrough":
-        if not action.base_url:  # validated at config load; defensive guard.
+    if target.gateway == "passthrough":
+        if not target.base_url:  # validated at config load; defensive guard.
             raise DispatchError("passthrough rule has no base_url")
         body_bytes = req.raw_body if not req.body_dirty else json.dumps(dict(req.body)).encode()
         model_hint = str(req.body.get("model", ""))
@@ -96,7 +96,7 @@ async def dispatch_decision(
             upstream = stream_passthrough(
                 body_bytes,
                 forward_headers,
-                action.base_url,
+                target.base_url,
                 path=req.forward_path,
                 method=req.method,
                 model_hint=model_hint,
@@ -116,7 +116,7 @@ async def dispatch_decision(
         status, raw, content_type = await call_passthrough(
             body_bytes,
             forward_headers,
-            action.base_url,
+            target.base_url,
             path=req.forward_path,
             method=req.method,
             model_hint=model_hint,
@@ -134,14 +134,14 @@ async def dispatch_decision(
                 log_usage_from_body(shape, parsed, endpoint=req.endpoint, on_complete=on_complete)
         return Response(content=raw, status_code=status, media_type=content_type)
 
-    # mode: translate -- only POST endpoints have litellm equivalents.
+    # gateway: translate -- only POST endpoints have litellm equivalents.
     if req.method != "POST":
         raise DispatchError(
-            f"mode='translate' does not support method={req.method!r}; "
-            "use mode='passthrough' for auxiliary GET/DELETE endpoints"
+            f"gateway='translate' does not support method={req.method!r}; "
+            "use gateway='passthrough' for auxiliary GET/DELETE endpoints"
         )
-    api_key = resolve_api_key(action.api_key_env)
-    api_base = action.base_url
+    api_key = resolve_api_key(target.api_key_env)
+    api_base = target.base_url
 
     adapter = TRANSLATE_HANDLERS.get(req.endpoint)
     if adapter is None:
@@ -153,7 +153,7 @@ async def dispatch_decision(
     # call sites in lock-step when a parameter is added.
     shared: dict[str, Any] = {
         "dispatch_model": decision.dispatch_model,
-        "provider": action.provider,
+        "provider": target.provider,
         "completion": completion,
         "forward_headers": forward_headers,
         "api_key": api_key,

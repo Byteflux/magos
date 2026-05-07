@@ -10,22 +10,22 @@ rules:                    # required, at least one
   - name: human-readable  # optional; appears in route.matched logs
     match: <expr>
     rewrites: []          # per-rule post-rewrites; optional
-    action:
+    target:
       provider: <string>  # required
-      mode: translate | passthrough
-      base_url: <url>     # required when mode=passthrough
+      gateway: translate | passthrough
+      base_url: <url>     # required when gateway=passthrough
       api_key_env: <NAME> # optional
       auth_header: <shape># optional; bearer | x-api-key. Defaults to
                           # x-api-key for provider: anthropic, bearer
                           # otherwise. Only consulted when injecting
-                          # api_key_env in passthrough mode; explicit
+                          # api_key_env in passthrough gateway; explicit
                           # client headers always pass through verbatim.
 ```
 
 count_tokens calls go through `litellm.acount_tokens`, which auto-selects
 between an in-process tokenizer and the provider's native count-tokens
 endpoint based on the model id. There is no separate `count_tokens_mode`
-knob; declare a regular `mode: translate` rule for `/v1/messages/count_tokens`.
+knob; declare a regular `gateway: translate` rule for `/v1/messages/count_tokens`.
 
 ## Match expressions
 
@@ -67,13 +67,13 @@ Each is a single-key dict applied in list order:
 | `compress`     | `{ compress: { ... } }`                   | run Headroom compression on `messages`; flips body_dirty |
 
 `jq_patch`, `set_model`, and `compress` mark the request body as dirty.
-Under `mode: passthrough`, a dirty body forces re-serialisation,
+Under `gateway: passthrough`, a dirty body forces re-serialisation,
 breaking prompt-cache byte-exactness; the loader debug-logs each
 offending rule at startup (event `routing.passthrough_body_touch`).
 
 ### `set_model` and the registry
 
-For `mode: translate`, the engine resolves the dispatch model id in this
+For `gateway: translate`, the engine resolves the dispatch model id in this
 order before handing it to LiteLLM:
 
 1. Literal registry hit on the body model, e.g.

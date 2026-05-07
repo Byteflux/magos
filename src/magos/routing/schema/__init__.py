@@ -4,7 +4,7 @@ Three concerns split across siblings:
 
 - :mod:`grammar` — match grammar: matchers, atoms, combinators, ``MatchExpr``.
 - :mod:`rewrites` — rewrite primitives, ``CompressOptions``, ``Rewrite`` union.
-- :mod:`structure` — top-level: ``Action``, ``Rule``, ``GuardedRewrites``,
+- :mod:`structure` — top-level: ``Target``, ``Rule``, ``GuardedRewrites``,
   ``RoutingConfig``.
 
 ``config_uses_compress`` lives here since it walks the assembled config.
@@ -43,13 +43,13 @@ from .rewrites import (
     SetModel,
 )
 from .structure import (
-    Action,
     AuthHeaderShape,
-    DispatchMode,
+    GatewayMode,
     GuardedRewrites,
     PreRewrite,
     RoutingConfig,
     Rule,
+    Target,
 )
 
 
@@ -70,7 +70,6 @@ def config_uses_compress(cfg: RoutingConfig) -> bool:
 
 
 __all__ = [
-    "Action",
     "AddHeader",
     "AllOf",
     "AnyOf",
@@ -78,8 +77,8 @@ __all__ = [
     "Compress",
     "CompressMode",
     "CompressOptions",
-    "DispatchMode",
     "EndpointAtom",
+    "GatewayMode",
     "GlobMatcher",
     "GuardedRewrites",
     "HeaderAtom",
@@ -103,5 +102,6 @@ __all__ = [
     "Rule",
     "SetHeader",
     "SetModel",
+    "Target",
     "config_uses_compress",
 ]

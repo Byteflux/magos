@@ -96,8 +96,8 @@ def test_try_auto_route_stamps_provider_creds_from_provider_cfg() -> None:
     req = _req(body={"model": e.namespaced_id})
     decision = _router(providers=providers).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
-    assert decision.action.api_key_env == "VULTR_KEY"
-    assert decision.action.base_url == "https://vultr.example"
+    assert decision.target.api_key_env == "VULTR_KEY"
+    assert decision.target.base_url == "https://vultr.example"
 
 
 def test_try_auto_route_returns_none_on_registry_miss() -> None:
@@ -139,7 +139,7 @@ def test_try_auto_route_unknown_passthrough_infers_provider_from_slash() -> None
     req = _req(body={"model": "myco/my-model"})
     decision = _router(settings=settings).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
-    assert decision.action.provider == "myco"
+    assert decision.target.provider == "myco"
 
 
 def test_try_auto_route_unknown_passthrough_bare_model_uses_auto_provider() -> None:
@@ -148,7 +148,7 @@ def test_try_auto_route_unknown_passthrough_bare_model_uses_auto_provider() -> N
     req = _req(body={"model": "bare-model-no-slash"})
     decision = _router(settings=settings).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
-    assert decision.action.provider == "auto"
+    assert decision.target.provider == "auto"
 
 
 # --- auto_routed flag on decision ---
@@ -175,7 +175,7 @@ def test_bare_id_resolves_via_provider_order() -> None:
     decision = _router(provider_order=("openrouter", "anthropic")).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is b
-    assert decision.action.provider == "openrouter"
+    assert decision.target.provider == "openrouter"
 
 
 def test_bare_id_pin_beats_provider_order() -> None:
@@ -201,7 +201,7 @@ def test_bare_id_falls_back_to_lex_smallest() -> None:
     decision = _router().try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is b
-    assert decision.action.provider == "alpha"
+    assert decision.target.provider == "alpha"
 
 
 def test_bare_id_pin_to_absent_provider_is_ignored() -> None:

@@ -1,4 +1,4 @@
-"""Top-level routing structure: actions, rules, guarded pre-rewrites, root config."""
+"""Top-level routing structure: targets, rules, guarded pre-rewrites, root config."""
 
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from ._base import _Frozen
 from .grammar import MatchExpr
 from .rewrites import Rewrite
 
-DispatchMode = Literal["translate", "passthrough"]
+GatewayMode = Literal["translate", "passthrough"]
 AuthHeaderShape = Literal["bearer", "x-api-key"]
 
 
-class Action(_Frozen):
+class Target(_Frozen):
     provider: str = Field(min_length=1)
-    mode: DispatchMode
+    gateway: GatewayMode
     base_url: str | None = None
     api_key_env: str | None = None
     auth_header: AuthHeaderShape | None = None
@@ -27,7 +27,7 @@ class Rule(_Frozen):
     name: str | None = None
     match: MatchExpr
     rewrites: list[Rewrite] = Field(default_factory=list)
-    action: Action
+    target: Target
 
 
 class GuardedRewrites(_Frozen):

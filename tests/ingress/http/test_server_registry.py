@@ -29,7 +29,7 @@ def _routing_only() -> RoutingConfig:
                 {
                     "name": "stub",
                     "match": {"model": {"literal": "stub-model"}},
-                    "action": {"provider": "x", "mode": "translate"},
+                    "target": {"provider": "x", "gateway": "translate"},
                 }
             ]
         }

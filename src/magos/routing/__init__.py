@@ -15,7 +15,6 @@ from magos.routing.match import matches
 from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
 from magos.routing.schema import (
-    Action,
     AddHeader,
     AllOf,
     AnyOf,
@@ -23,6 +22,7 @@ from magos.routing.schema import (
     CompressMode,
     CompressOptions,
     EndpointAtom,
+    GatewayMode,
     GlobMatcher,
     HeaderAtom,
     HeaderPair,
@@ -44,12 +44,12 @@ from magos.routing.schema import (
     Rule,
     SetHeader,
     SetModel,
+    Target,
     config_uses_compress,
 )
 
 __all__ = [
     "ENDPOINTS",
-    "Action",
     "AddHeader",
     "AllOf",
     "AnyOf",
@@ -58,6 +58,7 @@ __all__ = [
     "CompressOptions",
     "Endpoint",
     "EndpointAtom",
+    "GatewayMode",
     "GlobMatcher",
     "HeaderAtom",
     "HeaderPair",
@@ -84,6 +85,7 @@ __all__ = [
     "Rule",
     "SetHeader",
     "SetModel",
+    "Target",
     "apply_pre_rewrites",
     "apply_rewrites",
     "config_uses_compress",
