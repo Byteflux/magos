@@ -1,8 +1,8 @@
 """Dispatcher-level ``compress`` rewrite tests: skip/no-op + CCR injection.
 
-These exercise the dispatch logic in ``compress/__init__.py``: which
-endpoint shapes get dispatched where, when the rewrite returns the
-request untouched, and when CCR tool injection fires.
+These exercise the dispatch logic in ``Compress.apply``: which endpoint shapes
+get dispatched where, when the rewrite returns the request untouched, and when
+CCR tool injection fires.
 """
 
 from __future__ import annotations
@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 
 from magos.compression import ApplyResult
+from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
 from magos.routing.rewrites import apply_rewrites
-from magos.routing.rewrites.compress import token_mode as tm
 from tests.routing._helpers import make_req
 
 # --- Skip / no-op cases ---

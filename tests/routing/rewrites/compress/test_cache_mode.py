@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 
 from magos.compression import ApplyResult
+from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
 from magos.routing.rewrites import apply_rewrites
-from magos.routing.rewrites.compress import token_mode as tm
 from tests.routing._helpers import make_req
 
 # --- Chat-shape cache mode ---

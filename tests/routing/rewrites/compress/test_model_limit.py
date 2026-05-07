@@ -8,10 +8,10 @@ import litellm
 import pytest
 
 from magos.compression import ApplyResult, PipelineConfig
+from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
 from magos.routing.rewrites import apply_rewrites
 from magos.routing.rewrites import compress as rw
-from magos.routing.rewrites.compress import token_mode as tm
 from tests.routing._helpers import make_req
 
 
@@ -86,7 +86,7 @@ def test_compress_uses_explicit_model_limit_override(
         called.append(_model)
         return 999_999  # should not be used
 
-    monkeypatch.setattr(rw.token_mode, "_resolve_model_limit", spy_resolve)
+    monkeypatch.setattr(tm, "_resolve_model_limit", spy_resolve)
 
     req = make_req(
         body={
