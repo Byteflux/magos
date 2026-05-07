@@ -19,9 +19,9 @@ def _compile(expr: str) -> Any:
 
 
 def check_program(expr: str) -> None:
-    """Compile ``expr``; raise ``JqCompileError`` on parse failure."""
+    """Compile ``expr`` (via the cache); raise ``JqCompileError`` on parse failure."""
     try:
-        jq.compile(expr)
+        _compile(expr)
     except Exception as exc:  # jq raises bare ValueError; surface uniformly.
         raise JqCompileError(f"invalid jq expression {expr!r}: {exc}") from exc
 

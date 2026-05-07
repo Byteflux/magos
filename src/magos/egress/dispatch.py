@@ -147,30 +147,26 @@ async def dispatch_decision(
     if adapter is None:
         raise DispatchError(f"no translate handler for endpoint {req.endpoint!r}")
 
-    common: dict[str, Any] = {
+    # Shared dispatch parameters; ``proxy_translate``/``stream_translate``
+    # also need ``on_complete``, ``wrap_response``/``wrap_stream`` also need
+    # ``req`` and ``adapter``. Building from one base dict keeps the two
+    # call sites in lock-step when a parameter is added.
+    shared: dict[str, Any] = {
         "dispatch_model": decision.dispatch_model,
         "provider": action.provider,
         "completion": completion,
         "forward_headers": forward_headers,
         "api_key": api_key,
         "api_base": api_base,
-        "on_complete": on_complete,
     }
-    ccr_kwargs: dict[str, Any] = {
-        "req": req,
-        "adapter": adapter,
-        "completion": completion,
-        "dispatch_model": decision.dispatch_model,
-        "provider": action.provider,
-        "forward_headers": forward_headers,
-        "api_key": api_key,
-        "api_base": api_base,
-    }
+    translate_kwargs = {**shared, "on_complete": on_complete}
+    ccr_kwargs = {**shared, "req": req, "adapter": adapter}
+
     if is_streaming:
-        stream = stream_translate(adapter, dict(req.body), **common)
+        stream = stream_translate(adapter, dict(req.body), **translate_kwargs)
         return StreamingResponse(
             wrap_stream(stream, **ccr_kwargs),
             media_type="text/event-stream",
         )
-    response = await proxy_translate(adapter, dict(req.body), **common)
+    response = await proxy_translate(adapter, dict(req.body), **translate_kwargs)
     return await wrap_response(response, **ccr_kwargs)

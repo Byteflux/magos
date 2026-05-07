@@ -88,8 +88,9 @@ async def call_passthrough(
 
 
 def httpx_text_to_json(raw: bytes) -> str:
-    """Best-effort JSON-string-encode an upstream error body."""
-    try:
-        return json.dumps(raw.decode("utf-8", errors="replace"))
-    except Exception:
-        return '""'
+    """JSON-string-encode an upstream error body.
+
+    ``decode(errors="replace")`` cannot raise and ``json.dumps`` of a
+    ``str`` cannot raise either, so no fallback is needed.
+    """
+    return json.dumps(raw.decode("utf-8", errors="replace"))
