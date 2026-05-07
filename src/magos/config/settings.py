@@ -1,6 +1,6 @@
-"""Process-level env settings (``MagosSettings``) and ``MAGOS_HOME`` anchor.
+"""Process-level env settings (`MagosSettings`) and `MAGOS_HOME` anchor.
 
-See ``docs/architecture/env-vars.md``.
+See `docs/architecture/env-vars.md`.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ KompressBackend = Literal["auto", "pytorch"]
 
 
 def magos_home() -> Path:
-    """Return the magos data directory (``MAGOS_HOME`` or ``~/.magos``)."""
+    """Return the magos data directory (`MAGOS_HOME` or `~/.magos`)."""
     raw = os.environ.get("MAGOS_HOME")
     if raw:
         return Path(raw).expanduser()
@@ -38,7 +38,7 @@ class MagosSettings(BaseSettings):
         default=None,
         description=(
             "HTTP listen host override. When unset, falls back to "
-            "``ingress.http.host`` in magos.yaml (which itself defaults to 127.0.0.1)."
+            "`ingress.http.host` in magos.yaml (which itself defaults to 127.0.0.1)."
         ),
     )
     port: int | None = Field(
@@ -47,7 +47,7 @@ class MagosSettings(BaseSettings):
         le=65535,
         description=(
             "HTTP listen port override. When unset, falls back to "
-            "``ingress.http.port`` in magos.yaml (which itself defaults to 6246)."
+            "`ingress.http.port` in magos.yaml (which itself defaults to 6246)."
         ),
     )
 
@@ -55,7 +55,7 @@ class MagosSettings(BaseSettings):
         default=None,
         description=(
             "Enable the embedded mitmproxy HTTPS_PROXY listener. When unset, "
-            "falls back to ``ingress.mitm.enabled`` in magos.yaml (which "
+            "falls back to `ingress.mitm.enabled` in magos.yaml (which "
             "defaults to false)."
         ),
     )
@@ -63,7 +63,7 @@ class MagosSettings(BaseSettings):
         default=None,
         description=(
             "mitmproxy listener host override. When unset, falls back to "
-            "``ingress.mitm.host`` in magos.yaml (which defaults to 127.0.0.1)."
+            "`ingress.mitm.host` in magos.yaml (which defaults to 127.0.0.1)."
         ),
     )
     mitm_port: int | None = Field(
@@ -72,7 +72,7 @@ class MagosSettings(BaseSettings):
         le=65535,
         description=(
             "mitmproxy listener port override. When unset, falls back to "
-            "``ingress.mitm.port`` in magos.yaml (which defaults to 6247)."
+            "`ingress.mitm.port` in magos.yaml (which defaults to 6247)."
         ),
     )
     mitm_intercept_hosts: tuple[str, ...] | None = Field(
@@ -80,7 +80,7 @@ class MagosSettings(BaseSettings):
         description=(
             "Comma-separated list of hosts (and their subdomains) the "
             "mitmproxy ingress should TLS-terminate and route through magos. "
-            "When unset, falls back to ``ingress.mitm.intercept_hosts`` in "
+            "When unset, falls back to `ingress.mitm.intercept_hosts` in "
             "magos.yaml. Empty string yields an empty tuple."
         ),
     )
@@ -105,7 +105,7 @@ class MagosSettings(BaseSettings):
         default_factory=lambda: str(magos_home() / "magos.yaml"),
         description=(
             "Path to the routing config YAML. Defaults to $MAGOS_HOME/magos.yaml "
-            "(``~/.magos/magos.yaml`` when MAGOS_HOME is unset); override with "
+            "(`~/.magos/magos.yaml` when MAGOS_HOME is unset); override with "
             "MAGOS_CONFIG_PATH or the --config CLI flag. The file must exist; "
             "ship a copy of magos.example.yaml as a starting point."
         ),
@@ -115,11 +115,11 @@ class MagosSettings(BaseSettings):
         default=None,
         description=(
             "Override for the registry's models.json location. When set, wins "
-            "over yaml's ``registry.models_path``; when unset, the yaml value "
-            "(or the derived default ``$MAGOS_HOME/models.json``) applies. "
-            "Same path semantics as the yaml field: ``~`` expands against the "
+            "over yaml's `registry.models_path`; when unset, the yaml value "
+            "(or the derived default `$MAGOS_HOME/models.json`) applies. "
+            "Same path semantics as the yaml field: `~` expands against the "
             "OS user home, absolute paths pass through, relative paths anchor "
-            "to ``$MAGOS_HOME``."
+            "to `$MAGOS_HOME`."
         ),
     )
 

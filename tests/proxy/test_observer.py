@@ -2,7 +2,7 @@
 
 The behavioural surface is small: which hosts are matched and which logs are
 emitted. We test the host predicate directly and assert log shape via
-``structlog.testing.capture_logs``.
+`structlog.testing.capture_logs`.
 """
 
 from __future__ import annotations

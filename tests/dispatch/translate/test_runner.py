@@ -1,7 +1,7 @@
 """Unit tests for the generic translate runner (proxy_translate / stream_translate).
 
-These tests verify the ``on_complete`` kwarg is accepted and forwarded to
-``log_usage_from_body`` / ``tap_stream``.  The functional behaviour of each
+These tests verify the `on_complete` kwarg is accepted and forwarded to
+`log_usage_from_body` / `tap_stream`.  The functional behaviour of each
 per-shape adapter is covered by the sibling test files.
 """
 
@@ -42,7 +42,7 @@ _ANTHROPIC_RESPONSE_WITH_USAGE: dict[str, Any] = {
 
 
 def test_proxy_translate_on_complete_fires_with_usage() -> None:
-    """``on_complete`` is called once with the extracted ``Usage`` on success."""
+    """`on_complete` is called once with the extracted `Usage` on success."""
 
     seen: list[Usage] = []
 
@@ -65,12 +65,12 @@ def test_proxy_translate_on_complete_fires_with_usage() -> None:
 
 
 def test_proxy_translate_on_complete_not_called_when_usage_empty() -> None:
-    """``on_complete`` is NOT called when the response carries no usage."""
+    """`on_complete` is NOT called when the response carries no usage."""
 
     seen: list[Usage] = []
 
     async def fake(**_: Any) -> dict[str, Any]:
-        # No ``usage`` key → Usage() → is_empty == True
+        # No `usage` key → Usage() → is_empty == True
         return {
             "type": "message",
             "id": "msg_2",
@@ -93,7 +93,7 @@ def test_proxy_translate_on_complete_not_called_when_usage_empty() -> None:
 
 
 def test_proxy_translate_without_on_complete_is_unaffected() -> None:
-    """Omitting ``on_complete`` (default ``None``) keeps existing behaviour."""
+    """Omitting `on_complete` (default `None`) keeps existing behaviour."""
 
     async def fake(**_: Any) -> dict[str, Any]:
         return _ANTHROPIC_RESPONSE_WITH_USAGE
@@ -116,7 +116,7 @@ def test_proxy_translate_without_on_complete_is_unaffected() -> None:
 
 
 def test_stream_translate_accepts_on_complete_kwarg() -> None:
-    """``stream_translate`` accepts ``on_complete`` and does not raise."""
+    """`stream_translate` accepts `on_complete` and does not raise."""
 
     chunks = [
         b'event: message_start\ndata: {"type": "message_start", "message": {"usage": {"input_tokens": 50, "output_tokens": 0}, "model": "claude-x"}}\n\n',
@@ -154,7 +154,7 @@ def test_stream_translate_accepts_on_complete_kwarg() -> None:
 
 
 def test_stream_translate_without_on_complete_is_unaffected() -> None:
-    """Omitting ``on_complete`` keeps existing streaming behaviour."""
+    """Omitting `on_complete` keeps existing streaming behaviour."""
 
     chunks = [b"event: message_stop\ndata: {}\n\n"]
 

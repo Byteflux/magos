@@ -1,8 +1,8 @@
 """Prometheus exporter wiring for OTel meters.
 
-``configure_meter_provider`` installs the global ``MeterProvider`` with
-the Prometheus reader; ``mount_metrics_endpoint`` exposes the result at
-``GET /metrics``. Mounting (rather than ``start_http_server``) keeps
+`configure_meter_provider` installs the global `MeterProvider` with
+the Prometheus reader; `mount_metrics_endpoint` exposes the result at
+`GET /metrics`. Mounting (rather than `start_http_server`) keeps
 HTTP API + admin + metrics on one port.
 """
 
@@ -18,7 +18,7 @@ log = get_logger("magos.telemetry.metrics")
 def configure_meter_provider() -> None:
     """Install a global OTel MeterProvider with the Prometheus exporter.
 
-    Idempotent: ``set_meter_provider`` only honors the first real provider per process.
+    Idempotent: `set_meter_provider` only honors the first real provider per process.
     """
     try:
         from opentelemetry import metrics  # noqa: PLC0415
@@ -38,7 +38,7 @@ def configure_meter_provider() -> None:
 
 
 def mount_metrics_endpoint(app: FastAPI) -> None:
-    """Expose Prometheus-format metrics at ``GET /metrics``."""
+    """Expose Prometheus-format metrics at `GET /metrics`."""
     try:
         from prometheus_client import (  # noqa: PLC0415
             CONTENT_TYPE_LATEST,

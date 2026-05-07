@@ -1,7 +1,7 @@
 """Inbound header filter (stage 1 of 3). Drops hop-by-hop (RFC 7230)
 and content-shaping headers; forwards the rest verbatim to preserve
 auth, version pins, and Anthropic prompt-cache hashes. See
-``docs/architecture/headers-and-auth.md``."""
+`docs/architecture/headers-and-auth.md`."""
 
 from __future__ import annotations
 

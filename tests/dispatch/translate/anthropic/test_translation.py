@@ -1,4 +1,4 @@
-"""Body translation: ``output_config`` mapping, ``additionalProperties`` coercion,
+"""Body translation: `output_config` mapping, `additionalProperties` coercion,
 unknown-field stripping. Anthropic-bound traffic must be left alone so prompt-
 cache byte-equivalence is preserved.
 """
@@ -17,10 +17,10 @@ from tests.dispatch.translate.anthropic._helpers import proxy_anthropic_messages
 def test_proxy_anthropic_messages_strips_unknown_fields_for_non_anthropic() -> None:
     """Anthropic-only body fields must not leak through to non-Anthropic upstreams.
 
-    LiteLLM's ``anthropic_messages`` only translates canonical Anthropic
-    Messages fields to OpenAI shape; unknown fields fall through to ``**kwargs``
-    and surface inside the destination SDK as ``unexpected keyword argument``
-    errors (e.g. ``output_config``, ``context_management`` from Claude Code).
+    LiteLLM's `anthropic_messages` only translates canonical Anthropic
+    Messages fields to OpenAI shape; unknown fields fall through to `**kwargs`
+    and surface inside the destination SDK as `unexpected keyword argument`
+    errors (e.g. `output_config`, `context_management` from Claude Code).
     Verify the proxy strips them before dispatch when the target is not
     Anthropic, and leaves them alone when it is.
     """
@@ -79,15 +79,15 @@ def test_proxy_anthropic_messages_strips_unknown_fields_for_non_anthropic() -> N
 
 
 def test_proxy_anthropic_messages_coerces_empty_additional_properties() -> None:
-    """``additionalProperties: {}`` becomes ``true`` for non-Anthropic dispatch.
+    """`additionalProperties: {}` becomes `true` for non-Anthropic dispatch.
 
     Reproduces the Vultr / custom_openai failure: Anthropic accepts
-    ``additionalProperties: {}`` (empty schema = "any extras allowed");
-    Vultr's metaschema validator misreports it as ``[]`` and rejects with
-    ``[] is not of type 'object', 'boolean'``. ``true`` is the same
+    `additionalProperties: {}` (empty schema = "any extras allowed");
+    Vultr's metaschema validator misreports it as `[]` and rejects with
+    `[] is not of type 'object', 'boolean'`. `true` is the same
     semantics and routes cleanly through the validator.
 
-    Anthropic-bound traffic is left alone -- the original ``{}`` flows
+    Anthropic-bound traffic is left alone -- the original `{}` flows
     verbatim so prompt-cache byte-equivalence is preserved.
     """
     seen: dict[str, Any] = {}

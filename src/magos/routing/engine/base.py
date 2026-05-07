@@ -1,7 +1,7 @@
-"""``Router``: ABC for the routing rule engine.
+"""`Router`: ABC for the routing rule engine.
 
-Implementations: :class:`RuleBasedRouter` (rule-based, the canonical engine),
-:class:`AutoRouter` (registry-driven fallback), :class:`MeasuredRouter`
+Implementations: `RuleBasedRouter` (rule-based, the canonical engine),
+`AutoRouter` (registry-driven fallback), `MeasuredRouter`
 (decorator).
 """
 
@@ -19,4 +19,4 @@ class Router(ABC):
 
     @abstractmethod
     def route(self, req: RoutedRequest) -> RouteDecision | RouteError:
-        """Resolve ``req`` into a decision or an error."""
+        """Resolve `req` into a decision or an error."""

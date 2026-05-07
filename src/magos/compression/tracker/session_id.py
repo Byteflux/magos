@@ -1,8 +1,8 @@
-"""Session-id derivation for the ``magos.compression.tracker`` tracker store.
+"""Session-id derivation for the `magos.compression.tracker` tracker store.
 
-Honors ``x-magos-session-id`` if the client supplies one (prefixed
-``explicit:``); otherwise hashes (provider + auth-prefix + model +
-system-bytes) into a ``derived:<sha1>`` id.
+Honors `x-magos-session-id` if the client supplies one (prefixed
+`explicit:`); otherwise hashes (provider + auth-prefix + model +
+system-bytes) into a `derived:<sha1>` id.
 """
 
 from __future__ import annotations
@@ -19,9 +19,9 @@ _BEARER_PREFIX = "Bearer "
 
 # Compression providers map to a representative wire shape for body
 # extraction. Both OpenAI shapes encode system identically (no top-level
-# field; first ``role=system`` entry inside ``messages``), so
-# ``OPENAI_CHAT`` stands in for both — Responses bodies have neither
-# ``messages`` nor a system-prompt field, so the extractor returns empty
+# field; first `role=system` entry inside `messages`), so
+# `OPENAI_CHAT` stands in for both — Responses bodies have neither
+# `messages` nor a system-prompt field, so the extractor returns empty
 # bytes either way.
 _PROVIDER_SHAPE: dict[ProviderName, Shape] = {
     "anthropic": ANTHROPIC,
@@ -34,7 +34,7 @@ def derive_session_id(
     body: Mapping[str, Any],
     provider: ProviderName,
 ) -> str:
-    """Return a stable session id used to look up the tracker for ``body``."""
+    """Return a stable session id used to look up the tracker for `body`."""
     explicit = headers.get("x-magos-session-id", "").strip()
     if explicit:
         return f"explicit:{explicit}"
@@ -49,7 +49,7 @@ def derive_session_id(
 
 
 def _extract_auth_prefix(headers: Mapping[str, str]) -> str:
-    """First ``_AUTH_PREFIX_LEN`` chars of the api key found in headers, or ``""``."""
+    """First `_AUTH_PREFIX_LEN` chars of the api key found in headers, or `""`."""
     auth = headers.get("authorization", "")
     if auth.startswith(_BEARER_PREFIX):
         return auth[len(_BEARER_PREFIX) : len(_BEARER_PREFIX) + _AUTH_PREFIX_LEN]

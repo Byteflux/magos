@@ -1,4 +1,4 @@
-"""Tests for registry-driven auto-routing in ``magos.routing.engine``."""
+"""Tests for registry-driven auto-routing in `magos.routing.engine`."""
 
 from __future__ import annotations
 
@@ -97,9 +97,9 @@ def test_auto_route_propagates_provider_api_key_env_and_base_url() -> None:
     """Auto-routed action picks up creds from the matching ProviderConfig.
 
     Without this, an openai-compatible third-party (e.g. Vultr via
-    ``custom_openai``) would land in the dispatcher with no api_key/api_base
-    and LiteLLM would silently fall back to ``OPENAI_API_KEY`` against
-    ``api.openai.com`` -- producing a misleading 401.
+    `custom_openai`) would land in the dispatcher with no api_key/api_base
+    and LiteLLM would silently fall back to `OPENAI_API_KEY` against
+    `api.openai.com` -- producing a misleading 401.
     """
     cfg = _routing_cfg()
     registry = _registry_with(
@@ -131,12 +131,12 @@ def test_auto_route_propagates_provider_api_key_env_and_base_url() -> None:
 
 
 def test_explicit_rule_inherits_creds_from_provider_config() -> None:
-    """Target declaring only ``provider:`` picks up creds from ``providers:``.
+    """Target declaring only `provider:` picks up creds from `providers:`.
 
-    Without this, an explicit ``rewrites: [set_model: vultr/...]`` rule
-    with ``action: { provider: vultr, mode: translate }`` would dispatch
-    with no api_key/api_base, and LiteLLM would fall back to ``OPENAI_API_KEY``
-    against ``api.openai.com`` -- the failure we just fixed for auto-route.
+    Without this, an explicit `rewrites: [set_model: vultr/...]` rule
+    with `action: { provider: vultr, mode: translate }` would dispatch
+    with no api_key/api_base, and LiteLLM would fall back to `OPENAI_API_KEY`
+    against `api.openai.com` -- the failure we just fixed for auto-route.
     """
     cfg = RoutingConfig.model_validate(
         {

@@ -1,11 +1,11 @@
 """Pure pipeline functions: merge, diff, and override conversion.
 
-These compose ``merge_entries`` (single-entry field precedence from
-``magos.registry.merge``) with discovery results, overrides, and LiteLLM
+These compose `merge_entries` (single-entry field precedence from
+`magos.registry.merge`) with discovery results, overrides, and LiteLLM
 lookups into the higher-level per-provider operations used by the refresher.
 No I/O, no logging, no async.
 
-See ``docs/registry/overview.md``.
+See `docs/registry/overview.md`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from magos.registry.state import ModelEntry
 
 @dataclass(frozen=True, slots=True)
 class ProviderDiff:
-    """Per-provider deltas produced by ``diff_provider`` for observability."""
+    """Per-provider deltas produced by `diff_provider` for observability."""
 
     total: int
     added: int
@@ -31,10 +31,10 @@ class ProviderDiff:
 
 
 def override_to_partial(override: ModelOverride | None) -> PartialEntry | None:
-    """Convert a ``ModelOverride`` config entry to a ``PartialEntry`` for merge.
+    """Convert a `ModelOverride` config entry to a `PartialEntry` for merge.
 
-    Returns ``None`` when ``override`` is ``None`` so callers can pass the
-    result directly to ``merge`` without extra None-checks.
+    Returns `None` when `override` is `None` so callers can pass the
+    result directly to `merge` without extra None-checks.
     """
     if override is None:
         return None
@@ -57,7 +57,7 @@ def merge_provider(
     result: DiscoveryResult,
     litellm_lookup: GetModelInfoFn | None = None,
 ) -> dict[str, ModelEntry]:
-    """Build fresh entries for ``provider_name``: discovered models +
+    """Build fresh entries for `provider_name`: discovered models +
     their overrides + litellm fallback, plus override-only entries
     (those not seen in discovery) synthesised manually.
     """
@@ -140,6 +140,6 @@ def _effective_litellm_id(default: str, override: ModelOverride | None) -> str:
 
 
 def _default_manual_litellm_id(provider_name: str, cfg: ProviderConfig, raw_id: str) -> str:
-    """``<litellm_provider or provider_name>/<raw_id>`` for manual-only entries."""
+    """`<litellm_provider or provider_name>/<raw_id>` for manual-only entries."""
     prefix = cfg.litellm_provider or provider_name
     return f"{prefix}/{raw_id}"

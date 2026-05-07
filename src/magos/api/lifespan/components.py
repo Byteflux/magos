@@ -1,5 +1,5 @@
 """Generic lifespan phases: metrics meter, compression-pipeline warmup,
-registry refresher. Kompress-specific components live in :mod:`kompress`.
+registry refresher. Kompress-specific components live in `kompress`.
 """
 
 from __future__ import annotations

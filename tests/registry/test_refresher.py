@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.refresher`` lifecycle controller."""
+"""Tests for `magos.registry.refresher` lifecycle controller."""
 
 from __future__ import annotations
 
@@ -202,12 +202,12 @@ def test_boot_discovery_failure_leaves_provider_empty(tmp_path: Path) -> None:
 
 
 def test_refresh_loop_swallows_unexpected_exception_to_keep_polling(tmp_path: Path) -> None:
-    """Non-``DiscoveryError`` exceptions must not escape the loop wrapper.
+    """Non-`DiscoveryError` exceptions must not escape the loop wrapper.
 
     asyncio Tasks store unhandled exceptions silently while a strong
-    reference is held (see ``Refresher._tasks``), so any exception that
-    escapes ``_refresh_one_safe`` would kill periodic refresh forever
-    without a single log line. The wrapper must catch ``Exception`` and
+    reference is held (see `Refresher._tasks`), so any exception that
+    escapes `_refresh_one_safe` would kill periodic refresh forever
+    without a single log line. The wrapper must catch `Exception` and
     log it so the next interval still fires.
     """
     target = tmp_path / "models.json"

@@ -1,8 +1,8 @@
 """Field-precedence merge: override > discovery > litellm.
 
-Pure function over ``PartialEntry`` plus pre-resolved identifiers.
-``sources`` records contributors in priority order. See
-``docs/registry/overview.md``.
+Pure function over `PartialEntry` plus pre-resolved identifiers.
+`sources` records contributors in priority order. See
+`docs/registry/overview.md`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def merge(
     discovered: PartialEntry | None = None,
     litellm_fallback: PartialEntry | None = None,
 ) -> ModelEntry:
-    """Combine partials into a ``ModelEntry``; ``default_litellm_id`` is
+    """Combine partials into a `ModelEntry`; `default_litellm_id` is
     the dispatch id used when no source supplies one.
     """
     chain_named: tuple[tuple[str, PartialEntry | None], ...] = (

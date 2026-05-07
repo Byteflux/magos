@@ -1,4 +1,4 @@
-"""``RuleBasedRouter``: declarative rule engine. See ``docs/routing/pipeline.md``."""
+"""`RuleBasedRouter`: declarative rule engine. See `docs/routing/pipeline.md`."""
 
 from __future__ import annotations
 
@@ -22,10 +22,10 @@ from magos.routing.schema import GuardedTransforms, RoutingConfig, Rule, Target
 
 
 class RuleBasedRouter(Router):
-    """Rule-based router. Walks ``cfg.rules``; first match wins; falls through to auto-route.
+    """Rule-based router. Walks `cfg.rules`; first match wins; falls through to auto-route.
 
     Long-lived collaborators are constructor-injected. Dynamic registry
-    state is read from ``refresher`` per call (the refresher updates its
+    state is read from `refresher` per call (the refresher updates its
     state in the background).
     """
 
@@ -53,7 +53,7 @@ class RuleBasedRouter(Router):
         )
 
     def route(self, req: RoutedRequest) -> RouteDecision | RouteError:
-        """Resolve ``req`` against ``self._cfg``; first matching rule wins, else auto-route."""
+        """Resolve `req` against `self._cfg`; first matching rule wins, else auto-route."""
         registry = self._refresher.state if self._refresher is not None else None
         return _route(
             req,
@@ -96,7 +96,7 @@ def _route(
     provider_order: tuple[str, ...],
     auto: AutoRouter | None = None,
 ) -> RouteDecision | RouteError:
-    """Core routing pipeline. Shared by ``RuleBasedRouter.route`` and ``route()``."""
+    """Core routing pipeline. Shared by `RuleBasedRouter.route` and `route()`."""
     pre_applied = apply_pre_transforms(req, cfg, registry=registry)
     for rule in cfg.rules:
         if not matches(rule.match, pre_applied, registry=registry):
@@ -144,12 +144,12 @@ def _route(
 def _fill_target_from_provider_config(
     rule: Rule, providers: Mapping[str, ProviderConfig] | None
 ) -> Rule:
-    """Backfill missing ``api_key_env`` / ``base_url`` from ``providers``.
+    """Backfill missing `api_key_env` / `base_url` from `providers`.
 
     Without this fill, LiteLLM falls back to its per-provider defaults
-    (e.g. ``OPENAI_API_KEY`` / ``api.openai.com`` for ``custom_openai``-style
+    (e.g. `OPENAI_API_KEY` / `api.openai.com` for `custom_openai`-style
     providers like Vultr or hosted vLLM), producing misleading 401s.
-    See ``docs/routing/api-keys.md``.
+    See `docs/routing/api-keys.md`.
     """
     if providers is None or not rule.target.provider:
         return rule
@@ -164,7 +164,7 @@ def _fill_target_from_provider_config(
 def _compute_dispatch_model(
     req: RoutedRequest, target: Target, registry: RegistryState | None
 ) -> str:
-    """Return the model id to hand LiteLLM. See ``docs/registry/auto-routing.md``."""
+    """Return the model id to hand LiteLLM. See `docs/registry/auto-routing.md`."""
     model = str(req.body.get("model", ""))
     if target.gateway == "passthrough":
         return model

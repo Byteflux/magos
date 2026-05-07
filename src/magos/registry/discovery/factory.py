@@ -1,8 +1,8 @@
-"""Adapter factory: map ``ProviderConfig`` to a concrete adapter.
+"""Adapter factory: map `ProviderConfig` to a concrete adapter.
 
-When ``discovery`` is unset, the host of ``base_url`` picks a default;
-unset ``base_url`` falls back to ``noop`` (manual-only). See
-``docs/registry/config.md``.
+When `discovery` is unset, the host of `base_url` picks a default;
+unset `base_url` falls back to `noop` (manual-only). See
+`docs/registry/config.md`.
 """
 
 from __future__ import annotations
@@ -27,9 +27,9 @@ _ADAPTERS: dict[str, type[DiscoveryAdapter]] = {
 
 
 def adapter_for(config: ProviderConfig) -> DiscoveryAdapter:
-    """Return a fresh adapter instance for ``config``.
+    """Return a fresh adapter instance for `config`.
 
-    Explicit ``discovery`` wins; otherwise the host of ``base_url`` is
+    Explicit `discovery` wins; otherwise the host of `base_url` is
     inspected to pick a sensible default.
     """
     name = config.discovery or _infer_adapter(config.base_url)

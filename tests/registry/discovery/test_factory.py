@@ -1,4 +1,4 @@
-"""``adapter_for`` resolves each known ``discovery:`` value to its class."""
+"""`adapter_for` resolves each known `discovery:` value to its class."""
 
 from __future__ import annotations
 

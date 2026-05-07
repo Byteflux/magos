@@ -1,4 +1,4 @@
-"""Tests for ``magos models`` Typer subcommands."""
+"""Tests for `magos models` Typer subcommands."""
 
 from __future__ import annotations
 

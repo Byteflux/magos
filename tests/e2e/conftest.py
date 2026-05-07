@@ -1,8 +1,8 @@
 """Repo-wide skip-gate for the e2e suite.
 
-Set ``MAGOS_E2E=1`` to opt in. Applies to every test under ``tests/e2e/``
-via ``pytest_collection_modifyitems`` so individual files don't need to
-declare ``pytestmark`` themselves.
+Set `MAGOS_E2E=1` to opt in. Applies to every test under `tests/e2e/`
+via `pytest_collection_modifyitems` so individual files don't need to
+declare `pytestmark` themselves.
 """
 
 from __future__ import annotations

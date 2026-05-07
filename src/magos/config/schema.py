@@ -1,6 +1,6 @@
-"""Pydantic schemas for the ``ingress:`` block in ``magos.yaml``.
+"""Pydantic schemas for the `ingress:` block in `magos.yaml`.
 
-See ``docs/ingress.md`` and ``docs/architecture/env-vars.md``.
+See `docs/ingress.md` and `docs/architecture/env-vars.md`.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ class MitmIngressConfig(_Frozen):
 
 
 class MagosIngressConfig(_Frozen):
-    """Top-level ``ingress:`` block: HTTP bind + optional mitm proxy."""
+    """Top-level `ingress:` block: HTTP bind + optional mitm proxy."""
 
     http: HttpIngressConfig = Field(default_factory=HttpIngressConfig)
     mitm: MitmIngressConfig = Field(default_factory=MitmIngressConfig)

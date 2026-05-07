@@ -1,4 +1,4 @@
-"""``magos models`` subapp: inspect and manage the model registry. See ``docs/cli.md``."""
+"""`magos models` subapp: inspect and manage the model registry. See `docs/cli.md`."""
 
 from __future__ import annotations
 

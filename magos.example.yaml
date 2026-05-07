@@ -1,6 +1,6 @@
 # magos routing config: declarative rule-based dispatch.
 #
-# Copy this file to ``magos.yaml`` (or set ``MAGOS_CONFIG_PATH``) and edit
+# Copy this file to `magos.yaml` (or set `MAGOS_CONFIG_PATH`) and edit
 # rules to match your deployment. Rules are evaluated in order; the first
 # match wins. An unmatched request returns 404 with an endpoint-shaped
 # error envelope.
@@ -22,9 +22,9 @@
 # also be set via MAGOS_HOST / MAGOS_PORT (env wins). When
 # ingress.mitm.enabled is true, an embedded mitmproxy listener runs
 # alongside FastAPI on the same process and same asyncio loop. A client
-# whose ``HTTPS_PROXY`` points at ``mitm.host:mitm.port`` will see
+# whose `HTTPS_PROXY` points at `mitm.host:mitm.port` will see
 # TLS interception (and routing-rule evaluation) for any host that
-# matches ``intercept_hosts`` (or its subdomains). Everything else flows
+# matches `intercept_hosts` (or its subdomains). Everything else flows
 # through un-MITM'd. See docs/ingress.md for the one-time CA trust step.
 #
 # Loop hazard: don't set HTTPS_PROXY system-wide, or magos's own outbound
@@ -45,8 +45,8 @@ ingress:
 # pipeline (CacheAligner + ContentRouter + IntelligentContext) where the
 # endpoint supports it (/v1/messages, /v1/messages/count_tokens,
 # /v1/chat/completions); /v1/responses no-ops in token mode (use a per-rule
-# ``compress: { engine: cache }`` if you want cache-alignment there). To
-# disable globally, set ``pre_transforms: []``.
+# `compress: { engine: cache }` if you want cache-alignment there). To
+# disable globally, set `pre_transforms: []`.
 pre_transforms:
   - compress: {}
 
@@ -150,8 +150,8 @@ rules:
       gateway: translate
 
   # Example: enable Headroom compression for long-context Claude requests.
-  # ``engine: token`` runs the full pipeline (CacheAligner + ContentRouter +
-  # IntelligentContext); ``engine: cache`` only stabilises the prefix for
+  # `engine: token` runs the full pipeline (CacheAligner + ContentRouter +
+  # IntelligentContext); `engine: cache` only stabilises the prefix for
   # provider prompt-cache hits without rewriting message content.
   #
   # - name: claude-compress-long-context
@@ -166,16 +166,16 @@ rules:
   #         protect_recent: 8
   #         target_ratio: 0.6
   #         # CCR (reversible compression) is on by default; set
-  #         # ``ccr_enabled: false`` to disable tool/instruction injection,
-  #         # or ``ccr_inject_tool: false`` if a client already distributes
-  #         # the ``headroom_retrieve`` tool via MCP. See docs/routing/grammar.md.
+  #         # `ccr_enabled: false` to disable tool/instruction injection,
+  #         # or `ccr_inject_tool: false` if a client already distributes
+  #         # the `headroom_retrieve` tool via MCP. See docs/routing/grammar.md.
   #   target:
   #     provider: anthropic
   #     gateway: translate
 
-  # Example: cache-align the OpenAI Responses ``instructions`` prefix.
-  # /v1/responses supports ``engine: cache`` only (against ``instructions``);
-  # token-mode compression of the ``input`` field is not implemented.
+  # Example: cache-align the OpenAI Responses `instructions` prefix.
+  # /v1/responses supports `engine: cache` only (against `instructions`);
+  # token-mode compression of the `input` field is not implemented.
   #
   # - name: responses-cache-align
   #   match:
@@ -186,8 +186,8 @@ rules:
   #     provider: openai
   #     gateway: translate
 
-# Optional: model registry. When ``providers:`` is non-empty, magos polls
-# each provider's discovery endpoint, persists ``models.json``, and falls
+# Optional: model registry. When `providers:` is non-empty, magos polls
+# each provider's discovery endpoint, persists `models.json`, and falls
 # back to auto-routing for requests no rule matches. Explicit rules above
 # always win; the registry only catches the unmatched. See docs/registry.md
 # for the full grammar and lifecycle.

@@ -1,6 +1,6 @@
 """API-key resolution and per-provider auth-header injection.
 
-See ``docs/architecture/headers-and-auth.md``.
+See `docs/architecture/headers-and-auth.md`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ def maybe_inject_api_key(headers: dict[str, str], target: Target) -> dict[str, s
     """In passthrough mode, inject the env-resolved API key when absent.
 
     See module docstring for shape rules. Skipped entirely when the
-    inbound request already carries ``Authorization`` or ``x-api-key``.
+    inbound request already carries `Authorization` or `x-api-key`.
     """
     if target.gateway != "passthrough" or not target.api_key_env:
         return headers
@@ -47,7 +47,7 @@ def _default_auth_header(provider: str) -> str:
 
 
 def resolve_api_key(api_key_env: str | None) -> str | None:
-    """Translate-mode helper: read ``api_key_env`` from the environment."""
+    """Translate-mode helper: read `api_key_env` from the environment."""
     if not api_key_env:
         return None
     value = os.environ.get(api_key_env)

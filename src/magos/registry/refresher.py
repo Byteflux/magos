@@ -1,8 +1,8 @@
 """Async lifecycle owner for the registry.
 
 Per-provider refresh tasks; boot discovery has tighter timeouts and
-fewer attempts than background. Sole writer to ``models.json`` (under
-one ``asyncio.Lock``). See ``docs/registry/overview.md``.
+fewer attempts than background. Sole writer to `models.json` (under
+one `asyncio.Lock`). See `docs/registry/overview.md`.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ def _default_client_factory(timeout: float) -> httpx.AsyncClient:
 
 
 class Refresher:
-    """Background owner of ``RegistryState`` with per-provider refresh tasks."""
+    """Background owner of `RegistryState` with per-provider refresh tasks."""
 
     def __init__(
         self,
@@ -150,10 +150,10 @@ class Refresher:
         """Run one refresh, swallowing every exception so the loop survives.
 
         Unhandled exceptions kill the asyncio Task silently because
-        ``self._tasks`` holds a strong reference; that suppresses the
+        `self._tasks` holds a strong reference; that suppresses the
         "Task exception was never retrieved" warning and refresh stops
-        forever. ``DiscoveryError`` is expected (transport/auth/parse);
-        anything else is a bug we surface via ``log.exception``.
+        forever. `DiscoveryError` is expected (transport/auth/parse);
+        anything else is a bug we surface via `log.exception`.
         """
         try:
             await self._refresh_one(

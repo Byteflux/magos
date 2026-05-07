@@ -1,17 +1,17 @@
-"""``GET /v1/models`` listing tests.
+"""`GET /v1/models` listing tests.
 
 Covers:
 
 - empty payload when the registry feature is dormant (no refresher)
 - OpenAI shape (default) when no Anthropic-flavoured headers are sent
-- Anthropic shape selected by ``anthropic-version`` and by ``x-api-key``
-- deprecated entries omitted; output sorted by ``namespaced_id``
-- ``created`` / ``created_at`` fields derive from
-  ``RegistryState.refreshed_at``
+- Anthropic shape selected by `anthropic-version` and by `x-api-key`
+- deprecated entries omitted; output sorted by `namespaced_id`
+- `created` / `created_at` fields derive from
+  `RegistryState.refreshed_at`
 
-The endpoint reads ``app.state.refresher.state`` and nothing else, so
+The endpoint reads `app.state.refresher.state` and nothing else, so
 the data-bearing tests assign a tiny stub directly and skip the
-lifespan dance; building a real ``Refresher`` would mean fighting
+lifespan dance; building a real `Refresher` would mean fighting
 boot discovery and per-provider refresh tasks for no added coverage.
 """
 
@@ -44,7 +44,7 @@ def _routing_only() -> RoutingConfig:
 
 @dataclass
 class _StubRefresher:
-    """Minimal stand-in: the endpoint only ever reads ``.state``."""
+    """Minimal stand-in: the endpoint only ever reads `.state`."""
 
     state: RegistryState
 
@@ -83,9 +83,9 @@ def _seeded_state() -> RegistryState:
 
 
 def _client_with_state(state: RegistryState | None) -> TestClient:
-    """Build a client whose ``app.state.refresher`` is a stub or ``None``.
+    """Build a client whose `app.state.refresher` is a stub or `None`.
 
-    Skipping the ``with TestClient(...)`` form avoids running the real
+    Skipping the `with TestClient(...)` form avoids running the real
     lifespan (which would clobber a stub refresher and try to start
     background tasks).
     """

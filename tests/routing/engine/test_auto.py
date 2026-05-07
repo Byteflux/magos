@@ -1,4 +1,4 @@
-"""Tests for ``magos.routing.engine.auto`` registry-driven fallback."""
+"""Tests for `magos.routing.engine.auto` registry-driven fallback."""
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def test_try_auto_route_returns_none_on_empty_model() -> None:
 
 
 def test_try_auto_route_passthrough_on_unknown_when_configured() -> None:
-    """``on_unknown_model: passthrough`` yields a translate decision for unknown models."""
+    """`on_unknown_model: passthrough` yields a translate decision for unknown models."""
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "openai/gpt-99"})
@@ -126,7 +126,7 @@ def test_try_auto_route_passthrough_on_unknown_when_configured() -> None:
 
 
 def test_try_auto_route_no_passthrough_without_setting() -> None:
-    """Without ``on_unknown_model`` setting, miss returns None."""
+    """Without `on_unknown_model` setting, miss returns None."""
     registry = RegistryState()
     req = _req(body={"model": "openai/gpt-99"})
     assert _router().try_route(req, registry=registry) is None
@@ -166,7 +166,7 @@ def test_try_auto_route_decision_is_auto_routed() -> None:
 
 
 def test_bare_id_resolves_via_provider_order() -> None:
-    """Bare ``model`` with multiple providers picks via ``provider_order``."""
+    """Bare `model` with multiple providers picks via `provider_order`."""
     a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)
@@ -178,7 +178,7 @@ def test_bare_id_resolves_via_provider_order() -> None:
 
 
 def test_bare_id_pin_beats_provider_order() -> None:
-    """A pin overrides ``provider_order`` for that raw id."""
+    """A pin overrides `provider_order` for that raw id."""
     a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)
@@ -192,7 +192,7 @@ def test_bare_id_pin_beats_provider_order() -> None:
 
 
 def test_bare_id_falls_back_to_lex_smallest() -> None:
-    """No pin, no ``provider_order`` match: lex-smallest provider wins."""
+    """No pin, no `provider_order` match: lex-smallest provider wins."""
     a = _entry(provider="zeta", raw_id="claude-x", litellm_id="zeta/claude-x")
     b = _entry(provider="alpha", raw_id="claude-x", litellm_id="alpha/claude-x")
     registry = make_registry(a, b)
@@ -216,7 +216,7 @@ def test_bare_id_pin_to_absent_provider_is_ignored() -> None:
 
 
 def test_bare_id_miss_falls_through_to_unknown_passthrough() -> None:
-    """Bare id with no candidates honours ``on_unknown_model: passthrough``."""
+    """Bare id with no candidates honours `on_unknown_model: passthrough`."""
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "ghost"})
@@ -226,7 +226,7 @@ def test_bare_id_miss_falls_through_to_unknown_passthrough() -> None:
 
 
 def test_namespaced_hit_short_circuits_bare_id_path() -> None:
-    """A direct namespaced hit ignores ``provider_order``."""
+    """A direct namespaced hit ignores `provider_order`."""
     a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)

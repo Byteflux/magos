@@ -1,7 +1,7 @@
-"""``MeasuredRouter``: decorator that emits an OTel counter per routing decision.
+"""`MeasuredRouter`: decorator that emits an OTel counter per routing decision.
 
-Wraps any :class:`Router`. Wired by the composition root in Phase F when
-``cfg.settings.metrics_enabled``.
+Wraps any `Router`. Wired by the composition root in Phase F when
+`cfg.settings.metrics_enabled`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ _decisions_total = _meter.create_counter(
 
 
 class MeasuredRouter(Router):
-    """Decorator: count each ``inner.route(req)`` outcome."""
+    """Decorator: count each `inner.route(req)` outcome."""
 
     def __init__(self, inner: Router) -> None:
         self._inner = inner

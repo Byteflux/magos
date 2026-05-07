@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.provider_order`` tie-break."""
+"""Tests for `magos.registry.provider_order` tie-break."""
 
 from __future__ import annotations
 

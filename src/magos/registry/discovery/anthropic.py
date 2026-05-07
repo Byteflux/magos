@@ -1,9 +1,9 @@
-"""Anthropic ``GET /v1/models`` adapter.
+"""Anthropic `GET /v1/models` adapter.
 
-Endpoint returns just ``id``; merge fills the rest. ``sk-ant-oat...``
-OAuth tokens use ``Authorization: Bearer`` + ``anthropic-beta:
-oauth-2025-04-20``; everything else uses ``x-api-key``. All requests
-require ``anthropic-version: 2023-06-01``.
+Endpoint returns just `id`; merge fills the rest. `sk-ant-oat...`
+OAuth tokens use `Authorization: Bearer` + `anthropic-beta:
+oauth-2025-04-20`; everything else uses `x-api-key`. All requests
+require `anthropic-version: 2023-06-01`.
 """
 
 from __future__ import annotations
@@ -17,10 +17,10 @@ _DEFAULT_LITELLM_PROVIDER = "anthropic"
 
 
 class AnthropicAdapter(JsonListAdapter):
-    """Calls ``GET {base_url}/v1/models`` and maps ``data[*].id`` to entries."""
+    """Calls `GET {base_url}/v1/models` and maps `data[*].id` to entries."""
 
     name = "anthropic"
-    # LiteLLM's anthropic provider already knows the host; ``None`` signals
+    # LiteLLM's anthropic provider already knows the host; `None` signals
     # that to the refresher. Discovery falls back to _DEFAULT_BASE_URL below.
     default_base_url: str | None = None
 

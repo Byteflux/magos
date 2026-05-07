@@ -1,4 +1,4 @@
-"""``AutoRouter``: registry-driven auto-routing fallback. See ``docs/registry/auto-routing.md``."""
+"""`AutoRouter`: registry-driven auto-routing fallback. See `docs/registry/auto-routing.md`."""
 
 from __future__ import annotations
 
@@ -15,19 +15,19 @@ _AUTO_ROUTE_RULE_NAME = "auto-route"
 
 
 class AutoRouter:
-    """Synthesize a decision from a registry hit, or fall through to ``on_unknown_model``.
+    """Synthesize a decision from a registry hit, or fall through to `on_unknown_model`.
 
     Resolution order:
 
-    1. **Namespaced hit** — ``model`` is already ``<provider>/<raw_id>`` and
+    1. **Namespaced hit** — `model` is already `<provider>/<raw_id>` and
        matches a registry entry directly.
-    2. **Bare-id hit** — ``model`` matches one or more entries' ``raw_id``;
-       provider picked via :func:`resolve_provider` (pin > ``provider_order``
+    2. **Bare-id hit** — `model` matches one or more entries' `raw_id`;
+       provider picked via `resolve_provider` (pin > `provider_order`
        > lex-smallest).
-    3. **Miss** — fall through to ``on_unknown_model``.
+    3. **Miss** — fall through to `on_unknown_model`.
 
-    Constructed once at startup with static registry config; ``try_route``
-    receives the dynamic ``RegistryState`` per call.
+    Constructed once at startup with static registry config; `try_route`
+    receives the dynamic `RegistryState` per call.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class AutoRouter:
         *,
         registry: RegistryState,
     ) -> RouteDecision | None:
-        """Try to resolve ``req`` from the registry. Returns ``None`` on no match."""
+        """Try to resolve `req` from the registry. Returns `None` on no match."""
         model = str(req.body.get("model", ""))
         if not model:
             return None
@@ -79,7 +79,7 @@ class AutoRouter:
 
 
 def provider_cred_overrides(cfg: ProviderConfig | None) -> dict[str, str]:
-    """Return the ``api_key_env`` / ``base_url`` subset set on ``cfg`` (empty if None)."""
+    """Return the `api_key_env` / `base_url` subset set on `cfg` (empty if None)."""
     if cfg is None:
         return {}
     out: dict[str, str] = {}
@@ -98,8 +98,8 @@ def _decision_from_entry(
     """Build a synthetic Rule + RouteDecision; stamps provider creds onto the target.
 
     Without the cred stamp, LiteLLM falls back to per-provider defaults
-    (e.g. ``OPENAI_API_KEY`` / ``api.openai.com``) and yields misleading
-    401s for ``custom_openai``-style providers. See ``docs/routing/api-keys.md``.
+    (e.g. `OPENAI_API_KEY` / `api.openai.com`) and yields misleading
+    401s for `custom_openai`-style providers. See `docs/routing/api-keys.md`.
     """
     target_payload: dict[str, str | None] = {
         "provider": entry.provider,

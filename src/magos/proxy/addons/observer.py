@@ -1,9 +1,9 @@
 """mitmproxy addon: passive structured logging of outbound LLM traffic.
 
-Loaded in-process alongside ``MagosIngressAddon``; can also run out-of-
-process via ``mitmdump -s ... --listen-port 8080`` with magos pointed at
-it via ``HTTPS_PROXY``. Modifies nothing; logs flows whose host matches a
-known LLM provider. See ``docs/ingress.md``.
+Loaded in-process alongside `MagosIngressAddon`; can also run out-of-
+process via `mitmdump -s ... --listen-port 8080` with magos pointed at
+it via `HTTPS_PROXY`. Modifies nothing; logs flows whose host matches a
+known LLM provider. See `docs/ingress.md`.
 """
 
 from __future__ import annotations

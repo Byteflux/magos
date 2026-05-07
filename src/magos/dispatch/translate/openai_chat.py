@@ -1,4 +1,4 @@
-"""``/v1/chat/completions`` translate path via ``litellm.acompletion``."""
+"""`/v1/chat/completions` translate path via `litellm.acompletion`."""
 
 from __future__ import annotations
 

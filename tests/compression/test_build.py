@@ -1,4 +1,4 @@
-"""``build_pipeline`` produces the right transform shape for each config."""
+"""`build_pipeline` produces the right transform shape for each config."""
 
 from __future__ import annotations
 

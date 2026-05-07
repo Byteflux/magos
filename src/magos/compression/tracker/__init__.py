@@ -1,8 +1,8 @@
 """Magos-owned prefix-cache tracking layer.
 
-Wraps ``headroom.cache.prefix_tracker.PrefixCacheTracker`` with a
+Wraps `headroom.cache.prefix_tracker.PrefixCacheTracker` with a
 session-id-keyed store and TTL eviction. The compress routing rewrite
-fetches a tracker per request to read ``frozen_message_count``; the
+fetches a tracker per request to read `frozen_message_count`; the
 egress layer fires post-response hooks that update the tracker with
 the upstream's reported cache_read / cache_write tokens.
 """

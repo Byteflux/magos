@@ -1,14 +1,14 @@
 """End-to-end test for the embedded mitmproxy HTTPS_PROXY ingress.
 
-Spawns ``magos serve`` in a subprocess with ``MAGOS_HOME`` anchored at the
+Spawns `magos serve` in a subprocess with `MAGOS_HOME` anchored at the
 project root, points an httpx client at the mitm listener via
-``HTTPS_PROXY=http://127.0.0.1:<port>``, and asserts the request reaches
+`HTTPS_PROXY=http://127.0.0.1:<port>`, and asserts the request reaches
 the routing layer through TLS termination + decrypted-request rewrite.
 
 The check uses a model id no shipped rule matches, so the request hits
 magos's routing 404 envelope without any upstream call. That's enough to
 prove the full ingress path: TLS handshake against the addon-signed leaf
-cert, ``tls_clienthello`` allowlist gate, ``request`` host/port/scheme
+cert, `tls_clienthello` allowlist gate, `request` host/port/scheme
 rewrite, FastAPI routing, response stream back through mitmproxy.
 
 Skipped by default; gate matches the rest of the e2e suite::
@@ -60,11 +60,11 @@ def _free_port() -> int:
 
 @pytest.fixture
 def magos_serve(tmp_path: Path) -> Iterator[tuple[int, int, Path]]:
-    """Spawn ``magos serve`` with mitm ingress on free ports; yield (http, mitm, log).
+    """Spawn `magos serve` with mitm ingress on free ports; yield (http, mitm, log).
 
-    ``MAGOS_HOME`` is pinned to the project root so the subprocess uses
-    the project's ``magos.yaml`` and ``models.json`` rather than the
-    operator's ``~/.magos/`` (which may point at a Docker-mounted config
+    `MAGOS_HOME` is pinned to the project root so the subprocess uses
+    the project's `magos.yaml` and `models.json` rather than the
+    operator's `~/.magos/` (which may point at a Docker-mounted config
     or other state unrelated to this test).
     """
     if not _MITM_CA.is_file():
@@ -157,9 +157,9 @@ def test_https_proxy_routes_to_fastapi(magos_serve: tuple[int, int, Path]) -> No
 
 
 def test_ingress_rewrite_logged(magos_serve: tuple[int, int, Path]) -> None:
-    """The ``ingress.rewrote`` event fires when the addon rewrites a request.
+    """The `ingress.rewrote` event fires when the addon rewrites a request.
 
-    Sanity-checks the addon's ``request`` hook actually ran (rather than
+    Sanity-checks the addon's `request` hook actually ran (rather than
     the request having reached FastAPI by some other path), since the
     rewrite is the load-bearing step that makes the proxy mode work.
     """
@@ -192,16 +192,16 @@ def test_ingress_rewrite_logged(magos_serve: tuple[int, int, Path]) -> None:
 def test_ca_mismatch_documents_failure_mode(magos_serve: tuple[int, int, Path]) -> None:
     """When the client trusts a CA other than the one signing leaf certs, the
     handshake fails. Documents the Docker-container case where the host's
-    ``~/.mitmproxy/`` is not mounted into the container, so the container
+    `~/.mitmproxy/` is not mounted into the container, so the container
     generates its own CA on first run and the host's trust store can never
-    verify it. The fix is to mount ``~/.mitmproxy:/root/.mitmproxy`` (see
+    verify it. The fix is to mount `~/.mitmproxy:/root/.mitmproxy` (see
     docs/deployment.md), not anything in magos itself.
     """
     _, mitm_port, _ = magos_serve
 
     # Trust nothing: emulates the Docker case where the host CA doesn't
     # match the proxy's signing CA. Any unrelated CA bundle would fail
-    # the same way; ``verify=True`` against the system store is the
+    # the same way; `verify=True` against the system store is the
     # cleanest stand-in.
     with pytest.raises(httpx.ConnectError, match="CERTIFICATE_VERIFY_FAILED"):
         httpx.post(

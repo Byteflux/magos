@@ -1,4 +1,4 @@
-"""``apply`` wraps ``pipeline.apply`` with an inflation guard."""
+"""`apply` wraps `pipeline.apply` with an inflation guard."""
 
 from __future__ import annotations
 

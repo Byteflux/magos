@@ -1,11 +1,11 @@
-"""Loader tests for ``magos.routing.loader``.
+"""Loader tests for `magos.routing.loader`.
 
 Covers: YAML round-trip, structural errors (pydantic), semantic errors
 (regex/glob/jq compile, passthrough base_url), and the body-touch warning.
 
-Structlog renders to stdout via ``PrintLoggerFactory`` and caches its bound
-logger on first use, which makes ``capsys``/``capfd`` capture order-dependent
-across the full suite. Warning assertions instead patch ``loader.log`` with
+Structlog renders to stdout via `PrintLoggerFactory` and caches its bound
+logger on first use, which makes `capsys`/`capfd` capture order-dependent
+across the full suite. Warning assertions instead patch `loader.log` with
 an in-memory recorder.
 """
 
@@ -277,7 +277,7 @@ def test_compress_rewrite_round_trip(tmp_path: Path) -> None:
 
 
 def test_compress_rewrite_default_options(tmp_path: Path) -> None:
-    """``compress: {}`` parses with all CompressOptions defaults."""
+    """`compress: {}` parses with all CompressOptions defaults."""
     p = _write(
         tmp_path,
         """

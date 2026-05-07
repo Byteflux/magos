@@ -1,4 +1,4 @@
-"""``PipelineRegistry`` deduplication semantics."""
+"""`PipelineRegistry` deduplication semantics."""
 
 from __future__ import annotations
 

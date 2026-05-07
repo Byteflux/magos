@@ -1,4 +1,4 @@
-"""Tests for ``magos.routing.errors`` envelope shaping."""
+"""Tests for `magos.routing.errors` envelope shaping."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def test_unmatched_message_includes_model() -> None:
 
 
 def test_unmatched_message_omits_quoted_empty() -> None:
-    # When model is missing, do not render ``''`` since that's confusing.
+    # When model is missing, do not render `''` since that's confusing.
     msg = format_unmatched_message("")
     assert "''" not in msg
     assert "magos.yaml" in msg

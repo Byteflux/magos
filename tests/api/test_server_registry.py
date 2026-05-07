@@ -133,7 +133,7 @@ def test_admin_refresh_returns_refreshed_provider_list(tmp_path: Path) -> None:
 
 
 def test_admin_refresh_scoped_to_one_provider(tmp_path: Path) -> None:
-    """``?provider=X`` refreshes only that provider."""
+    """`?provider=X` refreshes only that provider."""
     models_path = tmp_path / "models.json"
     save_state(RegistryState(), models_path)
     cfg = _registry_yaml(

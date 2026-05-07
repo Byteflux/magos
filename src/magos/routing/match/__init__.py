@@ -1,8 +1,8 @@
-"""``magos.routing.match``: match-expression evaluation.
+"""`magos.routing.match`: match-expression evaluation.
 
-The evaluator walks the closed ``MatchExpr`` tree (atoms + AND/OR/NOT)
-defined in :mod:`magos.routing.schema.grammar`. Public surface is the
-:func:`matches` predicate.
+The evaluator walks the closed `MatchExpr` tree (atoms + AND/OR/NOT)
+defined in `magos.routing.schema.grammar`. Public surface is the
+`matches` predicate.
 """
 
 from __future__ import annotations

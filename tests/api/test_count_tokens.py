@@ -1,4 +1,4 @@
-"""``/v1/messages/count_tokens`` endpoint tests."""
+"""`/v1/messages/count_tokens` endpoint tests."""
 
 from __future__ import annotations
 

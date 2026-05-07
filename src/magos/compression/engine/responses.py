@@ -1,6 +1,6 @@
 """Responses-endpoint compression engine step.
 
-Handles cache-aligning the ``/v1/responses`` ``instructions`` field.
+Handles cache-aligning the `/v1/responses` `instructions` field.
 Token mode is unsupported on this endpoint.
 """
 
@@ -20,7 +20,7 @@ log = get_logger("magos.routing.rewrites")
 
 
 class ResponsesCompressor(Compressor):
-    """Cache-align the ``/v1/responses`` ``instructions`` field; token mode unsupported."""
+    """Cache-align the `/v1/responses` `instructions` field; token mode unsupported."""
 
     def __init__(self, opts: CompressOptions) -> None:
         self._opts = opts
@@ -46,7 +46,7 @@ class ResponsesCompressor(Compressor):
 
         model = str(req.body.get("model", "")) or "gpt-4o"
         # Wrap as a synthetic system message so the aligner's system-prompt
-        # branch fires; we read the mutated content back into ``instructions``.
+        # branch fires; we read the mutated content back into `instructions`.
         synthetic = [{"role": "system", "content": instructions}]
         result = _run_cache_aligner(synthetic, model, endpoint=req.endpoint)
         if result is None:

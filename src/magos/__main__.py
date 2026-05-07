@@ -1,4 +1,4 @@
-"""``python -m magos`` entrypoint."""
+"""`python -m magos` entrypoint."""
 
 from __future__ import annotations
 

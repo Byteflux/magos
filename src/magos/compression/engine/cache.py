@@ -1,6 +1,6 @@
 """Cache-aligner mode compression engine step.
 
-Handles ``mode: cache`` for chat-shape ``messages`` endpoints.
+Handles `mode: cache` for chat-shape `messages` endpoints.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ log = get_logger("magos.routing.rewrites")
 
 
 def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any:
-    """Return the ``TransformResult``, or ``None`` on import / no-op / apply failure."""
+    """Return the `TransformResult`, or `None` on import / no-op / apply failure."""
     from magos.routing.rewrites.compress._preload import (  # noqa: PLC0415
         _preload_sentence_transformers,
     )
@@ -39,7 +39,7 @@ def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any
         )
         return None
 
-    # Headroom defaults ``CacheAlignerConfig.enabled=False``; flip on for ``mode: cache``.
+    # Headroom defaults `CacheAlignerConfig.enabled=False`; flip on for `mode: cache`.
     aligner = CacheAligner(CacheAlignerConfig(enabled=True))
     tokenizer = Tokenizer(EstimatingTokenCounter(), model=model)
     if not aligner.should_apply(messages, tokenizer, model=model):
@@ -59,7 +59,7 @@ def _run_cache_aligner(messages: list[Any], model: str, *, endpoint: str) -> Any
 
 
 class CacheCompressor(Compressor):
-    """CacheAligner on chat-shape ``messages``."""
+    """CacheAligner on chat-shape `messages`."""
 
     def __init__(self, opts: CompressOptions) -> None:
         self._opts = opts

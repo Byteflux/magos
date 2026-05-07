@@ -1,6 +1,6 @@
-"""Wrap ``TransformPipeline.apply`` with an inflation guard.
+"""Wrap `TransformPipeline.apply` with an inflation guard.
 
-Returns a magos-owned ``ApplyResult``: callers don't depend on
+Returns a magos-owned `ApplyResult`: callers don't depend on
 headroom's transform-result type, so additions to ours stay local.
 """
 
@@ -19,9 +19,9 @@ log = get_logger("magos.compression")
 
 @dataclass(frozen=True, slots=True)
 class ApplyResult:
-    """Outcome of one ``apply`` call.
+    """Outcome of one `apply` call.
 
-    ``inflation_reverted`` is True when the pipeline produced more tokens
+    `inflation_reverted` is True when the pipeline produced more tokens
     than it received and the wrapper swapped the result back to the
     original messages.
     """
@@ -52,17 +52,17 @@ def apply(
     kompress_model: str | None = None,
     frozen_message_count: int = 0,
 ) -> ApplyResult:
-    """Run the pipeline for ``(config, provider_name)`` against ``messages``.
+    """Run the pipeline for `(config, provider_name)` against `messages`.
 
-    The ``compress_*`` / ``protect_*`` / ``target_ratio`` /
-    ``min_tokens_to_compress`` / ``kompress_model`` kwargs are forwarded
-    verbatim to ``TransformPipeline.apply``; transforms read whichever
-    they care about. Defaults match Headroom's ``CompressConfig``.
+    The `compress_*` / `protect_*` / `target_ratio` /
+    `min_tokens_to_compress` / `kompress_model` kwargs are forwarded
+    verbatim to `TransformPipeline.apply`; transforms read whichever
+    they care about. Defaults match Headroom's `CompressConfig`.
 
-    ``frozen_message_count`` tells the pipeline how many leading messages
+    `frozen_message_count` tells the pipeline how many leading messages
     must not be modified (prefix-cache preservation).
 
-    On token inflation (``tokens_after > tokens_before``), discards the
+    On token inflation (`tokens_after > tokens_before`), discards the
     pipeline's output and returns the original messages with zero savings.
     """
     pipeline = get_registry().get_or_build(config, provider_name=provider_name)

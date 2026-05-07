@@ -1,6 +1,6 @@
-"""``/admin/registry/*`` operator endpoints; mounted only when a
-:class:`Refresher` is active. CLI reads from these but falls back to
-disk when the server is down. See ``docs/registry.md``."""
+"""`/admin/registry/*` operator endpoints; mounted only when a
+`Refresher` is active. CLI reads from these but falls back to
+disk when the server is down. See `docs/registry.md`."""
 
 from __future__ import annotations
 
@@ -14,8 +14,8 @@ from magos.registry.schema import RegistryYaml
 
 
 def mount_admin_registry_endpoints(app: FastAPI) -> None:
-    """Register ``GET /admin/registry``, ``POST /admin/registry/refresh``,
-    ``POST /admin/registry/prune``."""
+    """Register `GET /admin/registry`, `POST /admin/registry/refresh`,
+    `POST /admin/registry/prune`."""
     from magos.registry.discovery.base import DiscoveryError  # noqa: PLC0415
     from magos.registry.store import serialize  # noqa: PLC0415
 

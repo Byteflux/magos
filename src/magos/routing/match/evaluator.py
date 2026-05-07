@@ -1,4 +1,4 @@
-"""Match-expression evaluator. See ``docs/routing/grammar.md``."""
+"""Match-expression evaluator. See `docs/routing/grammar.md`."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def matches(  # noqa: PLR0911
     *,
     registry: RegistryState | None = None,
 ) -> bool:
-    """True iff ``expr`` matches ``req``. ``model_field`` atoms need ``registry``; absent → False."""
+    """True iff `expr` matches `req`. `model_field` atoms need `registry`; absent → False."""
     if isinstance(expr, AllOf):
         return all(matches(child, req, registry=registry) for child in expr.all_of)
     if isinstance(expr, AnyOf):
@@ -86,7 +86,7 @@ def _model_field_matches(
     req: RoutedRequest,
     registry: RegistryState | None,
 ) -> bool:
-    """Evaluate ``model_field`` against the resolved registry entry.
+    """Evaluate `model_field` against the resolved registry entry.
 
     Lookup: exact namespaced id then raw_id scan (single-match wins).
     """
@@ -109,7 +109,7 @@ def _apply_op(  # noqa: PLR0911
     if field_value is None:
         return False
     if op == "contains":
-        # Sequence-only; string fields use ``eq`` for membership.
+        # Sequence-only; string fields use `eq` for membership.
         if not isinstance(field_value, (tuple, list)):
             return False
         return value in field_value

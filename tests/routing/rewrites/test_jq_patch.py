@@ -1,4 +1,4 @@
-"""``jq_patch`` rewrite tests."""
+"""`jq_patch` rewrite tests."""
 
 from __future__ import annotations
 

@@ -1,9 +1,9 @@
 """End-to-end test driving magos through the Claude Agent SDK.
 
-The Agent SDK spawns the local ``claude`` CLI subprocess, which honours
-``ANTHROPIC_BASE_URL`` and uses the user's Claude Code credentials to
+The Agent SDK spawns the local `claude` CLI subprocess, which honours
+`ANTHROPIC_BASE_URL` and uses the user's Claude Code credentials to
 authenticate. Magos forwards those headers upstream verbatim
-(``Authorization``, ``anthropic-beta``, ``anthropic-version``, ...), so this
+(`Authorization`, `anthropic-beta`, `anthropic-version`, ...), so this
 test exercises the full streaming agent loop without requiring any provider
 API key in the test environment.
 
@@ -13,10 +13,10 @@ Skipped by default. To run::
 
 Requires:
 
-- ``claude-agent-sdk`` installed (added as a dev dependency); the SDK
-  ships its own bundled ``claude`` CLI, no system-wide install needed
-- The bundled CLI's stored Claude Code credentials (or a system ``claude``
-  on PATH that has been logged in via ``claude login``)
+- `claude-agent-sdk` installed (added as a dev dependency); the SDK
+  ships its own bundled `claude` CLI, no system-wide install needed
+- The bundled CLI's stored Claude Code credentials (or a system `claude`
+  on PATH that has been logged in via `claude login`)
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import pytest
 import uvicorn
 
 # The Agent SDK ships its own bundled CLI, so we don't gate on a system
-# ``claude`` binary; the SDK locates and spawns the bundled one itself and
+# `claude` binary; the SDK locates and spawns the bundled one itself and
 # uses the user's Claude Code credentials when present.
 pytestmark = [
     pytest.mark.e2e,
@@ -83,8 +83,8 @@ def magos_server() -> Iterator[int]:
 def test_agent_sdk_sonnet_basic(magos_server: int, monkeypatch: pytest.MonkeyPatch) -> None:
     """Drive a sonnet query through magos via the Claude Agent SDK.
 
-    Asserts the agent loop completes successfully (a ``ResultMessage`` with
-    ``is_error=False``) and that some assistant text was produced. The exact
+    Asserts the agent loop completes successfully (a `ResultMessage` with
+    `is_error=False`) and that some assistant text was produced. The exact
     wording is model-dependent so we only check non-emptiness; that is enough
     to prove streaming + tool-use + auth-passthrough all worked end-to-end.
     """

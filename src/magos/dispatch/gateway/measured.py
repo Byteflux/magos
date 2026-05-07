@@ -1,7 +1,7 @@
-"""``MeasuredGateway``: decorator that emits OTel metrics per dispatch.
+"""`MeasuredGateway`: decorator that emits OTel metrics per dispatch.
 
-Wraps any :class:`Gateway`. Wired by the composition root when
-``MagosSettings.metrics_enabled`` is true.
+Wraps any `Gateway`. Wired by the composition root when
+`MagosSettings.metrics_enabled` is true.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ _duration_ms = _meter.create_histogram(
 
 
 class MeasuredGateway(Gateway):
-    """Decorator: count + time each ``inner.dispatch`` call."""
+    """Decorator: count + time each `inner.dispatch` call."""
 
     def __init__(self, inner: Gateway) -> None:
         self._inner = inner

@@ -94,9 +94,9 @@ registry:
 
 
 def test_provider_base_url_filled_from_adapter_default(tmp_path: Path) -> None:
-    """Operators omitting ``base_url`` get the adapter's canonical URL.
+    """Operators omitting `base_url` get the adapter's canonical URL.
 
-    Vultr is the canary: it ships through ``custom_openai`` and therefore
+    Vultr is the canary: it ships through `custom_openai` and therefore
     needs an explicit api_base at dispatch time, but the URL is well-known
     and shouldn't have to be repeated in every operator's yaml.
     """
@@ -133,7 +133,7 @@ providers:
 
 
 def test_explicit_provider_base_url_overrides_adapter_default(tmp_path: Path) -> None:
-    """Operator-supplied ``base_url`` wins over adapter default."""
+    """Operator-supplied `base_url` wins over adapter default."""
     cfg_path = _write_yaml(
         tmp_path / "magos.yaml",
         """

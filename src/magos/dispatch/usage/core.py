@@ -1,9 +1,9 @@
-"""``log_usage`` + ``log_usage_from_body``: canonical ``egress.usage`` log event.
+"""`log_usage` + `log_usage_from_body`: canonical `egress.usage` log event.
 
-The ``Usage`` dataclass and the per-shape extraction logic live in
-:mod:`magos.shapes` (``Shape.extract_usage`` is the canonical extractor;
-``Usage`` is re-exported here for backward-compatible imports inside
-:mod:`magos.dispatch.usage`).
+The `Usage` dataclass and the per-shape extraction logic live in
+`magos.shapes` (`Shape.extract_usage` is the canonical extractor;
+`Usage` is re-exported here for backward-compatible imports inside
+`magos.dispatch.usage`).
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def log_usage(
     usage: Usage,
     stream: bool = False,
 ) -> None:
-    """Emit ``egress.usage`` if any field is non-zero; no-op on empty usage."""
+    """Emit `egress.usage` if any field is non-zero; no-op on empty usage."""
     if usage.is_empty:
         return
     log.info(
@@ -49,10 +49,10 @@ def log_usage_from_body(
     stream: bool = False,
     on_complete: Callable[[Usage], None] | None = None,
 ) -> Usage:
-    """Convenience: extract usage for ``shape`` from ``body``, log it, return it.
+    """Convenience: extract usage for `shape` from `body`, log it, return it.
 
-    If ``on_complete`` is provided and the captured usage is non-empty,
-    it is invoked with the ``Usage``. The hook MUST NOT raise; callers
+    If `on_complete` is provided and the captured usage is non-empty,
+    it is invoked with the `Usage`. The hook MUST NOT raise; callers
     that need failure isolation should wrap their callback themselves.
     """
     model = body.get("model") if isinstance(body, dict) else None

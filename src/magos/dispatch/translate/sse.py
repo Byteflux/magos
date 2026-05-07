@@ -12,7 +12,7 @@ def sse_event(data: str) -> bytes:
 
 
 def sse_named_event(event: dict[str, Any]) -> bytes:
-    """OpenAI Responses streaming uses ``event:`` + ``data:`` lines per chunk."""
+    """OpenAI Responses streaming uses `event:` + `data:` lines per chunk."""
     return f"event: {event['type']}\ndata: {json.dumps(event)}\n\n".encode()
 
 
@@ -20,13 +20,13 @@ async def rewrite_data_in_stream(
     upstream: AsyncIterator[bytes],
     mutator: Callable[[dict[str, Any]], bool],
 ) -> AsyncIterator[bytes]:
-    """Forward ``upstream`` chunks, re-emitting any ``data:`` JSON the mutator updates.
+    """Forward `upstream` chunks, re-emitting any `data:` JSON the mutator updates.
 
-    ``mutator(data)`` returns True iff it changed ``data`` and the chunk should be
+    `mutator(data)` returns True iff it changed `data` and the chunk should be
     re-serialized; otherwise the chunk is forwarded verbatim. Chunks may carry an
-    ``event:`` line before ``data:`` (Anthropic, OpenAI Responses); the prefix is
-    preserved on re-emit. Non-parseable chunks, ``[DONE]``, and chunks without a
-    ``data:`` line pass through unchanged.
+    `event:` line before `data:` (Anthropic, OpenAI Responses); the prefix is
+    preserved on re-emit. Non-parseable chunks, `[DONE]`, and chunks without a
+    `data:` line pass through unchanged.
     """
     needle = b'"model"'
     async for chunk in upstream:

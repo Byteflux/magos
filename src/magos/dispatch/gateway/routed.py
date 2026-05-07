@@ -1,4 +1,4 @@
-"""``RoutedGateway``: composite selector picking one Gateway per request."""
+"""`RoutedGateway`: composite selector picking one Gateway per request."""
 
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ class RoutedGateway(Gateway):
 
     Selection rules:
 
-    1. If the request endpoint is ``/v1/messages/count_tokens``, dispatch
-       to ``count_tokens`` (regardless of ``target.gateway``).
-    2. Otherwise dispatch to ``passthrough`` or ``translate`` per
-       ``decision.target.gateway``.
+    1. If the request endpoint is `/v1/messages/count_tokens`, dispatch
+       to `count_tokens` (regardless of `target.gateway`).
+    2. Otherwise dispatch to `passthrough` or `translate` per
+       `decision.target.gateway`.
     """
 
     def __init__(

@@ -22,7 +22,7 @@ class ListFormat(StrEnum):
 
 
 def admin_client(settings: MagosSettings) -> AdminClient:
-    """Admin client targeting the local server's bind address (mirrors ``resolve_bind``)."""
+    """Admin client targeting the local server's bind address (mirrors `resolve_bind`)."""
     from magos.serve import resolve_bind  # noqa: PLC0415  - keeps cli import tree light
 
     cfg = load_full_config(settings.config_path)
@@ -39,7 +39,7 @@ def load_state_from_disk(settings: MagosSettings) -> RegistryState:
 
 
 def load_state(settings: MagosSettings, *, prefer_disk: bool) -> tuple[RegistryState, str]:
-    """Return ``(state, source)`` where ``source`` is ``'server'`` or ``'disk'``."""
+    """Return `(state, source)` where `source` is `'server'` or `'disk'`."""
     if prefer_disk:
         return load_state_from_disk(settings), "disk"
     client = admin_client(settings)
@@ -55,7 +55,7 @@ def load_state(settings: MagosSettings, *, prefer_disk: bool) -> tuple[RegistryS
 
 
 def print_list(state: RegistryState, source: str, *, fmt: ListFormat) -> None:
-    """Print a registry summary as ``text`` or ``json``."""
+    """Print a registry summary as `text` or `json`."""
     entries = sorted(state.entries.values(), key=lambda e: e.namespaced_id)
     if fmt is ListFormat.json:
         payload = [
@@ -87,9 +87,9 @@ def run_admin(
 ) -> dict[str, Any]:
     """Run an admin-client call, echo the JSON result, and exit non-zero on failure.
 
-    Exits with code 2 (and prints to stderr) if ``call`` raises ``AdminClientError``.
-    When ``exit_on_error_key`` is given, exits with code 1 if the response dict contains
-    a truthy value at that key (e.g. ``"failed"`` for partial-failure responses).
+    Exits with code 2 (and prints to stderr) if `call` raises `AdminClientError`.
+    When `exit_on_error_key` is given, exits with code 1 if the response dict contains
+    a truthy value at that key (e.g. `"failed"` for partial-failure responses).
     """
     try:
         result = call()

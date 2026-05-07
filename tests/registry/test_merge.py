@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.merge`` precedence behavior."""
+"""Tests for `magos.registry.merge` precedence behavior."""
 
 from __future__ import annotations
 

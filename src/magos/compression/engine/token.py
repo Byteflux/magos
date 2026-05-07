@@ -1,9 +1,9 @@
 """Token-mode compression engine step.
 
-Calls ``magos.compression.apply`` after fetching a per-session
-``PrefixCacheTracker`` from the ``magos.compression.tracker`` store, so the pipeline
+Calls `magos.compression.apply` after fetching a per-session
+`PrefixCacheTracker` from the `magos.compression.tracker` store, so the pipeline
 knows how many leading messages are already cached upstream and must
-not be modified. Also appends a ``post_response_hook`` that feeds the
+not be modified. Also appends a `post_response_hook` that feeds the
 upstream's reported cache_read / cache_write tokens back into the
 tracker on the way out.
 """
@@ -52,7 +52,7 @@ def _make_post_response_hook(
 
 
 class TokenCompressor(Compressor):
-    """Run the magos compression pipeline on ``messages`` with prefix-cache awareness."""
+    """Run the magos compression pipeline on `messages` with prefix-cache awareness."""
 
     def __init__(self, opts: CompressOptions) -> None:
         self._opts = opts
@@ -108,7 +108,7 @@ class TokenCompressor(Compressor):
         req.post_response_hooks.append(_make_post_response_hook(tracker, sent_messages))
 
         # CCR tool injection: when post-compression messages carry compression
-        # markers, inject ``headroom_retrieve`` so the model can retrieve the
+        # markers, inject `headroom_retrieve` so the model can retrieve the
         # original content. Frozen prefix > 0 disables instruction injection
         # to preserve prefix cache; tool injection still runs.
         new_tools: list[dict[str, Any]] | None = None

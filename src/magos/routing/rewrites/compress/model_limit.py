@@ -32,7 +32,7 @@ def _resolve_model_limit(
     registry: RegistryState | None = None,
     default: int = _DEFAULT_MODEL_LIMIT,
 ) -> int:
-    """Resolve the max input-token window. See ``docs/headroom/model-limit.md``."""
+    """Resolve the max input-token window. See `docs/headroom/model-limit.md`."""
     registry_limit = _registry_context_size(dispatch_model, registry)
     if registry_limit is not None:
         return registry_limit
@@ -66,7 +66,7 @@ def _resolve_model_limit(
 
 
 def _registry_context_size(model: str, registry: RegistryState | None) -> int | None:
-    """Registry ``context_size`` for ``model`` if known."""
+    """Registry `context_size` for `model` if known."""
     if registry is None:
         return None
     entry = registry.find_by_model_id(model)

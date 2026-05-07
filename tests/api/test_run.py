@@ -1,6 +1,6 @@
 """Tests for the shared ingress dispatch helper.
 
-The single load-bearing invariant exercised here: ``route()`` runs off
+The single load-bearing invariant exercised here: `route()` runs off
 the asyncio event loop. Routing is sync by design and can do CPU-bound
 work or block on Headroom's Kompress thread-locked singleton during a
 cold-cache download. If the loop services that work directly, every
@@ -25,7 +25,7 @@ from tests.api._helpers import translate_only_cfg
 
 @pytest.mark.unit
 def test_route_does_not_block_event_loop(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Two concurrent requests served by a sync-blocking ``route()`` must
+    """Two concurrent requests served by a sync-blocking `route()` must
     overlap in wall time, proving the dispatch helper offloads routing to
     a worker thread instead of running it on the event loop.
     """

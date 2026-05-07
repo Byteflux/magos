@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.state`` core data shapes."""
+"""Tests for `magos.registry.state` core data shapes."""
 
 from __future__ import annotations
 

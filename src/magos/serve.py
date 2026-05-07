@@ -1,6 +1,6 @@
 """Process orchestrator: run FastAPI and (optional) mitmproxy on one loop.
 
-See ``docs/architecture/startup.md`` and ``docs/architecture/env-vars.md``.
+See `docs/architecture/startup.md` and `docs/architecture/env-vars.md`.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from magos.telemetry import get_logger
 
 log = get_logger("magos.serve")
 
-# uvicorn flips ``started`` only after lifespan completes (Headroom warmup,
+# uvicorn flips `started` only after lifespan completes (Headroom warmup,
 # registry refresher init), so the mitm listener can't accept a request
 # that races a half-warm app.
 _FASTAPI_READY_POLL_SECONDS = 0.05
@@ -34,7 +34,7 @@ def resolve_bind(settings: MagosSettings, http_cfg: HttpIngressConfig) -> tuple[
 
 
 def resolve_mitm(settings: MagosSettings, mitm_cfg: MitmIngressConfig) -> MitmIngressConfig:
-    """Merge ``MAGOS_MITM_*`` env overrides over the yaml ``ingress.mitm`` block."""
+    """Merge `MAGOS_MITM_*` env overrides over the yaml `ingress.mitm` block."""
     enabled = settings.mitm_enabled if settings.mitm_enabled is not None else mitm_cfg.enabled
     host = settings.mitm_host or mitm_cfg.host
     port = settings.mitm_port if settings.mitm_port is not None else mitm_cfg.port
@@ -94,7 +94,7 @@ async def serve_async(*, settings: MagosSettings) -> None:
         return
 
     # Block ingress until FastAPI lifespan finishes; uvicorn exposes no
-    # awaitable event, so polling ``Server.started`` is the documented idiom.
+    # awaitable event, so polling `Server.started` is the documented idiom.
     while not uvi_server.started and not fastapi_task.done():  # noqa: ASYNC110
         await asyncio.sleep(_FASTAPI_READY_POLL_SECONDS)
     if fastapi_task.done():

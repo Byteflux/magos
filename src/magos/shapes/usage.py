@@ -1,4 +1,4 @@
-"""``Usage``: canonicalised token counts for one request, shape-agnostic."""
+"""`Usage`: canonicalised token counts for one request, shape-agnostic."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from dataclasses import dataclass
 class Usage:
     """Canonicalised token counts for one request.
 
-    ``cache_write`` is Anthropic-only; OpenAI shapes leave it 0.
+    `cache_write` is Anthropic-only; OpenAI shapes leave it 0.
     """
 
     input: int = 0

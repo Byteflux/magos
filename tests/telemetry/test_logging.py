@@ -1,7 +1,7 @@
-"""Smoke tests for ``magos.telemetry.logging``.
+"""Smoke tests for `magos.telemetry.logging`.
 
-These verify the no-op contract: ``configure_logging`` is idempotent
-and ``get_logger`` never raises.
+These verify the no-op contract: `configure_logging` is idempotent
+and `get_logger` never raises.
 """
 
 from __future__ import annotations

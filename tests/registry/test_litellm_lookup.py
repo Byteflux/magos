@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.litellm_lookup`` with injected fakes."""
+"""Tests for `magos.registry.litellm_lookup` with injected fakes."""
 
 from __future__ import annotations
 

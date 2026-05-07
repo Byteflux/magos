@@ -246,13 +246,13 @@ flow, body_dirty contract, passthrough byte-exactness, auth-header
 injection, env vars, gotchas) that aren't tied to a single component.
 
 Wire-shape translation between Anthropic and OpenAI is delegated to
-LiteLLM's SDK (``litellm.anthropic_messages`` for ``/v1/messages``,
-``litellm.acompletion`` for ``/v1/chat/completions``,
-``litellm.aresponses`` for ``/v1/responses``,
-``litellm.acount_tokens`` for ``/v1/messages/count_tokens``). The
-calling code lives under ``magos.dispatch.translate``. Magos owns
+LiteLLM's SDK (`litellm.anthropic_messages` for `/v1/messages`,
+`litellm.acompletion` for `/v1/chat/completions`,
+`litellm.aresponses` for `/v1/responses`,
+`litellm.acount_tokens` for `/v1/messages/count_tokens`). The
+calling code lives under `magos.dispatch.translate`. Magos owns
 routing, header forwarding, byte-exact passthrough
-(``magos.dispatch.passthrough``), and observability; LiteLLM owns
+(`magos.dispatch.passthrough`), and observability; LiteLLM owns
 wire-shape translation across providers.
 
 ## Library roles

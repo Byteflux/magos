@@ -69,7 +69,7 @@ Per request, the FastAPI app does this:
    returns `actual_path` when set, else falls back to `endpoint`.
 
    The handler then hands the `RoutedRequest` to
-   :meth:`magos.service.RequestService.process`. `magos.service` is
+   `magos.service.RequestService.process`. `magos.service` is
    the transport-agnostic core: it owns routing + dispatch
    orchestration and the exception ladder, and returns a transport-
    agnostic `RoutedResponse` (status, headers, body-or-stream). The
@@ -136,7 +136,7 @@ dormant.
    `cache_read` / `cache_write` token counts. Field mapping lives in
    `dispatch/usage/`; streaming paths use a byte-level SSE tap
    (`tap_stream`) that forwards bytes verbatim while accumulating the
-   terminal-event usage block. ``cache_write`` is Anthropic-only;
+   terminal-event usage block. `cache_write` is Anthropic-only;
    OpenAI shapes always report 0.
 
 ## Exception ladder

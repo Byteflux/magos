@@ -1,4 +1,4 @@
-"""Load and validate ``magos.yaml`` routing config. See ``docs/routing/errors.md``."""
+"""Load and validate `magos.yaml` routing config. See `docs/routing/errors.md`."""
 
 from __future__ import annotations
 
@@ -41,12 +41,12 @@ class RoutingConfigError(ValueError):
 
 
 # Top-level extras tolerated so the same YAML can carry registry blocks
-# (``providers:`` etc.); ``RoutingConfig`` itself stays ``extra="forbid"``.
+# (`providers:` etc.); `RoutingConfig` itself stays `extra="forbid"`.
 _ROUTING_KEYS: frozenset[str] = frozenset({"pre_transforms", "rules"})
 
 
 def load_config(path: str | Path) -> RoutingConfig:
-    """Read ``path``, parse YAML, validate, and return ``RoutingConfig``."""
+    """Read `path`, parse YAML, validate, and return `RoutingConfig`."""
     p = Path(path)
     raw = p.read_text(encoding="utf-8")
     data = yaml.safe_load(raw) or {}
@@ -58,9 +58,9 @@ def load_config(path: str | Path) -> RoutingConfig:
 
 
 def load_from_data(data: dict[str, object], *, source: str) -> RoutingConfig:
-    """Validate a pre-parsed YAML mapping into ``RoutingConfig``.
+    """Validate a pre-parsed YAML mapping into `RoutingConfig`.
 
-    Used by :func:`magos.config.loader.load_full_config` so the source
+    Used by `magos.config.loader.load_full_config` so the source
     file is parsed once and shared across the routing / registry /
     ingress parsers.
     """
@@ -76,7 +76,7 @@ def load_from_data(data: dict[str, object], *, source: str) -> RoutingConfig:
 
 
 def _iter_match_atoms(expr: MatchExpr) -> Iterator[MatchExpr]:
-    """Yield every leaf atom under ``expr`` (combinators recurse)."""
+    """Yield every leaf atom under `expr` (combinators recurse)."""
     if isinstance(expr, AllOf):
         for child in expr.all_of:
             yield from _iter_match_atoms(child)
@@ -90,7 +90,7 @@ def _iter_match_atoms(expr: MatchExpr) -> Iterator[MatchExpr]:
 
 
 def _iter_matchers(expr: MatchExpr) -> Iterator[Matcher]:
-    """Yield every non-jq matcher value (regex/glob/literal) under ``expr``."""
+    """Yield every non-jq matcher value (regex/glob/literal) under `expr`."""
     for atom in _iter_match_atoms(expr):
         if isinstance(atom, ModelAtom):
             yield atom.model
@@ -159,7 +159,7 @@ def _check_rewrite(rw: object, *, where: str) -> None:
 
 
 def _validate_passthrough_base_url(cfg: RoutingConfig, *, source: str) -> None:
-    """Reject ``gateway: passthrough`` rules that omit ``base_url`` (no upstream to forward to)."""
+    """Reject `gateway: passthrough` rules that omit `base_url` (no upstream to forward to)."""
     for idx, rule in enumerate(cfg.rules):
         if rule.target.gateway == "passthrough" and not rule.target.base_url:
             label = format_rule_label(rule, idx)

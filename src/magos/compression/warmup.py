@@ -2,12 +2,12 @@
 
 Two functions:
 
-- ``eager_warmup`` walks a ``PipelineRegistry`` and eagerly loads each
-  unique transform. Dedupes by ``id()`` so shared transforms pay the
+- `eager_warmup` walks a `PipelineRegistry` and eagerly loads each
+  unique transform. Dedupes by `id()` so shared transforms pay the
   load cost once.
-- ``prebuild_from_routing`` walks a ``RoutingConfig``, builds every
-  (config, provider) pipeline implied by token-mode ``Compress``
-  rewrites, then calls ``eager_warmup``. Cache-mode Compress is
+- `prebuild_from_routing` walks a `RoutingConfig`, builds every
+  (config, provider) pipeline implied by token-mode `Compress`
+  rewrites, then calls `eager_warmup`. Cache-mode Compress is
   skipped (no pipeline involved). Per-pipeline failures are logged
   and skipped so one bad config doesn't break startup.
 """
@@ -30,7 +30,7 @@ _PREBUILD_PROVIDERS: tuple[str, ...] = ("anthropic", "openai")
 
 
 def eager_warmup(registry: PipelineRegistry | None = None) -> None:
-    """Call ``eager_load_compressors`` on each unique transform."""
+    """Call `eager_load_compressors` on each unique transform."""
     reg = registry if registry is not None else get_registry()
     seen: set[int] = set()
     for pipeline in reg.pipelines():
@@ -53,15 +53,15 @@ def eager_warmup(registry: PipelineRegistry | None = None) -> None:
 
 
 def prebuild_from_routing(cfg: RoutingConfig, registry: PipelineRegistry | None = None) -> None:
-    """Build every (PipelineConfig, provider) pipeline implied by ``cfg``.
+    """Build every (PipelineConfig, provider) pipeline implied by `cfg`.
 
-    Walks ``cfg.pre_transforms`` (including ``GuardedTransforms``) and each
-    rule's ``transforms``; for every token-mode ``Compress``, transcodes
-    the options to a ``PipelineConfig`` and calls ``registry.get_or_build``
-    for both providers. Calls ``eager_warmup(registry)`` at the end so
+    Walks `cfg.pre_transforms` (including `GuardedTransforms`) and each
+    rule's `transforms`; for every token-mode `Compress`, transcodes
+    the options to a `PipelineConfig` and calls `registry.get_or_build`
+    for both providers. Calls `eager_warmup(registry)` at the end so
     transform models are loaded for the freshly-built pipelines.
 
-    Per-pipeline build errors are logged as ``compress.pipeline_prebuild_failed``
+    Per-pipeline build errors are logged as `compress.pipeline_prebuild_failed`
     and skipped; the walk continues. The registry's fingerprint dedup
     means duplicate configs are O(1).
     """
@@ -94,7 +94,7 @@ def prebuild_from_routing(cfg: RoutingConfig, registry: PipelineRegistry | None 
 
 
 def _iter_token_mode_compress_options(cfg: RoutingConfig) -> Iterator[CompressOptions]:
-    """Yield each token-mode ``CompressOptions`` from pre_transforms + rules."""
+    """Yield each token-mode `CompressOptions` from pre_transforms + rules."""
     from magos.routing.schema import Compress, GuardedTransforms  # noqa: PLC0415
 
     for entry in cfg.pre_transforms:

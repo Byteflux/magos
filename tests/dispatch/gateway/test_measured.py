@@ -1,4 +1,4 @@
-"""``MeasuredGateway``: counter increments and duration histogram per dispatch."""
+"""`MeasuredGateway`: counter increments and duration histogram per dispatch."""
 
 from __future__ import annotations
 
@@ -69,8 +69,8 @@ def _inner_gateway() -> RoutedGateway:
 def patched_meter() -> Any:
     """Install a local InMemoryMetricReader and patch the module-level counters.
 
-    This avoids calling ``metrics.set_meter_provider`` at module level,
-    which would clobber the global provider used by ``tests/registry/test_telemetry.py``.
+    This avoids calling `metrics.set_meter_provider` at module level,
+    which would clobber the global provider used by `tests/registry/test_telemetry.py`.
     """
     reader = InMemoryMetricReader()
     provider = MeterProvider(metric_readers=[reader])

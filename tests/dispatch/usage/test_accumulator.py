@@ -1,4 +1,4 @@
-"""``UsageAccumulator`` fed pre-parsed events for each streaming shape."""
+"""`UsageAccumulator` fed pre-parsed events for each streaming shape."""
 
 from __future__ import annotations
 

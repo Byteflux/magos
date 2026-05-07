@@ -1,4 +1,4 @@
-"""``OpenAIAdapter`` discovery tests."""
+"""`OpenAIAdapter` discovery tests."""
 
 from __future__ import annotations
 
@@ -36,9 +36,9 @@ def test_openai_adapter_uses_litellm_provider_override() -> None:
 
 
 def test_openai_adapter_defaults_to_api_openai_com_when_base_url_unset() -> None:
-    """Operators omitting ``base_url`` hit api.openai.com.
+    """Operators omitting `base_url` hit api.openai.com.
 
-    The overwhelmingly common case for ``discovery: openai`` is OpenAI
+    The overwhelmingly common case for `discovery: openai` is OpenAI
     proper; self-hosted OpenAI-shape backends explicitly set their own
     base_url because they're not on api.openai.com. Defaulting here
     removes a yaml line for the common case without surprising the

@@ -1,7 +1,7 @@
 """Shared helpers for discovery-adapter tests.
 
-``ok`` / ``err`` build ``httpx.MockTransport`` responses; ``run_discover``
-drives any adapter through one ``discover`` call against that transport.
+`ok` / `err` build `httpx.MockTransport` responses; `run_discover`
+drives any adapter through one `discover` call against that transport.
 """
 
 from __future__ import annotations

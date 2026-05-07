@@ -1,4 +1,4 @@
-"""``tap_stream``: forwards SSE bytes verbatim while accumulating usage stats."""
+"""`tap_stream`: forwards SSE bytes verbatim while accumulating usage stats."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from magos.shapes import Shape
 
 
 def _iter_complete_events(buf: bytes) -> tuple[list[bytes], bytes]:
-    """Split ``buf`` on event boundaries (``\\n\\n``); return (events, leftover)."""
+    """Split `buf` on event boundaries (`\\n\\n`); return (events, leftover)."""
     parts = buf.split(b"\n\n")
     if len(parts) == 1:
         return [], buf
@@ -20,10 +20,10 @@ def _iter_complete_events(buf: bytes) -> tuple[list[bytes], bytes]:
 
 
 def _parse_event(raw: bytes) -> tuple[str | None, dict[str, Any] | None]:
-    """Parse one SSE event into ``(event_name, data_object)``.
+    """Parse one SSE event into `(event_name, data_object)`.
 
-    Multiple ``data:`` lines per event are joined with newlines (SSE spec).
-    Non-JSON payloads (e.g. ``[DONE]``) yield ``None`` for the data dict.
+    Multiple `data:` lines per event are joined with newlines (SSE spec).
+    Non-JSON payloads (e.g. `[DONE]`) yield `None` for the data dict.
     """
     name: str | None = None
     data_lines: list[str] = []
@@ -51,12 +51,12 @@ async def tap_stream(
     fallback_model: str | None = None,
     on_complete: Callable[[Usage], None] | None = None,
 ) -> AsyncIterator[bytes]:
-    """Forward ``upstream`` byte-for-byte while accumulating usage stats.
+    """Forward `upstream` byte-for-byte while accumulating usage stats.
 
     Usage parsing is best-effort: malformed/truncated streams or upstreams
     that omit a final usage block degrade silently to no log.
 
-    If ``on_complete`` is provided and the final accumulated usage is
+    If `on_complete` is provided and the final accumulated usage is
     non-empty, it is invoked once after final logging, even if the stream
     raised mid-way.
     """

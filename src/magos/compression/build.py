@@ -1,9 +1,9 @@
-"""Construct a ``TransformPipeline`` for a given ``PipelineConfig``.
+"""Construct a `TransformPipeline` for a given `PipelineConfig`.
 
 CacheAligner is created **disabled**: prefix stability is the routing
-layer's responsibility (see ``cache_mode.py`` for the standalone aligner
-used by ``mode: cache``). The proxy follows the same convention; see
-``docs/headroom/pipeline.md``.
+layer's responsibility (see `cache_mode.py` for the standalone aligner
+used by `mode: cache`). The proxy follows the same convention; see
+`docs/headroom/pipeline.md`.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ ProviderName = Literal["anthropic", "openai"]
 
 
 def build_pipeline(config: PipelineConfig, *, provider_name: ProviderName) -> TransformPipeline:
-    """Return a fresh ``TransformPipeline`` shaped by ``config``."""
+    """Return a fresh `TransformPipeline` shaped by `config`."""
     provider = _build_provider(provider_name)
     transforms: list[Transform] = [CacheAligner(CacheAlignerConfig(enabled=False))]
 

@@ -1,5 +1,5 @@
-"""Top-level structure: ``Target`` constraints, ``extra='forbid'``,
-frozen-immutability, ``RoutingConfig`` invariants.
+"""Top-level structure: `Target` constraints, `extra='forbid'`,
+frozen-immutability, `RoutingConfig` invariants.
 """
 
 from __future__ import annotations

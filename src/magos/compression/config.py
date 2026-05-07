@@ -1,4 +1,4 @@
-"""Frozen configuration for a ``TransformPipeline`` instance."""
+"""Frozen configuration for a `TransformPipeline` instance."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class PipelineConfig:
-    """Inputs to ``build_pipeline`` that determine the transform shape.
+    """Inputs to `build_pipeline` that determine the transform shape.
 
     Defaults match Headroom's modern proxy default shape:
-    ``CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager``.
+    `CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager`.
     """
 
     smart_routing: bool = True
@@ -31,12 +31,12 @@ class PipelineConfig:
 
 
 def pipeline_config_from_compress_options(opts: CompressOptions) -> PipelineConfig:
-    """Map ``CompressOptions`` runtime knobs to a ``PipelineConfig``.
+    """Map `CompressOptions` runtime knobs to a `PipelineConfig`.
 
     Single source of truth for the transcoding so warmup and runtime
-    build identical fingerprints. ``CompressOptions`` carries additional
-    knobs (``target_ratio``, ``kompress_model``, etc.) that flow into
-    ``pipeline.apply`` kwargs rather than the pipeline's transform shape;
+    build identical fingerprints. `CompressOptions` carries additional
+    knobs (`target_ratio`, `kompress_model`, etc.) that flow into
+    `pipeline.apply` kwargs rather than the pipeline's transform shape;
     those are intentionally ignored here.
     """
     return PipelineConfig(

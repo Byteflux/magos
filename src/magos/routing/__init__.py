@@ -1,4 +1,4 @@
-"""Declarative rule-based routing. See ``docs/routing/pipeline.md``."""
+"""Declarative rule-based routing. See `docs/routing/pipeline.md`."""
 
 from __future__ import annotations
 

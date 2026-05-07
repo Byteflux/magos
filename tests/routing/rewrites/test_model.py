@@ -1,4 +1,4 @@
-"""``set_model`` rewrite tests."""
+"""`set_model` rewrite tests."""
 
 from __future__ import annotations
 

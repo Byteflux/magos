@@ -1,8 +1,8 @@
-"""Smoke tests for ``magos.telemetry.tracing``.
+"""Smoke tests for `magos.telemetry.tracing`.
 
-The ``traced`` decorator must preserve return values and propagate
-exceptions whether or not OTel is configured. ``configure_tracing`` is
-a no-op when ``MAGOS_OTEL_ENABLED`` is unset.
+The `traced` decorator must preserve return values and propagate
+exceptions whether or not OTel is configured. `configure_tracing` is
+a no-op when `MAGOS_OTEL_ENABLED` is unset.
 """
 
 from __future__ import annotations

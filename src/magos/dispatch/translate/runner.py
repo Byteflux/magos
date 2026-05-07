@@ -1,10 +1,10 @@
-"""Generic translate runner driven by per-shape ``TranslateAdapter`` declarations.
+"""Generic translate runner driven by per-shape `TranslateAdapter` declarations.
 
 Each shape (Anthropic Messages, OpenAI Chat, OpenAI Responses) registers a
-``TranslateAdapter`` frozen dataclass that captures the shape-specific
-variation points. ``proxy_translate`` and ``stream_translate`` contain the
+`TranslateAdapter` frozen dataclass that captures the shape-specific
+variation points. `proxy_translate` and `stream_translate` contain the
 logic that was previously duplicated across the three endpoint modules. See
-``docs/architecture/translation.md``.
+`docs/architecture/translation.md`.
 """
 
 from __future__ import annotations
@@ -31,21 +31,21 @@ log = get_logger("magos.dispatch.translate")
 class TranslateAdapter:
     """Per-shape variation points for the generic translate runner.
 
-    ``shape`` is the log/usage label (e.g. ``"anthropic"``).
-    ``endpoint`` is the API path (e.g. ``"/v1/messages"``).
-    ``default_dispatch`` is the LiteLLM SDK function to call when the caller
-    supplies no ``completion`` override.
-    ``set_model_in_response`` mutates a non-streaming response body in-place
+    `shape` is the log/usage label (e.g. `"anthropic"`).
+    `endpoint` is the API path (e.g. `"/v1/messages"`).
+    `default_dispatch` is the LiteLLM SDK function to call when the caller
+    supplies no `completion` override.
+    `set_model_in_response` mutates a non-streaming response body in-place
     to rewrite the model field(s) back to the client-facing id.
-    ``set_model_in_stream_event`` is the ``mutator`` passed to
-    ``rewrite_data_in_stream``; returns ``True`` iff it modified ``data``.
-    ``preprocess_body`` is an optional hook called before ``build_payload``
+    `set_model_in_stream_event` is the `mutator` passed to
+    `rewrite_data_in_stream`; returns `True` iff it modified `data`.
+    `preprocess_body` is an optional hook called before `build_payload`
     to perform shape-specific body transforms (e.g. Anthropic extras stripping).
-    ``stream_bytes_iter`` is the async generator that reads chunks from the
+    `stream_bytes_iter` is the async generator that reads chunks from the
     LiteLLM stream and emits SSE-framed bytes. Shape-specific because Anthropic
     yields pre-framed bytes while OpenAI shapes need explicit framing.
-    ``log_shape`` is the label passed to ``log.info("dispatch", shape=...)``;
-    diverges from ``shape`` for OpenAI Chat (``"openai"`` vs ``"openai-chat"``)
+    `log_shape` is the label passed to `log.info("dispatch", shape=...)`;
+    diverges from `shape` for OpenAI Chat (`"openai"` vs `"openai-chat"`)
     so the dispatch log keeps the historic label that operator dashboards key on.
     """
 
@@ -108,7 +108,7 @@ def stream_translate(
     """Generic streaming translate runner.
 
     Sync-returning so a malformed request surfaces as 400 before any
-    bytes are emitted (LiteLLM raises ``pydantic.ValidationError``).
+    bytes are emitted (LiteLLM raises `pydantic.ValidationError`).
     """
     dispatch: Callable[..., Awaitable[Any]] = completion or adapter.default_dispatch
     client_model = resolve_client_model(request.get("model", ""), provider, dispatch_model)

@@ -1,14 +1,14 @@
-"""``magos.dispatch.gateway``: ``Gateway`` ABC + canonical implementations.
+"""`magos.dispatch.gateway`: `Gateway` ABC + canonical implementations.
 
 Public surface:
 
-- :class:`Gateway` — ABC.
-- :class:`PassthroughGateway` — byte-exact httpx forward.
-- :class:`TranslateGateway` — LiteLLM SDK + CCR wrap.
-- :class:`CountTokensGateway` — count-tokens endpoint.
-- :class:`RoutedGateway` — composite selector wiring the three above.
-- :class:`MeasuredGateway` — decorator emitting OTel metrics per dispatch.
-- :class:`TracingGateway` — decorator opening an OTel span per dispatch.
+- `Gateway` — ABC.
+- `PassthroughGateway` — byte-exact httpx forward.
+- `TranslateGateway` — LiteLLM SDK + CCR wrap.
+- `CountTokensGateway` — count-tokens endpoint.
+- `RoutedGateway` — composite selector wiring the three above.
+- `MeasuredGateway` — decorator emitting OTel metrics per dispatch.
+- `TracingGateway` — decorator opening an OTel span per dispatch.
 """
 
 from __future__ import annotations

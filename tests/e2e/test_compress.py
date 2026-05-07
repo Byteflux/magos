@@ -1,9 +1,9 @@
 """End-to-end compression + CCR tests.
 
-Each test routes through a token-mode ``compress`` rule and asserts both
+Each test routes through a token-mode `compress` rule and asserts both
 that the upstream still succeeds and that magos's compression-side state
 (registry, prefix-cache tracker, headroom compression store) advanced
-as expected. See ``tests/e2e/conftest.py`` for the ``MAGOS_E2E=1`` skip
+as expected. See `tests/e2e/conftest.py` for the `MAGOS_E2E=1` skip
 gate.
 """
 

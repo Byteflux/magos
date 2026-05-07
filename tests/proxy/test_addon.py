@@ -1,11 +1,11 @@
 """Unit tests for the in-process mitmproxy ingress addon.
 
-Two surfaces matter: the ``tls_clienthello`` allowlist gate (off-list
-SNI must set ``ignore_connection``), and the ``request`` hook's
+Two surfaces matter: the `tls_clienthello` allowlist gate (off-list
+SNI must set `ignore_connection`), and the `request` hook's
 host/port/scheme rewrite for allowlisted hosts. Subdomain matching
 and the loop-guard (already-target host) are also covered. We use
-``mitmproxy.test.tutils.treq`` for real ``Request`` instances and a
-lightweight stand-in for ``ClientHelloData`` since constructing a
+`mitmproxy.test.tutils.treq` for real `Request` instances and a
+lightweight stand-in for `ClientHelloData` since constructing a
 real one requires a parseable raw ClientHello byte stream.
 """
 
@@ -109,7 +109,7 @@ def test_request_leaves_off_list_host_alone() -> None:
 @pytest.mark.unit
 def test_request_skips_when_already_at_target() -> None:
     """Loop-guard: a re-entrant request from magos's own outbound httpx
-    (when ``HTTPS_PROXY`` is set globally) lands here as a request to the
+    (when `HTTPS_PROXY` is set globally) lands here as a request to the
     loopback target. The addon must not re-rewrite; leaving it alone
     keeps the loop visible at most once instead of silently swallowing it.
     """

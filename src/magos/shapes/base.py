@@ -1,8 +1,8 @@
-"""``Shape`` class — wire-format declaration with extraction methods.
+"""`Shape` class — wire-format declaration with extraction methods.
 
 Each shape (Anthropic Messages, OpenAI Chat, OpenAI Responses) is
-declared once as a frozen ``Shape`` instance in its sibling module
-(``anthropic.py``, ``openai_chat.py``, ``openai_responses.py``). The
+declared once as a frozen `Shape` instance in its sibling module
+(`anthropic.py`, `openai_chat.py`, `openai_responses.py`). The
 class holds field locations (where messages / system / instructions
 live in the request body), endpoint paths, the Headroom
 compression-provider axis, and the response usage-key map. Methods
@@ -27,9 +27,9 @@ class StreamEvent:
     """Where one streaming SSE event carries usage data.
 
     A shape may declare multiple events (Anthropic splits input vs
-    output across ``message_start`` / ``message_delta``); the generic
-    accumulator walks every entry whose ``event_name`` matches.
-    ``event_name=None`` means "match any chunk" (OpenAI Chat puts usage
+    output across `message_start` / `message_delta`); the generic
+    accumulator walks every entry whose `event_name` matches.
+    `event_name=None` means "match any chunk" (OpenAI Chat puts usage
     on the terminal chunk regardless of event name).
     """
 
@@ -38,10 +38,10 @@ class StreamEvent:
     """Path to the usage dict within the event data."""
 
     model_path: tuple[str, ...] | None
-    """Path to the model string within the event data, or ``None`` to skip."""
+    """Path to the model string within the event data, or `None` to skip."""
 
     fields: Mapping[str, tuple[str, ...]]
-    """Canonical name (``input`` / ``output`` / ``cache_read`` / ``cache_write``)
+    """Canonical name (`input` / `output` / `cache_read` / `cache_write`)
     -> path within the usage dict."""
 
 
@@ -50,7 +50,7 @@ def _safe_int(value: Any) -> int:
 
 
 def _walk(body: Any, path: tuple[str, ...]) -> Any:
-    """Walk a dotted path through nested dicts, returning ``None`` on any miss."""
+    """Walk a dotted path through nested dicts, returning `None` on any miss."""
     cur: Any = body
     for key in path:
         if not isinstance(cur, dict):
@@ -74,16 +74,16 @@ class Shape:
     endpoints: tuple[str, ...]
     compression_provider: CompressionProvider
 
-    # Request body field locations. ``None`` when the shape does not have
+    # Request body field locations. `None` when the shape does not have
     # a top-level field of that kind (OpenAI Chat encodes "system" inside
-    # ``messages``; Anthropic + Chat have no ``instructions`` field).
+    # `messages`; Anthropic + Chat have no `instructions` field).
     system_field: str | None
     messages_field: str | None
     instructions_field: str | None
 
     # Non-streaming response usage extraction. Each value is the path
     # (relative to the response body) to the integer token count.
-    # ``cache_write`` is Anthropic-only; OpenAI shapes omit the key.
+    # `cache_write` is Anthropic-only; OpenAI shapes omit the key.
     usage_keys: Mapping[str, tuple[str, ...]]
 
     # Streaming usage extraction. Each entry says "when this SSE event
@@ -91,11 +91,11 @@ class Shape:
     stream_events: tuple[StreamEvent, ...]
 
     def extract_usage(self, body: Any) -> Usage:
-        """Extract a ``Usage`` from a non-streaming response body.
+        """Extract a `Usage` from a non-streaming response body.
 
-        Walks ``self.usage_keys`` to find the path to each canonical
+        Walks `self.usage_keys` to find the path to each canonical
         field; missing / non-int / negative values default to 0. Non-dict
-        bodies return an empty ``Usage``.
+        bodies return an empty `Usage`.
         """
         from magos.shapes.usage import Usage  # avoid module-load cycle  # noqa: PLC0415
 
@@ -112,9 +112,9 @@ class Shape:
     def extract_system_bytes(self, body: Mapping[str, Any]) -> bytes:
         """Extract system-prompt bytes via this shape's body-field declaration.
 
-        Reads from ``system_field`` if present (top-level string or list of
-        text blocks); otherwise reads from the first ``role=system`` entry
-        in ``messages_field``. Returns empty bytes when neither field is
+        Reads from `system_field` if present (top-level string or list of
+        text blocks); otherwise reads from the first `role=system` entry
+        in `messages_field`. Returns empty bytes when neither field is
         set on this shape (e.g., OpenAI Responses).
         """
         if self.system_field is not None:
@@ -140,7 +140,7 @@ def _from_top_level_field(body: Mapping[str, Any], field: str) -> bytes:
 
 
 def _from_messages_field(body: Mapping[str, Any], field: str) -> bytes:
-    """Read the first ``role=system`` entry from a messages-style list."""
+    """Read the first `role=system` entry from a messages-style list."""
     messages = body.get(field, [])
     if not isinstance(messages, list):
         return b""

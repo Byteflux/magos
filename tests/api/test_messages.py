@@ -1,4 +1,4 @@
-"""``/v1/messages`` endpoint tests."""
+"""`/v1/messages` endpoint tests."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from tests.api._helpers import ANTHROPIC_MESSAGE_RESPONSE, anthropic_translate_c
 def test_messages_endpoint_dispatches_to_anthropic_messages() -> None:
     """/v1/messages translate-mode goes through litellm.anthropic_messages.
 
-    The fake stand-in for ``litellm.anthropic_messages`` records its
+    The fake stand-in for `litellm.anthropic_messages` records its
     kwargs and returns an Anthropic-shape body; magos forwards it verbatim.
     """
     received: dict[str, Any] = {}
@@ -91,11 +91,11 @@ def test_messages_streams_anthropic_bytes_verbatim() -> None:
 def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
     tmp_path: Any,
 ) -> None:
-    """``set_model: vultr/Qwen/...`` style body model is translated to the
-    registry entry's ``litellm_id`` (``custom_openai/Qwen/...``) before
-    dispatch; without this LiteLLM rejects the unknown ``vultr/`` prefix.
+    """`set_model: vultr/Qwen/...` style body model is translated to the
+    registry entry's `litellm_id` (`custom_openai/Qwen/...`) before
+    dispatch; without this LiteLLM rejects the unknown `vultr/` prefix.
 
-    Also exercises the bare-id form (``Qwen/...`` with ``provider: vultr``)
+    Also exercises the bare-id form (`Qwen/...` with `provider: vultr`)
     which is resolved by prepending the action's provider for lookup.
     """
     received: dict[str, Any] = {}

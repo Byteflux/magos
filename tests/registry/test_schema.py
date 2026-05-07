@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.schema`` pydantic models."""
+"""Tests for `magos.registry.schema` pydantic models."""
 
 from __future__ import annotations
 

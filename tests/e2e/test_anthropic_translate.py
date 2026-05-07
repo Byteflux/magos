@@ -2,8 +2,8 @@
 
 Covers Anthropic-shape requests against both upstream shapes (translated
 to/from OpenAI by LiteLLM), tool-use round-trips, count_tokens, and the
-unmatched-route 404 envelope. See ``tests/e2e/conftest.py`` for the
-``MAGOS_E2E=1`` skip gate.
+unmatched-route 404 envelope. See `tests/e2e/conftest.py` for the
+`MAGOS_E2E=1` skip gate.
 """
 
 from __future__ import annotations
@@ -58,8 +58,8 @@ def test_anthropic_streaming_real() -> None:
 def test_anthropic_tool_use_round_trip_real() -> None:
     """Anthropic tool_use round-trip via the translate route.
 
-    Forces ``gateway: translate`` so the request takes the
-    ``litellm.anthropic_messages`` path with an Anthropic upstream, which
+    Forces `gateway: translate` so the request takes the
+    `litellm.anthropic_messages` path with an Anthropic upstream, which
     handles OAuth keys correctly. Cross-provider routing (Anthropic shape
     -> OpenAI upstream) currently hits a LiteLLM tool_choice mapping bug
     that surfaces as a 400 from the upstream Responses API.
@@ -149,8 +149,8 @@ def test_anthropic_shape_anthropic_upstream_translated_real() -> None:
     """Anthropic-shape request -> Anthropic upstream via the translated path.
 
     The shipped magos.example.yaml routes claude-* to passthrough; this
-    test injects an alternative routing config that forces ``mode:
-    translate`` so the request takes the litellm.anthropic_messages
+    test injects an alternative routing config that forces `mode:
+    translate` so the request takes the litellm.anthropic_messages
     code path with a real Anthropic upstream.
     """
     body = {
@@ -190,10 +190,10 @@ def test_openai_shape_anthropic_upstream_real() -> None:
 def test_anthropic_count_tokens_anthropic_native_real() -> None:
     """count_tokens for a claude-* model via litellm's native API call.
 
-    LiteLLM's ``acount_tokens`` auto-selects the upstream's native
-    count-tokens endpoint for ``anthropic/`` models. OAuth tokens are
+    LiteLLM's `acount_tokens` auto-selects the upstream's native
+    count-tokens endpoint for `anthropic/` models. OAuth tokens are
     accepted on this endpoint when the subscription has Extra Usage
-    enabled; otherwise a separate ``sk-ant-api03-*`` key is required.
+    enabled; otherwise a separate `sk-ant-api03-*` key is required.
     """
     if not os.environ.get("ANTHROPIC_API_KEY"):
         pytest.skip("ANTHROPIC_API_KEY not set")
@@ -212,9 +212,9 @@ def test_anthropic_count_tokens_anthropic_native_real() -> None:
 def test_anthropic_streaming_tool_use_real() -> None:
     """Tool definitions survive translated streaming to the Anthropic upstream.
 
-    Asserts the SSE stream contains a ``content_block_start`` with
-    ``type=tool_use`` and at least one ``input_json_delta``. Forces
-    ``gateway: translate`` so the request takes the ``litellm.anthropic_messages``
+    Asserts the SSE stream contains a `content_block_start` with
+    `type=tool_use` and at least one `input_json_delta`. Forces
+    `gateway: translate` so the request takes the `litellm.anthropic_messages`
     streaming path; the bytes that come back are forwarded verbatim by magos.
     """
     maybe_skip_anthropic_oauth()
@@ -251,10 +251,10 @@ def test_anthropic_streaming_tool_use_real() -> None:
 def test_anthropic_tool_result_followup_real() -> None:
     """Full agent-loop turn: tool_use -> tool_result -> final text.
 
-    Forces ``gateway: translate`` so the request takes the
-    ``litellm.anthropic_messages`` path with the Anthropic upstream, which
+    Forces `gateway: translate` so the request takes the
+    `litellm.anthropic_messages` path with the Anthropic upstream, which
     handles OAuth keys correctly. Validates that magos preserves
-    ``tool_use_id`` correlation across turns.
+    `tool_use_id` correlation across turns.
     """
     maybe_skip_anthropic_oauth()
     tools = [

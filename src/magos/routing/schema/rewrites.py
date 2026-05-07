@@ -1,6 +1,6 @@
 """Transform primitives: header / model / jq / compress operations.
 
-Every primitive is a single-key ``_Frozen`` model dispatched by present
+Every primitive is a single-key `_Frozen` model dispatched by present
 key in pydantic smart mode.
 """
 
@@ -112,7 +112,7 @@ CompressMode = Literal["token", "cache"]
 
 
 class CompressOptions(_Frozen):
-    """Compression knobs; see ``docs/headroom/pipeline.md``."""
+    """Compression knobs; see `docs/headroom/pipeline.md`."""
 
     engine: CompressMode = "token"
     compress_user_messages: bool = False
@@ -123,16 +123,16 @@ class CompressOptions(_Frozen):
     min_tokens_to_compress: int = Field(default=250, ge=0)
     kompress_model: str | None = None
     model_limit: int | None = Field(default=None, ge=1024)
-    """Context-window override; ``None`` auto-detects. See ``docs/headroom/model-limit.md``."""
+    """Context-window override; `None` auto-detects. See `docs/headroom/model-limit.md`."""
 
     smart_routing: bool = True
     """When True, use ContentRouter for per-content-type dispatch (default).
     When False, use the legacy SmartCrusher-only path. See
-    ``docs/headroom/pipeline.md``."""
+    `docs/headroom/pipeline.md`."""
 
     code_aware: bool = False
     """Enable AST-aware code compression in ContentRouter. Requires
-    tree-sitter; ignored when ``smart_routing`` is False."""
+    tree-sitter; ignored when `smart_routing` is False."""
 
     intelligent_context: bool = True
     """When True, use IntelligentContextManager (score-based fitting).
@@ -142,27 +142,27 @@ class CompressOptions(_Frozen):
     """Recent turns the context manager must preserve verbatim."""
 
     ccr_enabled: bool = True
-    """When True (default), the compress rewrite injects ``headroom_retrieve``
+    """When True (default), the compress rewrite injects `headroom_retrieve`
     into the request whenever post-compression messages contain compression
     markers, and dispatch intercepts the model's tool calls. Set False to
     disable CCR for this rule (compression still runs; markers are emitted
     but no tool / instruction injection)."""
 
     ccr_inject_tool: bool = True
-    """Inject the ``headroom_retrieve`` tool definition into ``body.tools``.
-    Has effect only when ``ccr_enabled`` is True. Disable if a client
+    """Inject the `headroom_retrieve` tool definition into `body.tools`.
+    Has effect only when `ccr_enabled` is True. Disable if a client
     distributes the tool via MCP (server-side) and re-injection would
     duplicate."""
 
     ccr_inject_instructions: bool = True
     """Inject system-message instructions describing how to call
-    ``headroom_retrieve``. Has effect only when ``ccr_enabled`` is True
+    `headroom_retrieve`. Has effect only when `ccr_enabled` is True
     and the prefix-cache freeze count is zero (otherwise instruction
     injection is skipped to preserve the cache, regardless of this flag)."""
 
 
-# Endpoints whose body has a ``messages`` array compatible with Headroom's
-# pipeline. /v1/responses uses ``input`` instead and is handled separately.
+# Endpoints whose body has a `messages` array compatible with Headroom's
+# pipeline. /v1/responses uses `input` instead and is handled separately.
 _COMPRESS_SUPPORTED_ENDPOINTS: frozenset[str] = frozenset(
     {"/v1/messages", "/v1/messages/count_tokens", "/v1/chat/completions"}
 )

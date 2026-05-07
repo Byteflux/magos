@@ -1,4 +1,4 @@
-"""Tests for the top-level Typer CLI in ``magos.cli.app``."""
+"""Tests for the top-level Typer CLI in `magos.cli.app`."""
 
 from __future__ import annotations
 

@@ -1,8 +1,8 @@
-"""``TranslateAdapter`` wiring for ``/v1/messages``.
+"""`TranslateAdapter` wiring for `/v1/messages`.
 
 Holds the response/stream model rewriters, the bytes iterator (which
 also emits an Anthropic-shape error event when the upstream dispatch
-raises), and the assembled ``ADAPTER`` consumed by the runner.
+raises), and the assembled `ADAPTER` consumed by the runner.
 """
 
 from __future__ import annotations

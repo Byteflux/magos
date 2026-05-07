@@ -1,4 +1,4 @@
-"""``RoutedRequest.post_response_hooks`` defaults + reference semantics."""
+"""`RoutedRequest.post_response_hooks` defaults + reference semantics."""
 
 from __future__ import annotations
 

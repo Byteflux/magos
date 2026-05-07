@@ -1,4 +1,4 @@
-"""Match grammar: matcher dispatch, atoms, combinators, alias for ``not``."""
+"""Match grammar: matcher dispatch, atoms, combinators, alias for `not`."""
 
 from __future__ import annotations
 

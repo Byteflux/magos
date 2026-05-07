@@ -16,7 +16,7 @@ from tests.routing._helpers import make_req
 
 
 def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    """``mode: cache`` must not invoke the full compress() pipeline."""
+    """`mode: cache` must not invoke the full compress() pipeline."""
 
     def boom(*args: Any, **kwargs: Any) -> ApplyResult:  # pragma: no cover
         raise AssertionError("apply() must not be called in cache mode")
@@ -48,8 +48,8 @@ def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_responses_cache_mode_aligns_instructions() -> None:
-    """``mode: cache`` extracts dynamic content from the Responses
-    ``instructions`` field and writes the stabilised string back."""
+    """`mode: cache` extracts dynamic content from the Responses
+    `instructions` field and writes the stabilised string back."""
     uuid = "550e8400-e29b-41d4-a716-446655440000"
     req = make_req(
         endpoint="/v1/responses",
@@ -106,7 +106,7 @@ def test_responses_cache_mode_noop_when_instructions_empty() -> None:
 def test_responses_token_mode_does_not_call_pipeline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``mode: token`` is unsupported on /v1/responses: must not call apply()."""
+    """`mode: token` is unsupported on /v1/responses: must not call apply()."""
 
     def boom(*args: Any, **kwargs: Any) -> None:  # pragma: no cover
         raise AssertionError("apply() must not be called for Responses token mode")

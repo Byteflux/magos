@@ -1,10 +1,10 @@
 """CCR (Compress-Cache-Retrieve) integration for magos.
 
-Magos-side glue around ``headroom.ccr``: detection, request-side tool
+Magos-side glue around `headroom.ccr`: detection, request-side tool
 injection (driven from the compress rewrite), and response-side handling
-(driven from egress dispatch). Headroom's ``CCRToolInjector``,
-``CCRResponseHandler``, ``StreamingCCRHandler``, and the
-``compression_store`` are reused directly.
+(driven from egress dispatch). Headroom's `CCRToolInjector`,
+`CCRResponseHandler`, `StreamingCCRHandler`, and the
+`compression_store` are reused directly.
 """
 
 from __future__ import annotations

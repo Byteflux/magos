@@ -1,4 +1,4 @@
-"""``eager_warmup`` calls ``eager_load_compressors`` once per unique transform."""
+"""`eager_warmup` calls `eager_load_compressors` once per unique transform."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Pipeline tests for ``magos.routing.engine``."""
+"""Pipeline tests for `magos.routing.engine`."""
 
 from __future__ import annotations
 
@@ -294,21 +294,21 @@ def test_passthrough_mode_keeps_bare_model() -> None:
 @pytest.mark.parametrize(
     ("provider", "body_model", "expected", "registry_entry"),
     [
-        # ``set_model: vultr/Qwen/...`` -- literal registry hit substitutes litellm_id.
+        # `set_model: vultr/Qwen/...` -- literal registry hit substitutes litellm_id.
         (
             "vultr",
             "vultr/Qwen/Qwen3.5-397B-A17B-FP8",
             "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
             ("vultr", "Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
         ),
-        # ``set_model: Qwen/...`` -- bare id resolved by prepending action.provider.
+        # `set_model: Qwen/...` -- bare id resolved by prepending action.provider.
         (
             "vultr",
             "Qwen/Qwen3.5-397B-A17B-FP8",
             "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8",
             ("vultr", "Qwen/Qwen3.5-397B-A17B-FP8", "custom_openai/Qwen/Qwen3.5-397B-A17B-FP8"),
         ),
-        # Registry miss with ``/`` in model -- fall through to LiteLLM as-is.
+        # Registry miss with `/` in model -- fall through to LiteLLM as-is.
         ("openai", "openai/gpt-4-turbo", "openai/gpt-4-turbo", None),
     ],
 )

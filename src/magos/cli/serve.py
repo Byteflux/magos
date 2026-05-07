@@ -1,7 +1,7 @@
-"""``magos serve`` command + entrypoint bootstrap (logging/tracing config + bootstrap log).
+"""`magos serve` command + entrypoint bootstrap (logging/tracing config + bootstrap log).
 
-Bootstrap lives here rather than in :mod:`magos.serve` so library callers
-of ``serve_async`` don't implicitly reconfigure the root logger.
+Bootstrap lives here rather than in `magos.serve` so library callers
+of `serve_async` don't implicitly reconfigure the root logger.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def bootstrap_and_serve(
     mitm_host: str | None = None,
     mitm_port: int | None = None,
 ) -> None:
-    """Boot the FastAPI server (and optional mitm ingress); CLI > env > yaml. See ``docs/cli.md``."""
+    """Boot the FastAPI server (and optional mitm ingress); CLI > env > yaml. See `docs/cli.md`."""
     if host is not None:
         os.environ["MAGOS_HOST"] = host
     if port is not None:
@@ -57,11 +57,11 @@ def bootstrap_and_serve(
 
 
 def _preload_native_load_order(settings: MagosSettings) -> None:
-    """Force ``sentence_transformers`` import before any PyO3-bound module.
+    """Force `sentence_transformers` import before any PyO3-bound module.
 
     Wins the Windows native-load-order race (segfault in pyarrow's
-    ``.pyd`` after PyO3 init); see ``docs/headroom/pipeline.md``.
-    Doing it here, before ``magos.serve`` imports litellm, makes the
+    `.pyd` after PyO3 init); see `docs/headroom/pipeline.md`.
+    Doing it here, before `magos.serve` imports litellm, makes the
     order deterministic. Skipped when no compress rule is configured,
     since the import is multi-second.
     """
@@ -85,7 +85,7 @@ def _preload_native_load_order(settings: MagosSettings) -> None:
 
 
 def register(app: typer.Typer) -> None:
-    """Attach ``serve`` to the root Typer app."""
+    """Attach `serve` to the root Typer app."""
 
     @app.command("serve")
     def serve_cmd(

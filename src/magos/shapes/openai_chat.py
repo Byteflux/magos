@@ -1,4 +1,4 @@
-"""OpenAI Chat Completions wire shape: ``/v1/chat/completions``."""
+"""OpenAI Chat Completions wire shape: `/v1/chat/completions`."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ SPEC = Shape(
     name="openai-chat",
     endpoints=("/v1/chat/completions",),
     compression_provider="openai",
-    # System prompts ride inside ``messages`` as a role=system entry rather
+    # System prompts ride inside `messages` as a role=system entry rather
     # than a top-level field.
     system_field=None,
     messages_field="messages",
@@ -20,8 +20,8 @@ SPEC = Shape(
     },
     stream_events=(
         # Usage arrives on the terminal chunk regardless of event name,
-        # gated by ``stream_options.include_usage: true``. Other chunks
-        # have no ``usage`` dict and are skipped by the generic walker.
+        # gated by `stream_options.include_usage: true`. Other chunks
+        # have no `usage` dict and are skipped by the generic walker.
         StreamEvent(
             event_name=None,
             usage_path=("usage",),

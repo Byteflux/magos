@@ -1,4 +1,4 @@
-"""``wrap_response`` handles CCR tool calls in non-streaming responses."""
+"""`wrap_response` handles CCR tool calls in non-streaming responses."""
 
 from __future__ import annotations
 

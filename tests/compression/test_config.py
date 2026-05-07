@@ -1,4 +1,4 @@
-"""``PipelineConfig`` value semantics + fingerprinting."""
+"""`PipelineConfig` value semantics + fingerprinting."""
 
 from __future__ import annotations
 

@@ -1,10 +1,10 @@
 """Discovery adapter Protocol + shared types.
 
-Adapters are async/stateless: ``(ProviderConfig, httpx.AsyncClient) ->
-DiscoveryResult``. Raise ``DiscoveryError`` on transport/auth/parse
+Adapters are async/stateless: `(ProviderConfig, httpx.AsyncClient) ->
+DiscoveryResult`. Raise `DiscoveryError` on transport/auth/parse
 failures; an empty result is success (provider serves zero models).
 
-``JsonListAdapter`` is a concrete base for the common pattern: GET a JSON
+`JsonListAdapter` is a concrete base for the common pattern: GET a JSON
 endpoint, extract a named array field, call a per-entry builder.
 """
 
@@ -26,8 +26,8 @@ class DiscoveryError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class DiscoveredModel:
-    """One adapter-discovered model pre-merge; ``raw_id`` is provider-native,
-    ``litellm_id`` is the adapter-default dispatch id (override can replace).
+    """One adapter-discovered model pre-merge; `raw_id` is provider-native,
+    `litellm_id` is the adapter-default dispatch id (override can replace).
     """
 
     raw_id: str
@@ -48,9 +48,9 @@ class DiscoveryAdapter(Protocol):
 
     name: str
 
-    # Adapter-canonical fallback URL when the operator omits ``base_url``.
-    # ``None`` means the adapter has no opinion (provider has no fixed host,
-    # or LiteLLM already knows the default). Required for ``custom_openai``
+    # Adapter-canonical fallback URL when the operator omits `base_url`.
+    # `None` means the adapter has no opinion (provider has no fixed host,
+    # or LiteLLM already knows the default). Required for `custom_openai`
     # third parties (e.g. Vultr) since LiteLLM has no built-in host.
     default_base_url: str | None
 
@@ -67,15 +67,15 @@ class JsonListAdapter:
 
     Subclasses set class attributes to parameterise the shared logic:
 
-    - ``name``: adapter key (matches ``discovery:`` yaml value)
-    - ``default_base_url``: fallback when operator omits ``base_url``
-    - ``_path_suffix``: appended to the (stripped) base URL
-    - ``_data_field``: top-level JSON key that holds the model array
-    - ``_default_litellm_provider``: prefix for ``litellm_id`` construction
-    - ``_auth_headers``: callable ``(provider_name, config) -> dict``
-    - ``_partial_from_entry``: callable ``(raw_dict, litellm_provider) -> PartialEntry``
+    - `name`: adapter key (matches `discovery:` yaml value)
+    - `default_base_url`: fallback when operator omits `base_url`
+    - `_path_suffix`: appended to the (stripped) base URL
+    - `_data_field`: top-level JSON key that holds the model array
+    - `_default_litellm_provider`: prefix for `litellm_id` construction
+    - `_auth_headers`: callable `(provider_name, config) -> dict`
+    - `_partial_from_entry`: callable `(raw_dict, litellm_provider) -> PartialEntry`
 
-    The default ``_partial_from_entry`` stamps only ``litellm_id`` (suitable
+    The default `_partial_from_entry` stamps only `litellm_id` (suitable
     for id-only endpoints like OpenAI and Anthropic). Override for richer
     catalog endpoints.
     """
@@ -95,7 +95,7 @@ class JsonListAdapter:
 
     @staticmethod
     def _default_partial(raw: dict[str, object], litellm_id: str) -> PartialEntry:
-        # Stamp ``litellm_id`` so merge records ``discovery`` in sources;
+        # Stamp `litellm_id` so merge records `discovery` in sources;
         # endpoint returns no other enrichable fields.
         return PartialEntry(litellm_id=litellm_id)
 

@@ -1,7 +1,7 @@
 """Match grammar: matchers (literal/glob/regex), atoms (model/header/
 endpoint/jq/model_field), and combinators (all_of/any_of/not).
 
-Union variants use single-key + ``extra="forbid"`` so pydantic's
+Union variants use single-key + `extra="forbid"` so pydantic's
 smart-mode union dispatches by present key.
 """
 
@@ -54,7 +54,7 @@ ModelFieldOp = Literal["eq", "gt", "gte", "lt", "lte", "contains", "in"]
 
 
 class ModelFieldExpr(_Frozen):
-    """Registry model-field comparison. See ``docs/registry/matchers.md``."""
+    """Registry model-field comparison. See `docs/registry/matchers.md`."""
 
     field: Literal[
         "context_size",

@@ -1,7 +1,7 @@
 """Structlog setup and the unified logger factory.
 
-``configure_logging`` is called once at startup; until it runs,
-``get_logger`` falls back to structlog defaults. ``MAGOS_LOG_JSON=1``
+`configure_logging` is called once at startup; until it runs,
+`get_logger` falls back to structlog defaults. `MAGOS_LOG_JSON=1`
 flips the renderer from console to JSON.
 """
 
@@ -94,7 +94,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
 
 
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
-    """Return a structlog logger; safe to call before ``configure_logging``."""
+    """Return a structlog logger; safe to call before `configure_logging`."""
     return cast(
         structlog.stdlib.BoundLogger,
         structlog.get_logger(name) if name else structlog.get_logger(),

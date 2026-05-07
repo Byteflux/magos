@@ -1,14 +1,14 @@
-"""``magos.routing.engine``: ``Router`` ABC + canonical implementations.
+"""`magos.routing.engine`: `Router` ABC + canonical implementations.
 
 Public surface:
 
-- :class:`Router` — ABC.
-- :class:`RuleBasedRouter` — declarative rule engine; canonical impl.
-- :class:`AutoRouter` — registry-driven fallback.
-- :class:`MeasuredRouter` — decorator emitting an OTel counter.
-- :func:`route` — free convenience function (constructs a transient
-  ``RuleBasedRouter`` for one-shot use; preferred for tests).
-- :func:`apply_pre_transforms` — re-exported for the routing facade.
+- `Router` — ABC.
+- `RuleBasedRouter` — declarative rule engine; canonical impl.
+- `AutoRouter` — registry-driven fallback.
+- `MeasuredRouter` — decorator emitting an OTel counter.
+- `route` — free convenience function (constructs a transient
+  `RuleBasedRouter` for one-shot use; preferred for tests).
+- `apply_pre_transforms` — re-exported for the routing facade.
 """
 
 from __future__ import annotations
@@ -37,9 +37,9 @@ def route(
     pins: Mapping[str, str] | None = None,
     provider_order: tuple[str, ...] = (),
 ) -> RouteDecision | RouteError:
-    """Resolve ``req`` against ``cfg``; convenience wrapper for one-shot use.
+    """Resolve `req` against `cfg`; convenience wrapper for one-shot use.
 
-    Production code uses :class:`RuleBasedRouter` (long-lived, DI-injected).
+    Production code uses `RuleBasedRouter` (long-lived, DI-injected).
     This free function is preferred in tests where constructing a router
     just to call it once is overkill.
     """

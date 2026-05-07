@@ -1,7 +1,7 @@
-"""No-op adapter: empty ``DiscoveryResult``.
+"""No-op adapter: empty `DiscoveryResult`.
 
-Manual ``models:`` entries are permanent (no deprecation cycle without
-live discovery contribution). See ``docs/registry/config.md``.
+Manual `models:` entries are permanent (no deprecation cycle without
+live discovery contribution). See `docs/registry/config.md`.
 """
 
 from __future__ import annotations

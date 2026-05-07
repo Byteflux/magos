@@ -1,18 +1,18 @@
 """Probe Anthropic prompt caching through magos.
 
 Sends the same long-system-prompt request twice and reports
-``cache_creation_input_tokens`` and ``cache_read_input_tokens`` so you
-can see whether magos's request rewrites (notably the global ``compress``
+`cache_creation_input_tokens` and `cache_read_input_tokens` so you
+can see whether magos's request rewrites (notably the global `compress`
 pre_rewrite over the Anthropic passthrough rule) preserve cache hits.
 
 Two passes:
 
-1. Through magos (default ``http://127.0.0.1:6246``).
-2. Direct to ``api.anthropic.com`` as a control.
+1. Through magos (default `http://127.0.0.1:6246`).
+2. Direct to `api.anthropic.com` as a control.
 
 For each pass: call once to write the cache, call again to read it. A
-working cache shows ``cache_creation`` > 0 on the first call and
-``cache_read`` > 0 on the second. If magos's compress rewrite is
+working cache shows `cache_creation` > 0 on the first call and
+`cache_read` > 0 on the second. If magos's compress rewrite is
 deterministic, the magos pass should look identical to the direct pass
 (possibly with different absolute token counts because the system
 prompt has been compressed, but the same hit/miss pattern).
@@ -76,8 +76,8 @@ def _build_body(call_idx: int) -> dict[str, object]:
 
 
 def _auth_headers() -> dict[str, str]:
-    """OAuth tokens (``sk-ant-oat...``) go in Authorization Bearer; API keys
-    (``sk-ant-api...``) go in x-api-key. Anthropic rejects the wrong header
+    """OAuth tokens (`sk-ant-oat...`) go in Authorization Bearer; API keys
+    (`sk-ant-api...`) go in x-api-key. Anthropic rejects the wrong header
     with 401, so we route by prefix."""
     key = API_KEY or ""
     if key.startswith("sk-ant-oat"):

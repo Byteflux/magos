@@ -27,8 +27,8 @@ def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MAGOS_MITM_PORT", raising=False)
     monkeypatch.delenv("MAGOS_MITM_INTERCEPT_HOSTS", raising=False)
     s = MagosSettings(_env_file=None)  # type: ignore[call-arg]
-    # ``host``/``port``/``mitm_*`` default to None on MagosSettings; the actual
-    # values come from yaml's ``ingress`` block via ``resolve_bind``/``resolve_mitm``.
+    # `host`/`port`/`mitm_*` default to None on MagosSettings; the actual
+    # values come from yaml's `ingress` block via `resolve_bind`/`resolve_mitm`.
     assert s.host is None
     assert s.port is None
     assert s.mitm_enabled is None

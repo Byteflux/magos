@@ -1,7 +1,7 @@
 """Tie-break when multiple providers serve one logical model id.
 
-Resolution: pin > ``provider_order`` > lex-smallest candidate. See
-``docs/registry/auto-routing.md``.
+Resolution: pin > `provider_order` > lex-smallest candidate. See
+`docs/registry/auto-routing.md`.
 """
 
 from __future__ import annotations
@@ -16,9 +16,9 @@ def resolve_provider(
     pins: Mapping[str, str] | None = None,
     provider_order: tuple[str, ...] = (),
 ) -> str | None:
-    """Pick the winning provider from ``candidates`` (or ``None`` if empty).
+    """Pick the winning provider from `candidates` (or `None` if empty).
 
-    Pins to providers absent from ``candidates`` are ignored.
+    Pins to providers absent from `candidates` are ignored.
     """
     candidate_set = set(candidates)
     if not candidate_set:

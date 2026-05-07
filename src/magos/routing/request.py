@@ -1,4 +1,4 @@
-"""Request abstraction shared by routing and dispatch. See ``docs/routing/pipeline.md``."""
+"""Request abstraction shared by routing and dispatch. See `docs/routing/pipeline.md`."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ if TYPE_CHECKING:
     from magos.shapes import Usage
 
 PostResponseHook = Callable[["Usage"], None]
-"""Closure fired by the gateway after the upstream's ``Usage`` is captured.
+"""Closure fired by the gateway after the upstream's `Usage` is captured.
 
 Used by the compress transform to feed cache_read / cache_write tokens back
-into the per-session ``PrefixCacheTracker``. Hooks should not raise; the
+into the per-session `PrefixCacheTracker`. Hooks should not raise; the
 gateway swallows + logs failures so one bad hook can't break the client
 response.
 """
@@ -41,13 +41,13 @@ HttpMethod = Literal["GET", "POST", "DELETE"]
 
 @dataclass(frozen=True, slots=True)
 class RoutedRequest:
-    """Inputs to the routing pipeline. See ``docs/routing/pipeline.md``.
+    """Inputs to the routing pipeline. See `docs/routing/pipeline.md`.
 
-    ``headers`` keys are lowercased. ``body_dirty`` flips on body-touching
-    transforms. ``actual_path`` overrides ``endpoint`` for upstream forwarding
-    on templated paths. ``post_response_hooks`` is a mutable list of closures
+    `headers` keys are lowercased. `body_dirty` flips on body-touching
+    transforms. `actual_path` overrides `endpoint` for upstream forwarding
+    on templated paths. `post_response_hooks` is a mutable list of closures
     appended by transforms and fired by the gateway after the upstream
-    response's ``Usage`` is captured.
+    response's `Usage` is captured.
     """
 
     endpoint: Endpoint

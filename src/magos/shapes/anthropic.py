@@ -1,4 +1,4 @@
-"""Anthropic Messages wire shape: ``/v1/messages``."""
+"""Anthropic Messages wire shape: `/v1/messages`."""
 
 from __future__ import annotations
 

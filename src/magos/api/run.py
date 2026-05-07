@@ -1,8 +1,8 @@
-"""FastAPI adapter: ``Request`` -> ``RoutedRequest`` -> ``RequestService.process`` -> ``Response``.
+"""FastAPI adapter: `Request` -> `RoutedRequest` -> `RequestService.process` -> `Response`.
 
 Body parsing and JSON shape validation happen here (FastAPI-specific errors).
-All routing/dispatch logic lives in :mod:`magos.service.request`.
-See ``docs/architecture/request-flow.md`` for the full lifecycle and
+All routing/dispatch logic lives in `magos.service.request`.
+See `docs/architecture/request-flow.md` for the full lifecycle and
 exception ladder.
 """
 
@@ -31,14 +31,14 @@ async def run_endpoint(
     method: str = "POST",
     actual_path: str | None = None,
 ) -> Response | StreamingResponse | dict[str, Any]:
-    """Thin FastAPI adapter around :meth:`RequestService.process`.
+    """Thin FastAPI adapter around `RequestService.process`.
 
     Steps:
     1. Read raw body bytes.
-    2. Parse JSON; raise ``HTTPException(400)`` for parse / shape errors.
-    3. Build ``RoutedRequest``.
-    4. Delegate to ``app.state.service.process``.
-    5. Adapt ``RoutedResponse`` to a FastAPI ``Response``.
+    2. Parse JSON; raise `HTTPException(400)` for parse / shape errors.
+    3. Build `RoutedRequest`.
+    4. Delegate to `app.state.service.process`.
+    5. Adapt `RoutedResponse` to a FastAPI `Response`.
     """
     raw_body = await request.body()
     try:
@@ -68,7 +68,7 @@ async def run_endpoint(
 
 
 def _adapt(result: RoutedResponse) -> Response | StreamingResponse | dict[str, Any]:
-    """Convert a ``RoutedResponse`` to a FastAPI response type."""
+    """Convert a `RoutedResponse` to a FastAPI response type."""
     if result.stream is not None:
         return StreamingResponse(result.stream, media_type=result.media_type or "text/event-stream")
     if isinstance(result.body, dict):

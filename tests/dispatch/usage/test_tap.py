@@ -1,4 +1,4 @@
-"""``tap_stream`` end-to-end SSE byte parser + accumulator integration."""
+"""`tap_stream` end-to-end SSE byte parser + accumulator integration."""
 
 from __future__ import annotations
 
@@ -127,11 +127,11 @@ def test_tap_stream_no_usage_emits_no_log() -> None:
 
 
 def test_tap_stream_flushes_trailing_event_without_blank_line() -> None:
-    """Some upstreams omit the trailing ``\\n\\n`` on the final event.
+    """Some upstreams omit the trailing `\\n\\n` on the final event.
 
-    First event has the proper ``\\n\\n`` separator so the stream parser
+    First event has the proper `\\n\\n` separator so the stream parser
     consumes it normally; the final event is missing its trailing blank
-    line and only gets flushed by the ``finally`` branch.
+    line and only gets flushed by the `finally` branch.
     """
     head = _anthropic_message_start()  # well-formed, ends with \n\n
     tail = _anthropic_message_delta().rstrip(b"\n")  # truncated terminator
@@ -143,7 +143,7 @@ def test_tap_stream_flushes_trailing_event_without_blank_line() -> None:
 
 
 def test_tap_stream_ignores_non_json_data_lines() -> None:
-    """``data: [DONE]`` and other non-JSON sentinels must not crash the parser."""
+    """`data: [DONE]` and other non-JSON sentinels must not crash the parser."""
     _, matches = asyncio.run(_drain([b"data: [DONE]\n\n"], OPENAI_CHAT, "/v1/chat/completions"))
     assert matches == []
 

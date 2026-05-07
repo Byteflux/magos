@@ -1,7 +1,7 @@
 """Pipes-and-Filters step abstraction for the routing pipeline.
 
-``Transform`` is the single sync ABC that all rewrite and compression steps
-implement. Phase C3b will flip ``apply`` to async; until then callers use the
+`Transform` is the single sync ABC that all rewrite and compression steps
+implement. Phase C3b will flip `apply` to async; until then callers use the
 sync form and the router applies transforms at decision time.
 """
 
@@ -14,7 +14,7 @@ from magos.routing.request import RoutedRequest
 
 
 class Transform(ABC):
-    """Pure transform on a ``RoutedRequest``. Pipes-and-Filters step.
+    """Pure transform on a `RoutedRequest`. Pipes-and-Filters step.
 
     Sync today; Phase C3b will flip to async.
     """

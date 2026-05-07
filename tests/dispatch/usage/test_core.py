@@ -1,4 +1,4 @@
-"""Coverage for ``magos.dispatch.usage.core``: extractor + log helpers."""
+"""Coverage for `magos.dispatch.usage.core`: extractor + log helpers."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ def test_extractors_handle_missing_usage_block() -> None:
 
 
 def test_openai_shapes_omit_cache_write() -> None:
-    """``cache_write`` is Anthropic-only; OpenAI shapes ignore the field."""
+    """`cache_write` is Anthropic-only; OpenAI shapes ignore the field."""
     body = {"usage": {"prompt_tokens": 1, "completion_tokens": 1}}
     assert OPENAI_CHAT.extract_usage(body).cache_write == 0
 

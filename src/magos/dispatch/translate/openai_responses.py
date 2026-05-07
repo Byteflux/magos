@@ -1,6 +1,6 @@
-"""``/v1/responses`` translate path via ``litellm.aresponses``.
+"""`/v1/responses` translate path via `litellm.aresponses`.
 
-Streaming uses named SSE events (``event:`` + ``data:`` per chunk).
+Streaming uses named SSE events (`event:` + `data:` per chunk).
 """
 
 from __future__ import annotations

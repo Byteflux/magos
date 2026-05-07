@@ -1,7 +1,7 @@
-"""OpenRouter ``GET /api/v1/models`` adapter.
+"""OpenRouter `GET /api/v1/models` adapter.
 
 Catalog includes context size, pricing, modalities, and max-output;
-all mapped into ``PartialEntry``. Pricing is per-token USD upstream;
+all mapped into `PartialEntry`. Pricing is per-token USD upstream;
 scaled to per-million on ingest.
 """
 
@@ -19,7 +19,7 @@ _DEFAULT_LITELLM_PROVIDER = "openrouter"
 
 
 class OpenRouterAdapter(JsonListAdapter):
-    """Calls ``GET {base_url}/v1/models`` and maps the enriched catalog to entries."""
+    """Calls `GET {base_url}/v1/models` and maps the enriched catalog to entries."""
 
     name = "openrouter"
     # LiteLLM's openrouter provider already knows the host.
@@ -68,9 +68,9 @@ def _dict_field(raw: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def _input_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
-    """Prefer the explicit ``architecture.input_modalities`` array.
+    """Prefer the explicit `architecture.input_modalities` array.
 
-    Older catalog entries only carry a legacy ``modality: "X+Y->Z"``
+    Older catalog entries only carry a legacy `modality: "X+Y->Z"`
     string; we split on the arrow and take the left side.
     """
     explicit = _modality_array(architecture.get("input_modalities"))
@@ -80,7 +80,7 @@ def _input_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
 
 
 def _output_modalities(architecture: dict[str, Any]) -> tuple[str, ...] | None:
-    """Same shape as :func:`_input_modalities`, but the output side."""
+    """Same shape as `_input_modalities`, but the output side."""
     explicit = _modality_array(architecture.get("output_modalities"))
     if explicit is not None:
         return explicit
@@ -95,7 +95,7 @@ def _modality_array(value: Any) -> tuple[str, ...] | None:
 
 
 def _legacy_modality_side(value: Any, *, side: int) -> tuple[str, ...] | None:
-    """Pull one side of OpenRouter's legacy ``"text+image->text"`` field."""
+    """Pull one side of OpenRouter's legacy `"text+image->text"` field."""
     if not isinstance(value, str):
         return None
     halves = value.split("->", 1)

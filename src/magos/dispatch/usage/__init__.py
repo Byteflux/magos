@@ -2,14 +2,14 @@
 
 Three concerns split across siblings:
 
-- :mod:`core` — ``log_usage`` / ``log_usage_from_body`` (the latter is
-  a thin convenience over ``Shape.extract_usage`` plus logging).
-- :mod:`accumulator` — ``UsageAccumulator``, the per-shape SSE event
+- `core` — `log_usage` / `log_usage_from_body` (the latter is
+  a thin convenience over `Shape.extract_usage` plus logging).
+- `accumulator` — `UsageAccumulator`, the per-shape SSE event
   aggregator used during streaming.
-- :mod:`tap` — ``tap_stream``, the byte-passthrough generator that
-  feeds the accumulator and emits the final ``egress.usage`` log.
+- `tap` — `tap_stream`, the byte-passthrough generator that
+  feeds the accumulator and emits the final `egress.usage` log.
 
-The ``Usage`` dataclass lives in :mod:`magos.shapes.usage` and is
+The `Usage` dataclass lives in `magos.shapes.usage` and is
 re-exported here for backward-compatible local imports.
 """
 

@@ -1,4 +1,4 @@
-"""``wrap_stream`` streams chunks through headroom's CCR streaming handler."""
+"""`wrap_stream` streams chunks through headroom's CCR streaming handler."""
 
 from __future__ import annotations
 
@@ -56,9 +56,9 @@ def test_wrap_stream_passthrough_when_not_ccr_request() -> None:
 def test_wrap_stream_passthrough_when_no_ccr_tool_call_in_stream() -> None:
     """CCR tool present in request, but stream has no tool_use -> no continuation called.
 
-    Headroom's ``StreamingCCRHandler`` buffers chunks until it sees ``stop_reason``
+    Headroom's `StreamingCCRHandler` buffers chunks until it sees `stop_reason`
     to decide whether a CCR tool call occurred.  When the first chunk already
-    contains ``stop_reason`` and no CCR is detected, headroom yields the buffered
+    contains `stop_reason` and no CCR is detected, headroom yields the buffered
     chunk(s) and exits — it does not continue draining the upstream.  We assert
     that (a) the continuation is never invoked and (b) at least the first chunk
     (which triggered the detection decision) is forwarded.

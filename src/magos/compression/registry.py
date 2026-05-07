@@ -1,4 +1,4 @@
-"""Lazy per-(config, provider) registry of ``TransformPipeline`` instances."""
+"""Lazy per-(config, provider) registry of `TransformPipeline` instances."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from magos.compression.config import PipelineConfig
 
 
 class PipelineRegistry:
-    """Thread-safe lazy cache keyed by ``(fingerprint, provider_name)``."""
+    """Thread-safe lazy cache keyed by `(fingerprint, provider_name)`."""
 
     def __init__(self) -> None:
         self._cache: dict[tuple[str, str], TransformPipeline] = {}

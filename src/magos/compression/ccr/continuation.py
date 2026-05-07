@@ -27,10 +27,10 @@ def make_continuation_callable(
     api_key: str | None,
     api_base: str | None,
 ) -> ContinuationCallable:
-    """Return a closure suitable as headroom's ``api_call_fn``.
+    """Return a closure suitable as headroom's `api_call_fn`.
 
-    The closure substitutes ``messages`` and ``tools`` into a copy of
-    ``original_body`` and re-runs ``proxy_translate`` with the same egress
+    The closure substitutes `messages` and `tools` into a copy of
+    `original_body` and re-runs `proxy_translate` with the same egress
     parameters as the caller's original request. Routing engine and
     rewrites are bypassed: the compress rewrite (which produced the CCR
     tool injection in the first place) does NOT run on continuation

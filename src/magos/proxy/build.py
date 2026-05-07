@@ -1,9 +1,9 @@
-"""Composition root for the mitmproxy ``HTTPS_PROXY`` surface. The only
+"""Composition root for the mitmproxy `HTTPS_PROXY` surface. The only
 place that imports broadly across magos packages to assemble the object
 graph for the embedded proxy process.
 
 Termlog + dumper disabled because
-:func:`magos.proxy.log_bridge.install_log_bridge` already routes
+`magos.proxy.log_bridge.install_log_bridge` already routes
 mitmproxy logs through structlog.
 """
 
@@ -23,12 +23,12 @@ def build_proxy(
     target_host: str,
     target_port: int,
 ) -> DumpMaster:
-    """Construct the embedded mitmproxy ``DumpMaster`` with addons wired.
+    """Construct the embedded mitmproxy `DumpMaster` with addons wired.
 
-    ``target_host``/``target_port`` is the FastAPI bind address that
-    intercepted requests get rewritten to. ``MagosObserverAddon`` is also
+    `target_host`/`target_port` is the FastAPI bind address that
+    intercepted requests get rewritten to. `MagosObserverAddon` is also
     loaded for outbound provider traffic if it transits this proxy
-    (it doesn't by default; see ``docs/ingress.md`` "Loop hazard").
+    (it doesn't by default; see `docs/ingress.md` "Loop hazard").
     """
     options = Options(
         listen_host=config.host,

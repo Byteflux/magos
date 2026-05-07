@@ -1,7 +1,7 @@
 """Soft-delete state machine. Pure: prior + fresh + clock -> next entries.
 
-Missing-from-fresh marks ``deprecated_at``; reappearance clears it; past
-``grace_seconds`` hard-deletes. See ``docs/registry/overview.md``.
+Missing-from-fresh marks `deprecated_at`; reappearance clears it; past
+`grace_seconds` hard-deletes. See `docs/registry/overview.md`.
 """
 
 from __future__ import annotations
@@ -21,11 +21,11 @@ def apply_deprecation(
     now: datetime,
     grace_seconds: int,
 ) -> dict[str, ModelEntry]:
-    """Return next entries for ``provider`` after merging fresh against prev.
+    """Return next entries for `provider` after merging fresh against prev.
 
-    ``prev_entries`` and ``fresh_entries`` are both keyed by namespaced
+    `prev_entries` and `fresh_entries` are both keyed by namespaced
     id and may contain entries from any provider; this function only
-    operates on entries whose ``provider`` field matches ``provider``.
+    operates on entries whose `provider` field matches `provider`.
     Entries from other providers are passed through unchanged. This lets
     callers feed in the whole registry and replace one provider's slice
     in place.

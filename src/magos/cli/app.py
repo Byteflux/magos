@@ -1,4 +1,4 @@
-"""Root Typer app: top-level options and subcommands. See ``docs/cli.md``."""
+"""Root Typer app: top-level options and subcommands. See `docs/cli.md`."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def _root(
             "--models",
             help=(
                 "Path to models.json (overrides MAGOS_MODELS_PATH and the "
-                "yaml ``registry.models_path``; default $MAGOS_HOME/models.json)."
+                "yaml `registry.models_path`; default $MAGOS_HOME/models.json)."
             ),
         ),
     ] = None,

@@ -1,6 +1,6 @@
-"""``GET /v1/models``: list live registry entries in OpenAI or Anthropic
-shape (selected by ``anthropic-version`` / ``x-api-key`` header). Empty
-list when registry is dormant. See ``docs/registry.md``."""
+"""`GET /v1/models`: list live registry entries in OpenAI or Anthropic
+shape (selected by `anthropic-version` / `x-api-key` header). Empty
+list when registry is dormant. See `docs/registry.md`."""
 
 from __future__ import annotations
 

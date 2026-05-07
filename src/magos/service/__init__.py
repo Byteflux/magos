@@ -1,7 +1,7 @@
-"""Application Service Layer — see ``docs/architecture/migration.md``.
+"""Application Service Layer — see `docs/architecture/migration.md`.
 
 The service is the boundary between ingress surfaces (FastAPI, mitmproxy)
-and the domain logic (routing + dispatch). One ``RequestService``
+and the domain logic (routing + dispatch). One `RequestService`
 instance is constructed per app and shared by all in-flight requests.
 """
 

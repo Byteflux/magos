@@ -1,4 +1,4 @@
-"""Shared call-site shorthand for the ``/v1/messages`` translate tests."""
+"""Shared call-site shorthand for the `/v1/messages` translate tests."""
 
 from __future__ import annotations
 

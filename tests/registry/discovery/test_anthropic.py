@@ -1,4 +1,4 @@
-"""``AnthropicAdapter`` discovery tests (incl. OAuth-token auth shape)."""
+"""`AnthropicAdapter` discovery tests (incl. OAuth-token auth shape)."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def test_anthropic_adapter_requires_api_key_env() -> None:
 def test_anthropic_adapter_uses_x_api_key_for_regular_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Standard ``sk-ant-api...`` keys go on the official ``x-api-key`` header."""
+    """Standard `sk-ant-api...` keys go on the official `x-api-key` header."""
     monkeypatch.setenv("ANTHROPIC_KEY", "sk-ant-api03-test")
     seen: dict[str, str] = {}
 
@@ -58,11 +58,11 @@ def test_anthropic_adapter_uses_x_api_key_for_regular_keys(
 def test_anthropic_adapter_uses_bearer_for_oauth_tokens(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Claude-Code OAuth tokens (``sk-ant-oat...``) require Bearer + beta header.
+    """Claude-Code OAuth tokens (`sk-ant-oat...`) require Bearer + beta header.
 
-    api.anthropic.com 401s with ``invalid x-api-key`` for OAuth credentials
-    sent on the ``x-api-key`` header; the only accepted shape is
-    ``Authorization: Bearer ...`` plus ``anthropic-beta: oauth-2025-04-20``.
+    api.anthropic.com 401s with `invalid x-api-key` for OAuth credentials
+    sent on the `x-api-key` header; the only accepted shape is
+    `Authorization: Bearer ...` plus `anthropic-beta: oauth-2025-04-20`.
     """
     monkeypatch.setenv("ANTHROPIC_KEY", "sk-ant-oat01-deadbeef")
     seen: dict[str, str] = {}

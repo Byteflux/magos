@@ -1,7 +1,7 @@
 """LiteLLM bundled-registry fallback (lowest-precedence source in merge).
 
-``PartialEntry`` is the normalised shape produced by every source; merge
-layers them by precedence into a ``ModelEntry``.
+`PartialEntry` is the normalised shape produced by every source; merge
+layers them by precedence into a `ModelEntry`.
 """
 
 from __future__ import annotations
@@ -34,13 +34,13 @@ class PartialEntry:
 
 
 class GetModelInfoFn(Protocol):
-    """Injection seam: production wires ``litellm.get_model_info``."""
+    """Injection seam: production wires `litellm.get_model_info`."""
 
     def __call__(self, model: str) -> dict[str, Any]: ...
 
 
 def _coerce_input_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
-    """Translate LiteLLM ``supports_*`` booleans to a fixed modality tuple."""
+    """Translate LiteLLM `supports_*` booleans to a fixed modality tuple."""
     modalities: list[str] = ["text"]
     if info.get("supports_vision"):
         modalities.append("image")
@@ -59,9 +59,9 @@ def _coerce_output_modalities(info: dict[str, Any]) -> tuple[str, ...] | None:
 
 
 def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> PartialEntry:
-    """Best-effort lookup of ``litellm_id`` against LiteLLM's bundled registry.
+    """Best-effort lookup of `litellm_id` against LiteLLM's bundled registry.
 
-    Returns an empty ``PartialEntry`` if LiteLLM doesn't know the model
+    Returns an empty `PartialEntry` if LiteLLM doesn't know the model
     (ValueError) or any other lookup error; we log at debug because misses
     are expected for non-mainline providers and shouldn't be alarming.
     """
@@ -101,5 +101,5 @@ def lookup(litellm_id: str, *, get_info: GetModelInfoFn | None = None) -> Partia
 
 
 def _per_token(value: Any) -> float | None:
-    """``Any`` -> per-million USD; drops bools, non-numeric, and negatives."""
+    """`Any` -> per-million USD; drops bools, non-numeric, and negatives."""
     return per_token_to_per_million(coerce_float(value))

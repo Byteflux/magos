@@ -1,9 +1,9 @@
-"""``UsageAccumulator``: stateful streaming usage aggregator.
+"""`UsageAccumulator`: stateful streaming usage aggregator.
 
-Walks the ``Shape``'s ``stream_events`` declaration to find the right
+Walks the `Shape`'s `stream_events` declaration to find the right
 event name, the path to the usage dict within event data, and the
 per-field key paths inside it. Wire-format-specific facts live on
-:class:`magos.shapes.Shape`, not here.
+`magos.shapes.Shape`, not here.
 """
 
 from __future__ import annotations

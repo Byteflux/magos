@@ -1,6 +1,6 @@
 """End-to-end smoke tests for OpenAI-shape endpoints (Chat + Responses).
 
-See ``tests/e2e/conftest.py`` for the ``MAGOS_E2E=1`` skip gate.
+See `tests/e2e/conftest.py` for the `MAGOS_E2E=1` skip gate.
 """
 
 from __future__ import annotations

@@ -27,11 +27,11 @@ class MagosConfig:
 
 
 def resolve_models_path(registry: RegistryYaml, *, override: str | None = None) -> Path:
-    """Resolve the registry's ``models.json`` location to an absolute Path.
+    """Resolve the registry's `models.json` location to an absolute Path.
 
-    Precedence: ``override`` (``MAGOS_MODELS_PATH``) > yaml ``registry.models_path`` >
-    ``"models.json"``. ``~`` expands against OS home; absolute passes through;
-    relative anchors to ``$MAGOS_HOME`` (decoupled from yaml parent and CWD).
+    Precedence: `override` (`MAGOS_MODELS_PATH`) > yaml `registry.models_path` >
+    `"models.json"`. `~` expands against OS home; absolute passes through;
+    relative anchors to `$MAGOS_HOME` (decoupled from yaml parent and CWD).
     """
     raw_str = override or registry.registry.models_path or "models.json"
     if raw_str.startswith("~"):
@@ -46,7 +46,7 @@ _REGISTRY_KEYS = ("providers", "provider_order", "pins", "registry")
 
 
 def load_full_config(path: str | Path) -> MagosConfig:
-    """Parse ``path`` into routing + registry + ingress config.
+    """Parse `path` into routing + registry + ingress config.
 
     Reads and YAML-parses the file exactly once; the resulting mapping
     is shared across all three sub-parsers.
@@ -70,7 +70,7 @@ def _read_yaml_mapping(path: Path) -> dict[str, object]:
 
 
 def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
-    """Fill ``ProviderConfig.base_url`` from the adapter's canonical URL when omitted."""
+    """Fill `ProviderConfig.base_url` from the adapter's canonical URL when omitted."""
     if not registry.providers:
         return registry
     updated: dict[str, ProviderConfig] = {}
@@ -85,7 +85,7 @@ def _normalize_provider_base_urls(registry: RegistryYaml) -> RegistryYaml:
 
 
 def _parse_registry_block(data: dict[str, object], *, source: str) -> RegistryYaml:
-    # ``extra="forbid"`` on RegistryYaml would reject routing rules; subset first.
+    # `extra="forbid"` on RegistryYaml would reject routing rules; subset first.
     subset = {k: data[k] for k in _REGISTRY_KEYS if k in data}
     try:
         return RegistryYaml.model_validate(subset)

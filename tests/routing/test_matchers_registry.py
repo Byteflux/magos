@@ -1,4 +1,4 @@
-"""Tests for the ``model_field`` matcher atom against the registry."""
+"""Tests for the `model_field` matcher atom against the registry."""
 
 from __future__ import annotations
 

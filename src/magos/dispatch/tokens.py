@@ -1,7 +1,7 @@
-"""Async input-token counting via ``litellm.acount_tokens``.
+"""Async input-token counting via `litellm.acount_tokens`.
 
 LiteLLM picks between an in-process tokenizer and the provider's native
-count-tokens endpoint per model. ``count`` is a test injection seam.
+count-tokens endpoint per model. `count` is a test injection seam.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ class CountTokensFn(Protocol):
 
 
 def _extract_total_tokens(result: Any) -> int:
-    """Coerce a litellm ``TokenCountResponse`` or dict into a positive int."""
+    """Coerce a litellm `TokenCountResponse` or dict into a positive int."""
     if hasattr(result, "total_tokens"):
         value = result.total_tokens
     elif isinstance(result, dict):

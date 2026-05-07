@@ -1,7 +1,7 @@
 """Coercion helpers shared across discovery adapters.
 
-All functions treat ``bool`` as non-numeric to avoid Python's subclass
-relationship between ``bool`` and ``int``.
+All functions treat `bool` as non-numeric to avoid Python's subclass
+relationship between `bool` and `int`.
 """
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from typing import Any
 
 
 def coerce_int(value: Any) -> int | None:
-    """Return ``value`` coerced to ``int``, or ``None`` if not representable."""
+    """Return `value` coerced to `int`, or `None` if not representable."""
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
@@ -24,7 +24,7 @@ def coerce_int(value: Any) -> int | None:
 
 
 def coerce_float(value: Any) -> float | None:
-    """Return ``value`` coerced to ``float``, or ``None`` if not representable."""
+    """Return `value` coerced to `float`, or `None` if not representable."""
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):

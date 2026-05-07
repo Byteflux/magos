@@ -1,4 +1,4 @@
-"""``set_header``, ``add_header``, ``remove_header`` tests."""
+"""`set_header`, `add_header`, `remove_header` tests."""
 
 from __future__ import annotations
 

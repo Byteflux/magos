@@ -1,9 +1,9 @@
 """Shared helpers for ingress HTTP tests.
 
-Each test injects a routing config via ``build_api(routing=...)`` and
+Each test injects a routing config via `build_api(routing=...)` and
 overrides the matching completion dependency so no real upstream is
 contacted. Passthrough wire behaviour itself is unit-tested in
-``tests/dispatch/test_passthrough.py``; the helpers here just stand up a
+`tests/dispatch/test_passthrough.py`; the helpers here just stand up a
 TestClient with the right rules and stubs in place.
 """
 

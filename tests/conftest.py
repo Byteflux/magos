@@ -1,29 +1,29 @@
 """Pytest fixtures and bootstrap.
 
-Loads ``.env`` into ``os.environ`` only when end-to-end tests are enabled,
+Loads `.env` into `os.environ` only when end-to-end tests are enabled,
 so unit and integration runs stay free of real provider credentials.
 LiteLLM and other libraries read keys directly from the process
 environment, not from pydantic-settings, hence the explicit population.
 
-Also points ``MAGOS_CONFIG_PATH`` at the test fixture YAML before any test
-imports ``magos.api``, so ``build_api()`` calls without an explicit
-``routing`` argument find a real config file.
+Also points `MAGOS_CONFIG_PATH` at the test fixture YAML before any test
+imports `magos.api`, so `build_api()` calls without an explicit
+`routing` argument find a real config file.
 """
 
 from __future__ import annotations
 
 # Force-load sentence_transformers before any other test import. Required to
 # neutralise a Windows native-load order bug: importing
-# ``cryptography.hazmat.bindings._rust`` (transitively pulled by
-# ``mitmproxy.http`` in ``tests/proxy/test_addon.py``) before
-# ``sentence_transformers`` causes pyarrow's ``.pyd`` to segfault during
-# ``create_module`` when the Headroom DynamicContentDetector is later
+# `cryptography.hazmat.bindings._rust` (transitively pulled by
+# `mitmproxy.http` in `tests/proxy/test_addon.py`) before
+# `sentence_transformers` causes pyarrow's `.pyd` to segfault during
+# `create_module` when the Headroom DynamicContentDetector is later
 # imported by the cache_align tests. Costs ~6s on first session import
 # (cached thereafter). Production has its own preload in
-# ``magos.routing.rewrites.compress`` that fires before any request
-# reaches ``compress``; the test suite needs this earlier hook because
+# `magos.routing.rewrites.compress` that fires before any request
+# reaches `compress`; the test suite needs this earlier hook because
 # the mitm addon tests load cryptography unconditionally during
-# collection. See ``docs/headroom/pipeline.md``.
+# collection. See `docs/headroom/pipeline.md`.
 import contextlib
 
 with contextlib.suppress(Exception):
@@ -40,8 +40,8 @@ from magos.routing import RoutingConfig, load_config
 _TESTS_DIR = Path(__file__).resolve().parent
 _FIXTURE_YAML = _TESTS_DIR / "fixtures" / "magos.test.yaml"
 
-# Default routing config for tests that call ``build_api()`` without an
-# explicit ``routing=`` argument; e2e tests can override via env.
+# Default routing config for tests that call `build_api()` without an
+# explicit `routing=` argument; e2e tests can override via env.
 os.environ.setdefault("MAGOS_CONFIG_PATH", str(_FIXTURE_YAML))
 
 if os.environ.get("MAGOS_E2E") == "1":

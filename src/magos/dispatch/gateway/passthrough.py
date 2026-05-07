@@ -1,4 +1,4 @@
-"""``PassthroughGateway``: byte-exact same-shape forwarding."""
+"""`PassthroughGateway`: byte-exact same-shape forwarding."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from magos.shapes import shape_for_endpoint
 
 
 class PassthroughGateway(Gateway):
-    """Forward the request bytes verbatim to ``target.base_url + path``."""
+    """Forward the request bytes verbatim to `target.base_url + path`."""
 
     async def dispatch(
         self,

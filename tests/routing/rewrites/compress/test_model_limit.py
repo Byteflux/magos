@@ -1,4 +1,4 @@
-"""``model_limit`` resolution: registry/litellm lookup + cache + override."""
+"""`model_limit` resolution: registry/litellm lookup + cache + override."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def test_resolve_model_limit_caches_results(monkeypatch: pytest.MonkeyPatch) -> 
 def test_compress_uses_explicit_model_limit_override(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """``opts.model_limit`` bypasses the LiteLLM lookup."""
+    """`opts.model_limit` bypasses the LiteLLM lookup."""
     captured: dict[str, Any] = {}
 
     def fake_apply(

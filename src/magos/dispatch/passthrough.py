@@ -1,6 +1,6 @@
 """Byte-exact same-shape forwarding via httpx.
 
-See ``docs/architecture/request-flow.md`` for the byte-exactness contract.
+See `docs/architecture/request-flow.md` for the byte-exactness contract.
 """
 
 from __future__ import annotations
@@ -34,10 +34,10 @@ async def stream_passthrough(
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> AsyncIterator[bytes]:
-    """Stream-forward a same-shape request to ``upstream_base_url + path``.
+    """Stream-forward a same-shape request to `upstream_base_url + path`.
 
     Body bytes are forwarded verbatim; any re-serialise breaks Anthropic
-    prompt-cache lookup. ``transport`` is a test seam (httpx.MockTransport).
+    prompt-cache lookup. `transport` is a test seam (httpx.MockTransport).
     """
     url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info(
@@ -75,7 +75,7 @@ async def call_passthrough(
     model_hint: str | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> tuple[int, bytes, str]:
-    """Non-streaming same-shape passthrough; returns ``(status, body, content_type)``."""
+    """Non-streaming same-shape passthrough; returns `(status, body, content_type)`."""
     url = f"{upstream_base_url.rstrip('/')}{path}"
     log.info("passthrough.call", url=url, method=method, model=model_hint, body_size=len(raw_body))
     async with _make_client(transport) as client:
@@ -90,7 +90,7 @@ async def call_passthrough(
 def httpx_text_to_json(raw: bytes) -> str:
     """JSON-string-encode an upstream error body.
 
-    ``decode(errors="replace")`` cannot raise and ``json.dumps`` of a
-    ``str`` cannot raise either, so no fallback is needed.
+    `decode(errors="replace")` cannot raise and `json.dumps` of a
+    `str` cannot raise either, so no fallback is needed.
     """
     return json.dumps(raw.decode("utf-8", errors="replace"))

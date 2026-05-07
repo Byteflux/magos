@@ -1,6 +1,6 @@
 """Tests for the Anthropic passthrough module.
 
-Uses ``httpx.MockTransport`` to intercept outbound requests so we can assert
+Uses `httpx.MockTransport` to intercept outbound requests so we can assert
 URL, method, headers, and body all forward correctly without hitting the
 real Anthropic API.
 """
@@ -129,7 +129,7 @@ def test_stream_passthrough_emits_error_event_on_upstream_4xx() -> None:
 
 @pytest.mark.unit
 def test_call_passthrough_honours_path_parameter() -> None:
-    """``path`` is appended to ``base_url``; lets the same module forward
+    """`path` is appended to `base_url`; lets the same module forward
     /v1/messages, /v1/responses, /v1/chat/completions, ..."""
     captured: dict[str, Any] = {}
 

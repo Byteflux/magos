@@ -27,10 +27,10 @@ from magos.registry.discovery.base import (
 from magos.registry.refresher import Refresher
 from magos.registry.schema import ProviderConfig, RegistrySettings, RegistryYaml
 
-# OTel only allows one ``set_meter_provider`` call; subsequent calls warn
+# OTel only allows one `set_meter_provider` call; subsequent calls warn
 # and are ignored. We install a module-level provider with a single reader
 # at import time and clear the reader's snapshot between tests by reading
-# (and discarding) the metrics. The ``reset_for_tests`` helper clears the
+# (and discarding) the metrics. The `reset_for_tests` helper clears the
 # obs module's gauge snapshot so previous tests don't pollute it.
 _test_reader = InMemoryMetricReader()
 metrics.set_meter_provider(MeterProvider(metric_readers=[_test_reader]))
@@ -85,7 +85,7 @@ def _config(**registry_overrides: Any) -> RegistryYaml:
 
 
 def _metric_points(data: MetricsData | None, name: str) -> list[Any]:
-    """Flatten ``MetricsData`` into a list of data points for ``name``."""
+    """Flatten `MetricsData` into a list of data points for `name`."""
     points: list[Any] = []
     if data is None:
         return points

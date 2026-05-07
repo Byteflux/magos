@@ -28,7 +28,7 @@ def build_api(
 ) -> FastAPI:
     """Construct the FastAPI app with all collaborators wired in.
 
-    ``routing`` passed in skips the yaml load (test seam).
+    `routing` passed in skips the yaml load (test seam).
     """
     settings = MagosSettings()
     if routing is None:

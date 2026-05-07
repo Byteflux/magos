@@ -1,4 +1,4 @@
-"""``is_ccr_request`` recognises the CCR tool in body.tools across provider shapes."""
+"""`is_ccr_request` recognises the CCR tool in body.tools across provider shapes."""
 
 from __future__ import annotations
 
@@ -28,13 +28,13 @@ def test_empty_tools_means_not_ccr() -> None:
 
 
 def test_anthropic_shape_with_ccr_tool_is_ccr() -> None:
-    """Anthropic tools have a top-level ``name`` field."""
+    """Anthropic tools have a top-level `name` field."""
     req = _make_req({"model": "x", "tools": [{"name": "headroom_retrieve", "description": "..."}]})
     assert is_ccr_request(req) is True
 
 
 def test_openai_shape_with_ccr_tool_is_ccr() -> None:
-    """OpenAI tools have ``function.name``."""
+    """OpenAI tools have `function.name`."""
     req = _make_req(
         {
             "model": "x",

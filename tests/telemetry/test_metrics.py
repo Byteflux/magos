@@ -1,14 +1,14 @@
-"""Tests for ``magos.telemetry.metrics``: OTel meter provider + /metrics mount.
+"""Tests for `magos.telemetry.metrics`: OTel meter provider + /metrics mount.
 
-``configure_meter_provider`` installs a global OTel ``MeterProvider``;
+`configure_meter_provider` installs a global OTel `MeterProvider`;
 because OTel only honors the first real provider per process, we cannot
 re-install one cleanly across tests. The test below verifies the call
 returns without raising and that the provider class flips off the
 no-op default, but skips when the provider has already been set
-(e.g. by a prior test or by ``tests/registry/test_telemetry.py``'s import).
+(e.g. by a prior test or by `tests/registry/test_telemetry.py`'s import).
 
-``mount_metrics_endpoint`` is fully testable: it just registers a
-FastAPI route, and the route reads from ``prometheus_client.REGISTRY``
+`mount_metrics_endpoint` is fully testable: it just registers a
+FastAPI route, and the route reads from `prometheus_client.REGISTRY`
 which is process-global.
 """
 
@@ -34,7 +34,7 @@ def test_configure_meter_provider_runs_without_raising() -> None:
 
 @pytest.mark.unit
 def test_mount_metrics_endpoint_serves_prometheus_text() -> None:
-    """``GET /metrics`` returns Prometheus exposition-format text."""
+    """`GET /metrics` returns Prometheus exposition-format text."""
     app = FastAPI()
     mount_metrics_endpoint(app)
     with TestClient(app) as client:
@@ -50,7 +50,7 @@ def test_mount_metrics_endpoint_serves_prometheus_text() -> None:
 def test_mount_metrics_endpoint_handles_missing_prometheus_client(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When ``prometheus_client`` import fails, mount becomes a no-op."""
+    """When `prometheus_client` import fails, mount becomes a no-op."""
     import builtins  # noqa: PLC0415
     from typing import Any  # noqa: PLC0415
 

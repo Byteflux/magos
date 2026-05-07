@@ -29,7 +29,7 @@ def test_handler_emits_each_record_via_structlog() -> None:
     assert logs[0]["log_level"] == "info"
     # The original mitmproxy logger name must be preserved as a field, not
     # used as the structlog logger name -- binding the structlog logger to
-    # ``mitmproxy.*`` would feed records straight back into this handler
+    # `mitmproxy.*` would feed records straight back into this handler
     # via stdlib propagation and recurse unboundedly.
     assert logs[0]["logger"] == "mitmproxy.proxy.server"
 
@@ -40,10 +40,10 @@ def test_emitting_under_mitmproxy_record_does_not_recurse(
 ) -> None:
     """Real stdlib path: end-to-end check that the bridge can't loop on itself.
 
-    structlog's stdlib LoggerFactory writes back through ``logging`` under
-    the bound name. If the bridge re-bound to the original ``mitmproxy.*``
+    structlog's stdlib LoggerFactory writes back through `logging` under
+    the bound name. If the bridge re-bound to the original `mitmproxy.*`
     name, that write would re-trigger the handler attached to the
-    ``mitmproxy`` parent logger and recurse without bound. Verify the
+    `mitmproxy` parent logger and recurse without bound. Verify the
     handler executes exactly once for a single source record.
     """
     install_log_bridge()

@@ -1,7 +1,7 @@
 """Auth-header builders for discovery adapters.
 
 Each function reads the API key from the environment variable named by
-``config.api_key_env`` and returns the appropriate header dict.
+`config.api_key_env` and returns the appropriate header dict.
 """
 
 from __future__ import annotations
@@ -17,9 +17,9 @@ _OAUTH_BETA = "oauth-2025-04-20"
 
 
 def bearer_auth(provider_name: str, config: ProviderConfig) -> dict[str, str]:
-    """Return ``Authorization: Bearer <key>`` if ``api_key_env`` is set.
+    """Return `Authorization: Bearer <key>` if `api_key_env` is set.
 
-    An unset env var raises ``DiscoveryError``; a missing ``api_key_env``
+    An unset env var raises `DiscoveryError`; a missing `api_key_env`
     returns an empty dict (adapter allows anonymous access).
     """
     if not config.api_key_env:
@@ -31,13 +31,13 @@ def bearer_auth(provider_name: str, config: ProviderConfig) -> dict[str, str]:
 
 
 def anthropic_auth(provider_name: str, config: ProviderConfig) -> dict[str, str]:
-    """Return headers for Anthropic's ``/v1/models`` endpoint.
+    """Return headers for Anthropic's `/v1/models` endpoint.
 
-    ``sk-ant-oat...`` OAuth tokens use ``Authorization: Bearer`` plus
-    ``anthropic-beta: oauth-2025-04-20``; everything else uses ``x-api-key``.
-    All requests require ``anthropic-version: 2023-06-01``.
+    `sk-ant-oat...` OAuth tokens use `Authorization: Bearer` plus
+    `anthropic-beta: oauth-2025-04-20`; everything else uses `x-api-key`.
+    All requests require `anthropic-version: 2023-06-01`.
 
-    ``api_key_env`` is required; raises ``DiscoveryError`` if absent or unset.
+    `api_key_env` is required; raises `DiscoveryError` if absent or unset.
     """
     if not config.api_key_env:
         raise DiscoveryError(

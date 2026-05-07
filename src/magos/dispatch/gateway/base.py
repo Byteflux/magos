@@ -1,15 +1,15 @@
-"""``Gateway``: ABC for the egress branch.
+"""`Gateway`: ABC for the egress branch.
 
 Implementations encapsulate one external system each:
 
-- :class:`PassthroughGateway` — byte-exact httpx forward
-- :class:`TranslateGateway` — LiteLLM SDK call + CCR wrap
-- :class:`CountTokensGateway` — LiteLLM count-tokens
-- :class:`RoutedGateway` — composite selector that picks one of the above
+- `PassthroughGateway` — byte-exact httpx forward
+- `TranslateGateway` — LiteLLM SDK call + CCR wrap
+- `CountTokensGateway` — LiteLLM count-tokens
+- `RoutedGateway` — composite selector that picks one of the above
 
-The selector dispatches on ``decision.request.endpoint`` (count-tokens
-endpoint takes its own gateway) and ``decision.target.gateway``
-(``"passthrough"`` vs ``"translate"``).
+The selector dispatches on `decision.request.endpoint` (count-tokens
+endpoint takes its own gateway) and `decision.target.gateway`
+(`"passthrough"` vs `"translate"`).
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class Gateway(ABC):
         *,
         completion: CompletionFn,
     ) -> Response | StreamingResponse | dict[str, Any]:
-        """Dispatch ``decision`` to the underlying system."""
+        """Dispatch `decision` to the underlying system."""
 
 
 def make_on_complete(

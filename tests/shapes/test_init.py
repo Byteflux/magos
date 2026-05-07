@@ -1,4 +1,4 @@
-"""``magos.shapes`` package: Shape lookup + endpoint -> shape mapping."""
+"""`magos.shapes` package: Shape lookup + endpoint -> shape mapping."""
 
 from __future__ import annotations
 
@@ -50,20 +50,20 @@ def test_shape_for_endpoint(endpoint: str, expected: Shape | None) -> None:
 
 
 def test_specs_are_frozen() -> None:
-    """``Shape`` is a frozen dataclass so field lookups are stable."""
+    """`Shape` is a frozen dataclass so field lookups are stable."""
     with pytest.raises(AttributeError):
         ANTHROPIC.system_field = "other"  # type: ignore[misc]
 
 
 def test_anthropic_has_cache_write_only_shape() -> None:
-    """``cache_write`` is Anthropic-only; OpenAI shapes omit the key."""
+    """`cache_write` is Anthropic-only; OpenAI shapes omit the key."""
     assert "cache_write" in ANTHROPIC.usage_keys
     assert "cache_write" not in OPENAI_CHAT.usage_keys
     assert "cache_write" not in OPENAI_RESPONSES.usage_keys
 
 
 def test_compression_provider_grouping() -> None:
-    """Both OpenAI shapes share the ``openai`` compression provider."""
+    """Both OpenAI shapes share the `openai` compression provider."""
     assert ANTHROPIC.compression_provider == "anthropic"
     assert OPENAI_CHAT.compression_provider == "openai"
     assert OPENAI_RESPONSES.compression_provider == "openai"

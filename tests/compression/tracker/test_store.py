@@ -1,4 +1,4 @@
-"""``TrackerStore`` get-or-create semantics + TTL eviction."""
+"""`TrackerStore` get-or-create semantics + TTL eviction."""
 
 from __future__ import annotations
 

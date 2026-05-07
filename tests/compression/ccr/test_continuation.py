@@ -1,4 +1,4 @@
-"""``make_continuation_callable`` builds an api_call_fn closure for headroom."""
+"""`make_continuation_callable` builds an api_call_fn closure for headroom."""
 
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def test_continuation_does_not_mutate_original_body() -> None:
 
 
 def test_continuation_drops_tools_when_none() -> None:
-    """If headroom passes ``tools=None``, the closure removes the tools key
+    """If headroom passes `tools=None`, the closure removes the tools key
     from the substituted body (rather than passing tools=None through, which
     some adapters might object to)."""
     from magos.dispatch.translate import TRANSLATE_HANDLERS  # noqa: PLC0415

@@ -1,4 +1,4 @@
-"""``/v1/responses`` endpoint family tests.
+"""`/v1/responses` endpoint family tests.
 
 Covers the translate-mode POST handler plus the three passthrough
 auxiliary endpoints (retrieve / cancel / input_items) and their error
@@ -71,7 +71,7 @@ def test_responses_endpoint_translates_via_litellm() -> None:
 
 @pytest.mark.integration
 def test_responses_endpoint_streams_sse() -> None:
-    """/v1/responses streaming wraps litellm events as ``event:`` SSE frames."""
+    """/v1/responses streaming wraps litellm events as `event:` SSE frames."""
     events = [
         {"type": "response.created", "response": {"id": "resp_1", "object": "response"}},
         {"type": "response.output_text.delta", "delta": "pong"},

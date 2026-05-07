@@ -3,7 +3,7 @@
 Spins up an echo server, points the agent SDK at it via ANTHROPIC_BASE_URL,
 runs a tiny query, and prints the captured request (auth partially redacted).
 
-Run with ``uv run python scripts/capture_agent_sdk_request.py``.
+Run with `uv run python scripts/capture_agent_sdk_request.py`.
 """
 
 from __future__ import annotations

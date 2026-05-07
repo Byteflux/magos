@@ -1,7 +1,7 @@
-"""``TranslateGateway``: LiteLLM SDK marshalling + CCR wrap.
+"""`TranslateGateway`: LiteLLM SDK marshalling + CCR wrap.
 
 CCR response/stream wrapping lives here; Phase F will optionally extract
-it into a ``CCRGateway`` decorator.
+it into a `CCRGateway` decorator.
 """
 
 from __future__ import annotations
@@ -50,9 +50,9 @@ class TranslateGateway(Gateway):
         if adapter is None:
             raise DispatchError(f"no translate handler for endpoint {req.endpoint!r}")
 
-        # Shared dispatch parameters; ``proxy_translate``/``stream_translate``
-        # also need ``on_complete``, ``wrap_response``/``wrap_stream`` also need
-        # ``req`` and ``adapter``. Building from one base dict keeps the two
+        # Shared dispatch parameters; `proxy_translate`/`stream_translate`
+        # also need `on_complete`, `wrap_response`/`wrap_stream` also need
+        # `req` and `adapter`. Building from one base dict keeps the two
         # call sites in lock-step when a parameter is added.
         shared: dict[str, Any] = {
             "dispatch_model": decision.dispatch_model,

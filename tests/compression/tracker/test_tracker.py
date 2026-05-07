@@ -1,4 +1,4 @@
-"""``magos.compression.tracker`` re-exports headroom's PrefixCacheTracker."""
+"""`magos.compression.tracker` re-exports headroom's PrefixCacheTracker."""
 
 from __future__ import annotations
 

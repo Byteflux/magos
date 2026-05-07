@@ -1,4 +1,4 @@
-"""``OpenRouterAdapter`` discovery tests."""
+"""`OpenRouterAdapter` discovery tests."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def test_openrouter_adapter_populates_partial_entry(monkeypatch: pytest.MonkeyPa
 
 
 def test_openrouter_adapter_prefers_explicit_modality_arrays() -> None:
-    """The new ``architecture.{input,output}_modalities`` arrays win over the legacy string."""
+    """The new `architecture.{input,output}_modalities` arrays win over the legacy string."""
     cfg = ProviderConfig.model_validate({})
     transport = ok(
         {

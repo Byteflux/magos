@@ -1,4 +1,4 @@
-"""Factory for ``RequestService``. Shared by every ingress surface."""
+"""Factory for `RequestService`. Shared by every ingress surface."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def build_request_service(
 
     Constructs the router and gateway, optionally wraps them with
     cross-cutting observability decorators, and returns a fully-wired
-    ``RequestService``.
+    `RequestService`.
     """
     router: Router = RuleBasedRouter(
         cfg,

@@ -1,8 +1,8 @@
 """Choose Anthropic-native vs OpenAI-translated dispatch.
 
-Anthropic upstream uses ``litellm.anthropic_messages`` directly;
-everything else goes via ``acompletion`` + Anthropic<->OpenAI
-translation because ``anthropic_messages`` leaks the LiteLLM provider
+Anthropic upstream uses `litellm.anthropic_messages` directly;
+everything else goes via `acompletion` + Anthropic<->OpenAI
+translation because `anthropic_messages` leaks the LiteLLM provider
 prefix into the outbound model id and gets rejected by non-Anthropic
 upstreams.
 """
@@ -33,8 +33,8 @@ async def _dispatch_anthropic_messages(**payload: Any) -> Any:
 
 
 async def _via_acompletion(payload: dict[str, Any]) -> Any:
-    """Anthropic->OpenAI translation + ``litellm.acompletion``; preserves
-    the OpenAI extras (``reasoning_effort``, ``response_format``) the
+    """Anthropic->OpenAI translation + `litellm.acompletion`; preserves
+    the OpenAI extras (`reasoning_effort`, `response_format`) the
     upstream adapter would otherwise drop.
     """
     request_adapter = LiteLLMAnthropicMessagesAdapter()  # type: ignore[no-untyped-call]

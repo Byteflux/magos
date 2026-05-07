@@ -1,4 +1,4 @@
-"""``KompressBackendOverride``: ``MAGOS_KOMPRESS_BACKEND=pytorch`` flips
+"""`KompressBackendOverride`: `MAGOS_KOMPRESS_BACKEND=pytorch` flips
 Headroom's ONNX-availability check so the loader takes the PyTorch branch.
 """
 
@@ -36,7 +36,7 @@ def test_lifespan_forces_pytorch_when_kompress_backend_set(
     monkeypatch: pytest.MonkeyPatch,
     _restore_kompress_onnx_check: None,
 ) -> None:
-    """``MAGOS_KOMPRESS_BACKEND=pytorch`` flips _is_onnx_available to False
+    """`MAGOS_KOMPRESS_BACKEND=pytorch` flips _is_onnx_available to False
     so Headroom's loader takes the PyTorch branch on first compress call.
     """
     monkeypatch.setenv("MAGOS_KOMPRESS_BACKEND", "pytorch")

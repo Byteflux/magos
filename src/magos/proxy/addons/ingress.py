@@ -1,7 +1,7 @@
 """mitmproxy addon: TLS-terminate allowlisted hosts, rewrite to FastAPI.
-Non-allowlisted CONNECTs are passed through opaque (``ignore_connection``).
-Subdomain match mirrors :func:`magos.proxy.addons.observer._is_llm_host`. See
-``docs/ingress.md``."""
+Non-allowlisted CONNECTs are passed through opaque (`ignore_connection`).
+Subdomain match mirrors `magos.proxy.addons.observer._is_llm_host`. See
+`docs/ingress.md`."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class MagosIngressAddon:
 
     def tls_clienthello(self, data: tls.ClientHelloData) -> None:
         """Skip TLS interception for non-allowlisted SNIs (sets
-        ``ignore_connection`` so the original handshake passes through)."""
+        `ignore_connection` so the original handshake passes through)."""
         sni = data.client_hello.sni
         if sni is None or not self._is_intercepted(sni):
             data.ignore_connection = True

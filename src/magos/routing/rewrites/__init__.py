@@ -1,8 +1,8 @@
-"""Pure mutators for the routing pipeline. See ``docs/routing/grammar.md``.
+"""Pure mutators for the routing pipeline. See `docs/routing/grammar.md`.
 
-Each transform returns a new ``RoutedRequest``; body-touching ops flip
-``body_dirty`` so passthrough re-serialises. Every transform implements
-``Transform.apply``, so dispatch is fully polymorphic.
+Each transform returns a new `RoutedRequest`; body-touching ops flip
+`body_dirty` so passthrough re-serialises. Every transform implements
+`Transform.apply`, so dispatch is fully polymorphic.
 """
 
 from __future__ import annotations
@@ -25,9 +25,9 @@ def apply_transforms(
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Apply ``transforms`` in list order; return a new ``RoutedRequest``.
+    """Apply `transforms` in list order; return a new `RoutedRequest`.
 
-    Empty list returns ``req`` unchanged. ``registry`` is forwarded to the
+    Empty list returns `req` unchanged. `registry` is forwarded to the
     compress transform for context-size resolution.
     """
     if not transforms:

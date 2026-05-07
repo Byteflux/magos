@@ -1,13 +1,13 @@
-"""Per-(session_id, provider) registry of ``PrefixCacheTracker`` instances.
+"""Per-(session_id, provider) registry of `PrefixCacheTracker` instances.
 
-TTL-based lazy eviction: on each ``get_or_create`` we drop any tracker
-whose ``is_expired`` flag is set. Headroom's tracker tracks last-activity
+TTL-based lazy eviction: on each `get_or_create` we drop any tracker
+whose `is_expired` flag is set. Headroom's tracker tracks last-activity
 internally so actively-used trackers stay alive past their nominal TTL.
 No background cleanup; bounded session count keeps the in-memory dict small.
 
-The ``import time`` is retained so tests can monkeypatch
-``magos.compression.tracker.store.time.time`` to advance the clock; headroom's
-``is_expired`` reads the same module's ``time.time``.
+The `import time` is retained so tests can monkeypatch
+`magos.compression.tracker.store.time.time` to advance the clock; headroom's
+`is_expired` reads the same module's `time.time`.
 """
 
 from __future__ import annotations
@@ -21,14 +21,14 @@ from magos.compression import ProviderName
 
 
 class TrackerStore:
-    """Session-keyed cache of ``PrefixCacheTracker`` instances.
+    """Session-keyed cache of `PrefixCacheTracker` instances.
 
-    Keyed by ``(session_id, provider)``. Expired entries (those whose
-    ``is_expired`` flag is set by headroom's last-activity check) are
-    evicted lazily on each ``get_or_create`` call; no background thread
+    Keyed by `(session_id, provider)`. Expired entries (those whose
+    `is_expired` flag is set by headroom's last-activity check) are
+    evicted lazily on each `get_or_create` call; no background thread
     is required.
 
-    Thread-safe via a single ``threading.Lock`` with double-checked locking.
+    Thread-safe via a single `threading.Lock` with double-checked locking.
     """
 
     def __init__(self, config: PrefixFreezeConfig | None = None) -> None:
@@ -37,9 +37,9 @@ class TrackerStore:
         self._lock = threading.Lock()
 
     def get_or_create(self, session_id: str, provider: ProviderName) -> PrefixCacheTracker:
-        """Return the cached tracker for ``(session_id, provider)``, or create one.
+        """Return the cached tracker for `(session_id, provider)`, or create one.
 
-        If the existing entry has exceeded ``session_ttl_seconds`` of
+        If the existing entry has exceeded `session_ttl_seconds` of
         idleness, it is discarded and a fresh tracker is constructed.
         """
         key = (session_id, provider)
@@ -56,7 +56,7 @@ class TrackerStore:
             return tracker
 
     def _evict_expired(self) -> None:
-        """Drop expired trackers; must be called under ``self._lock``."""
+        """Drop expired trackers; must be called under `self._lock`."""
         expired = [key for key, t in self._cache.items() if t.is_expired]
         for key in expired:
             del self._cache[key]
@@ -66,5 +66,5 @@ _STORE = TrackerStore()
 
 
 def get_store() -> TrackerStore:
-    """Return the process-wide ``TrackerStore`` singleton."""
+    """Return the process-wide `TrackerStore` singleton."""
     return _STORE

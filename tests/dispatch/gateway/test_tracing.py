@@ -1,4 +1,4 @@
-"""``TracingGateway``: span opens with expected attributes per dispatch."""
+"""`TracingGateway`: span opens with expected attributes per dispatch."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def _inner_gateway() -> RoutedGateway:
 
 
 def test_tracing_gateway_opens_span_with_expected_attributes() -> None:
-    """TracingGateway opens a ``gateway.dispatch`` span with target attributes."""
+    """TracingGateway opens a `gateway.dispatch` span with target attributes."""
     exporter = InMemorySpanExporter()
     provider = TracerProvider()
     provider.add_span_processor(SimpleSpanProcessor(exporter))

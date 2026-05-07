@@ -2,7 +2,7 @@
 
 Covers the env-over-yaml bind layering and that the mitm task is only
 spawned when explicitly enabled with at least one intercept host.
-The real ``DumpMaster`` and ``uvicorn.Server`` are mocked out; full
+The real `DumpMaster` and `uvicorn.Server` are mocked out; full
 network integration belongs in manual smoke testing per the plan.
 """
 
@@ -87,7 +87,7 @@ def test_resolve_mitm_env_overrides_yaml(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_resolve_mitm_empty_intercept_hosts_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Empty ``MAGOS_MITM_INTERCEPT_HOSTS`` clears the yaml allowlist."""
+    """Empty `MAGOS_MITM_INTERCEPT_HOSTS` clears the yaml allowlist."""
     monkeypatch.setenv("MAGOS_MITM_INTERCEPT_HOSTS", "")
     monkeypatch.delenv("MAGOS_MITM_ENABLED", raising=False)
     monkeypatch.delenv("MAGOS_MITM_HOST", raising=False)
@@ -110,7 +110,7 @@ def test_resolve_mitm_empty_host_env_treated_as_unset(monkeypatch: pytest.Monkey
 
 
 class _StubServer:
-    """Stand-in for ``uvicorn.Server`` that completes immediately."""
+    """Stand-in for `uvicorn.Server` that completes immediately."""
 
     def __init__(self, *, fail: bool = False, lifespan_delay: float = 0.0) -> None:
         self.started = False
@@ -132,7 +132,7 @@ class _StubServer:
 
 
 class _StubMaster:
-    """Stand-in for mitmproxy ``DumpMaster``."""
+    """Stand-in for mitmproxy `DumpMaster`."""
 
     def __init__(self) -> None:
         self._stopping = asyncio.Event()

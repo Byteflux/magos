@@ -1,8 +1,8 @@
-"""Unit tests for ``magos.dispatch.tokens.count_tokens``.
+"""Unit tests for `magos.dispatch.tokens.count_tokens`.
 
 Verifies the seam contract: payload composition (model rewrite, optional
-``system``/``tools``/``tool_choice`` forwarding) and result coercion
-(handles both pydantic-like ``TokenCountResponse`` objects and plain dicts).
+`system`/`tools`/`tool_choice` forwarding) and result coercion
+(handles both pydantic-like `TokenCountResponse` objects and plain dicts).
 """
 
 from __future__ import annotations

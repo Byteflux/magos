@@ -1,7 +1,7 @@
 """OTel metrics + structlog helpers for the registry.
 
 Instruments bind to the OTel global meter at import time. See
-``docs/registry/observability.md``.
+`docs/registry/observability.md`.
 """
 
 from __future__ import annotations

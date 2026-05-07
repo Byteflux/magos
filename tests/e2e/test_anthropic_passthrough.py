@@ -1,9 +1,9 @@
 """End-to-end byte-exact passthrough tests for /v1/messages with OAuth headers.
 
 These exercise the shipped routing config's claude-* passthrough rule
-with the Claude-Code-style header set (OAuth bearer + ``anthropic-beta``
-+ ``anthropic-version``). See ``tests/e2e/conftest.py`` for the
-``MAGOS_E2E=1`` skip gate.
+with the Claude-Code-style header set (OAuth bearer + `anthropic-beta`
++ `anthropic-version`). See `tests/e2e/conftest.py` for the
+`MAGOS_E2E=1` skip gate.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def test_anthropic_passthrough_streaming_with_oauth_headers_real() -> None:
     """Byte-exact passthrough streaming with Claude-Code-style headers.
 
     Same as the non-streaming sibling but verifies that
-    ``passthrough.stream_passthrough`` round-trips the SSE bytes verbatim.
+    `passthrough.stream_passthrough` round-trips the SSE bytes verbatim.
     """
     maybe_skip_anthropic_oauth()
     body = {

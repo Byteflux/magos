@@ -1,9 +1,9 @@
 """Compress rewrite package.
 
-``Compress.apply`` (defined on the schema class in
-``magos.routing.schema.rewrites``) dispatches to the appropriate
-``magos.compression.engine`` step. This package retains the
-``model_limit`` and ``_preload`` sub-modules which are imported
+`Compress.apply` (defined on the schema class in
+`magos.routing.schema.rewrites`) dispatches to the appropriate
+`magos.compression.engine` step. This package retains the
+`model_limit` and `_preload` sub-modules which are imported
 externally.
 """
 

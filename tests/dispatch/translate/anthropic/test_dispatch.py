@@ -1,5 +1,5 @@
-"""Dispatcher routing: Anthropic upstream goes through ``litellm.anthropic_messages``,
-everything else through ``acompletion`` + adapter translation.
+"""Dispatcher routing: Anthropic upstream goes through `litellm.anthropic_messages`,
+everything else through `acompletion` + adapter translation.
 """
 
 from __future__ import annotations
@@ -18,15 +18,15 @@ from magos.dispatch.translate.anthropic import _dispatch_anthropic_messages
 def test_dispatch_routes_non_anthropic_via_acompletion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Non-Anthropic dispatch must go through ``litellm.acompletion``,
-    not ``litellm.anthropic_messages``.
+    """Non-Anthropic dispatch must go through `litellm.acompletion`,
+    not `litellm.anthropic_messages`.
 
-    Background: LiteLLM's ``anthropic_messages`` adapter chain leaks
+    Background: LiteLLM's `anthropic_messages` adapter chain leaks
     the LiteLLM provider prefix into the outbound body for non-
-    Anthropic upstreams (sends ``model: 'openrouter/qwen/...'`` where
-    OpenRouter expects ``model: 'qwen/...'``). ``acompletion`` strips
+    Anthropic upstreams (sends `model: 'openrouter/qwen/...'` where
+    OpenRouter expects `model: 'qwen/...'`). `acompletion` strips
     the prefix correctly. The dispatcher must therefore route non-
-    Anthropic traffic via ``acompletion`` + manual translation.
+    Anthropic traffic via `acompletion` + manual translation.
     """
     seen_anthropic_messages: list[dict[str, Any]] = []
     seen_acompletion: list[dict[str, Any]] = []

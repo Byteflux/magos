@@ -1,9 +1,9 @@
-"""Tests for ``magos.cli.admin_client``: the httpx wrapper for /admin/registry.
+"""Tests for `magos.cli.admin_client`: the httpx wrapper for /admin/registry.
 
-Uses ``httpx.MockTransport`` to intercept outbound requests so we can
+Uses `httpx.MockTransport` to intercept outbound requests so we can
 assert URL + method without a running server. Read calls return
-``None`` on connect failure (CLI falls back to disk); write calls
-raise ``AdminClientError`` so the operator sees the unreachable case.
+`None` on connect failure (CLI falls back to disk); write calls
+raise `AdminClientError` so the operator sees the unreachable case.
 """
 
 from __future__ import annotations
@@ -17,11 +17,11 @@ from magos.cli.admin_client import AdminClient, AdminClientError
 def _install_transport(
     monkeypatch: pytest.MonkeyPatch, transport: httpx.MockTransport
 ) -> AdminClient:
-    """Build an AdminClient and route its httpx calls through ``transport``.
+    """Build an AdminClient and route its httpx calls through `transport`.
 
-    The class calls module-level ``httpx.get`` / ``httpx.post`` directly,
-    so we substitute thin wrappers on the imported ``httpx`` module that
-    delegate to a sync ``httpx.Client`` backed by the mock transport.
+    The class calls module-level `httpx.get` / `httpx.post` directly,
+    so we substitute thin wrappers on the imported `httpx` module that
+    delegate to a sync `httpx.Client` backed by the mock transport.
     """
     base_url = "http://localhost:6246"
     inner = httpx.Client(transport=transport, base_url=base_url)

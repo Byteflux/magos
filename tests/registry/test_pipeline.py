@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.pipeline`` pure functions."""
+"""Tests for `magos.registry.pipeline` pure functions."""
 
 from __future__ import annotations
 
@@ -171,7 +171,7 @@ def test_merge_provider_manual_only_empty_discovery() -> None:
 
 
 def test_merge_provider_manual_default_litellm_id_uses_litellm_provider() -> None:
-    """Without an explicit litellm_id, default is ``<litellm_provider>/<raw_id>``."""
+    """Without an explicit litellm_id, default is `<litellm_provider>/<raw_id>`."""
     cfg = _provider_cfg(
         litellm_provider="openai",
         models={
@@ -184,7 +184,7 @@ def test_merge_provider_manual_default_litellm_id_uses_litellm_provider() -> Non
 
 
 def test_merge_provider_manual_default_litellm_id_falls_back_to_provider_name() -> None:
-    """No litellm_provider set: default is ``<provider_name>/<raw_id>``."""
+    """No litellm_provider set: default is `<provider_name>/<raw_id>`."""
     cfg = _provider_cfg(
         models={
             "my-model": ModelOverride(context_size=8000).model_dump(),

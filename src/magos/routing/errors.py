@@ -1,4 +1,4 @@
-"""Route-level error types and per-endpoint error envelopes. See ``docs/routing/errors.md``."""
+"""Route-level error types and per-endpoint error envelopes. See `docs/routing/errors.md`."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ _OPENAI_CODE = {
 
 
 def error_envelope(*, endpoint: Endpoint, code: ErrorCode, message: str) -> dict[str, Any]:
-    """Render the error body in the shape native to ``endpoint``."""
+    """Render the error body in the shape native to `endpoint`."""
     if endpoint in {
         "/v1/chat/completions",
         "/v1/responses",

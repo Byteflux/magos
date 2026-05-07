@@ -1,8 +1,8 @@
-"""``TracingGateway``: decorator that opens an OTel span per dispatch.
+"""`TracingGateway`: decorator that opens an OTel span per dispatch.
 
-Wraps any :class:`Gateway`. Always wired in the composition root; the
-OTel tracer is a no-op until ``configure_tracing`` runs (gated by
-``MAGOS_OTEL_ENABLED=1``).
+Wraps any `Gateway`. Always wired in the composition root; the
+OTel tracer is a no-op until `configure_tracing` runs (gated by
+`MAGOS_OTEL_ENABLED=1`).
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ _tracer = trace.get_tracer("magos.gateway")
 
 
 class TracingGateway(Gateway):
-    """Decorator: open a span around ``inner.dispatch`` with target attributes."""
+    """Decorator: open a span around `inner.dispatch` with target attributes."""
 
     def __init__(self, inner: Gateway) -> None:
         self._inner = inner

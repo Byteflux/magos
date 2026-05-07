@@ -1,4 +1,4 @@
-"""Tiny HTTP client for ``/admin/registry``. Reads return ``None`` if unreachable for disk fallback."""
+"""Tiny HTTP client for `/admin/registry`. Reads return `None` if unreachable for disk fallback."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class AdminClient:
     ) -> dict[str, Any]:
         """Issue an HTTP request to /admin/registry/<path> and return parsed JSON.
 
-        Raises ``AdminClientError`` when the server is unreachable or returns an
+        Raises `AdminClientError` when the server is unreachable or returns an
         error status.
         """
         try:
@@ -48,10 +48,10 @@ class AdminClient:
         return result
 
     def get_registry(self) -> bytes | None:
-        """Raw JSON bytes from ``GET /admin/registry``; ``None`` when unreachable.
+        """Raw JSON bytes from `GET /admin/registry`; `None` when unreachable.
 
-        Diverges from ``_request`` in two ways: the disk-fallback caller
-        wants ``None`` rather than an exception when the server isn't
+        Diverges from `_request` in two ways: the disk-fallback caller
+        wants `None` rather than an exception when the server isn't
         running, and the response is forwarded as raw bytes rather than
         re-serialised.
         """

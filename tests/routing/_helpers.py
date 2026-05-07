@@ -1,12 +1,12 @@
 """Shared helpers for routing tests.
 
-``make_req`` is the canonical builder for ``RoutedRequest`` instances in
+`make_req` is the canonical builder for `RoutedRequest` instances in
 unit tests. Use it everywhere instead of constructing the dataclass
 directly so default fields stay consistent across the routing test
 suite.
 
-``make_registry`` wraps ``ModelEntry`` instances in a ``RegistryState``
-so tests can hand a populated registry to ``route()`` / matchers.
+`make_registry` wraps `ModelEntry` instances in a `RegistryState`
+so tests can hand a populated registry to `route()` / matchers.
 """
 
 from __future__ import annotations
@@ -36,5 +36,5 @@ def make_req(
 
 
 def make_registry(*entries: ModelEntry) -> RegistryState:
-    """Build a ``RegistryState`` keyed by ``namespaced_id``."""
+    """Build a `RegistryState` keyed by `namespaced_id`."""
     return RegistryState(entries={e.namespaced_id: e for e in entries})

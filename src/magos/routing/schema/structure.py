@@ -27,7 +27,7 @@ class Target(_Frozen):
     base_url: str | None = None
     api_key_env: str | None = None
     auth_header: AuthHeaderShape | None = None
-    """Auth-header shape override. See ``docs/routing/api-keys.md``."""
+    """Auth-header shape override. See `docs/routing/api-keys.md`."""
 
 
 class Rule(_Frozen):
@@ -40,7 +40,7 @@ class Rule(_Frozen):
 
 
 class GuardedTransforms(_Frozen):
-    """Pre-transform group gated by a match expression. See ``docs/routing/grammar.md``."""
+    """Pre-transform group gated by a match expression. See `docs/routing/grammar.md`."""
 
     match: MatchExpr
     transforms: list[SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress] = Field(

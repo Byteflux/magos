@@ -1,13 +1,13 @@
-"""FastAPI lifespan. See ``docs/architecture/startup.md`` for phase order.
+"""FastAPI lifespan. See `docs/architecture/startup.md` for phase order.
 
 Components split across siblings:
 
-- :mod:`kompress` — kompress backend override + background weight
+- `kompress` — kompress backend override + background weight
   preload (the only components that require Headroom imports).
-- :mod:`components` — generic phases: metrics meter, magos.compression
+- `components` — generic phases: metrics meter, magos.compression
   warmup, registry refresher.
 
-The ``LifespanComponent`` Protocol and the runner live here.
+The `LifespanComponent` Protocol and the runner live here.
 """
 
 from __future__ import annotations

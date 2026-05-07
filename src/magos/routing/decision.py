@@ -1,4 +1,4 @@
-"""``RouteDecision`` transport value. See ``docs/routing/pipeline.md``."""
+"""`RouteDecision` transport value. See `docs/routing/pipeline.md`."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from magos.routing.schema import Rule, Target
 
 
 def format_rule_label(rule: Rule, idx: int | None = None) -> str:
-    """Stable identifier for logs: rule's ``name`` if set, else ``rule[idx]``.
+    """Stable identifier for logs: rule's `name` if set, else `rule[idx]`.
 
-    ``idx is None`` is rendered as ``rule[?]`` for diagnostics where the
+    `idx is None` is rendered as `rule[?]` for diagnostics where the
     rule's position in the chain is unknown.
     """
     if rule.name is not None:
@@ -24,7 +24,7 @@ def format_rule_label(rule: Rule, idx: int | None = None) -> str:
 
 @dataclass(frozen=True, slots=True)
 class RouteDecision:
-    """Successful route lookup. ``entry`` is set on auto-routed decisions only."""
+    """Successful route lookup. `entry` is set on auto-routed decisions only."""
 
     rule: Rule
     request: RoutedRequest

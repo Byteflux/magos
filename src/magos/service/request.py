@@ -1,14 +1,14 @@
-"""``RequestService``: Application Service Layer for the routing pipeline.
+"""`RequestService`: Application Service Layer for the routing pipeline.
 
 Owns the request lifecycle: route, dispatch, return a transport-agnostic
 response. Constructed once at app startup; one instance shared by all
 requests across both ingress surfaces (FastAPI + mitmproxy).
 
-Raises :class:`pydantic.ValidationError` for LiteLLM translation errors
+Raises `pydantic.ValidationError` for LiteLLM translation errors
 (wire-shape problem; the HTTP adapter re-raises as 400). All other
-failures are folded into the returned :class:`RoutedResponse`.
+failures are folded into the returned `RoutedResponse`.
 
-See ``docs/architecture/request-flow.md`` for the full lifecycle and
+See `docs/architecture/request-flow.md` for the full lifecycle and
 exception ladder.
 """
 
@@ -50,12 +50,12 @@ class RoutedResponse:
 
 
 class RequestService:
-    """Application Service: route + dispatch a ``RoutedRequest``.
+    """Application Service: route + dispatch a `RoutedRequest`.
 
-    ``completion`` is per-endpoint (different LiteLLM SDK calls per
+    `completion` is per-endpoint (different LiteLLM SDK calls per
     endpoint), so it's a method parameter rather than constructor
     injection. Phase C2 of the architecture migration replaces this
-    with a ``Gateway`` abstraction selected by ``RouteDecision.target.gateway``.
+    with a `Gateway` abstraction selected by `RouteDecision.target.gateway`.
     """
 
     def __init__(
@@ -72,7 +72,7 @@ class RequestService:
         routed: RoutedRequest,
         completion: CompletionFn,
     ) -> RoutedResponse:
-        """Route and dispatch ``routed``, returning a transport-agnostic response."""
+        """Route and dispatch `routed`, returning a transport-agnostic response."""
         # Offload to a worker thread: routing is sync but can block on the
         # Kompress thread-locked singleton during a cold HF download (5-10s),
         # which would stall the asyncio loop and the embedded mitm TLS stream.
@@ -152,7 +152,7 @@ def _render_route_error(err: RouteError) -> RoutedResponse:
 
 
 def _wrap_dispatch_result(raw: Any) -> RoutedResponse:
-    """Wrap the heterogeneous return of ``Gateway.dispatch`` into a ``RoutedResponse``.
+    """Wrap the heterogeneous return of `Gateway.dispatch` into a `RoutedResponse`.
 
     Uses duck-typing rather than FastAPI isinstance checks so this module
     stays transport-agnostic (no fastapi/starlette imports).

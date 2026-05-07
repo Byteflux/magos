@@ -1,4 +1,4 @@
-"""Transform primitives: dispatch by key + ``CompressOptions`` knobs."""
+"""Transform primitives: dispatch by key + `CompressOptions` knobs."""
 
 from __future__ import annotations
 

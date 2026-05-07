@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.store`` JSON persistence."""
+"""Tests for `magos.registry.store` JSON persistence."""
 
 from __future__ import annotations
 

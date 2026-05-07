@@ -1,4 +1,4 @@
-"""``Gateway.dispatch`` fires ``post_response_hooks`` after capturing usage."""
+"""`Gateway.dispatch` fires `post_response_hooks` after capturing usage."""
 
 from __future__ import annotations
 

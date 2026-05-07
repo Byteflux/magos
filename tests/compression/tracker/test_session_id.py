@@ -1,4 +1,4 @@
-"""``derive_session_id`` truth table: explicit header wins; derivation is stable."""
+"""`derive_session_id` truth table: explicit header wins; derivation is stable."""
 
 from __future__ import annotations
 

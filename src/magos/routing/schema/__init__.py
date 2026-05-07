@@ -1,13 +1,13 @@
-"""Pydantic schemas for declarative routing config. See ``docs/routing/grammar.md``.
+"""Pydantic schemas for declarative routing config. See `docs/routing/grammar.md`.
 
 Three concerns split across siblings:
 
-- :mod:`grammar` — match grammar: matchers, atoms, combinators, ``MatchExpr``.
-- :mod:`rewrites` — transform primitives (``SetModel``, ``SetHeader``, etc.), ``CompressOptions``.
-- :mod:`structure` — top-level: ``Target``, ``Rule``, ``GuardedTransforms``,
-  ``RoutingConfig``.
+- `grammar` — match grammar: matchers, atoms, combinators, `MatchExpr`.
+- `rewrites` — transform primitives (`SetModel`, `SetHeader`, etc.), `CompressOptions`.
+- `structure` — top-level: `Target`, `Rule`, `GuardedTransforms`,
+  `RoutingConfig`.
 
-``config_uses_compress`` lives here since it walks the assembled config.
+`config_uses_compress` lives here since it walks the assembled config.
 """
 
 from __future__ import annotations
@@ -53,9 +53,9 @@ from magos.routing.schema.structure import (
 
 
 def config_uses_compress(cfg: RoutingConfig) -> bool:
-    """True iff any pre-transform or rule transform is a ``compress`` op.
+    """True iff any pre-transform or rule transform is a `compress` op.
 
-    Walks into ``GuardedTransforms`` so a guarded pre-transform still
+    Walks into `GuardedTransforms` so a guarded pre-transform still
     counts; the engine evaluates them at request time.
     """
     for entry in cfg.pre_transforms:

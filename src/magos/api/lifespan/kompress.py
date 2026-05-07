@@ -1,7 +1,7 @@
 """Kompress lifecycle: backend selection + background weight preload.
 
-Both pieces touch Headroom internals (``_is_onnx_available``,
-``_load_kompress``); leading-underscore symbols may be renamed
+Both pieces touch Headroom internals (`_is_onnx_available`,
+`_load_kompress`); leading-underscore symbols may be renamed
 upstream. Imports are guarded so a missing/incompatible Headroom
 falls back to lazy load without breaking startup.
 """
@@ -24,7 +24,7 @@ log = get_logger("magos.api.lifespan")
 
 def _force_kompress_pytorch() -> None:
     """Force kompress to the PyTorch branch by stubbing
-    ``_is_onnx_available``. No-op if Headroom isn't importable."""
+    `_is_onnx_available`. No-op if Headroom isn't importable."""
     try:
         from headroom.transforms import kompress_compressor  # noqa: PLC0415
     except Exception as exc:
@@ -40,7 +40,7 @@ def _force_kompress_pytorch() -> None:
 
 
 async def _preload_kompress_model() -> None:
-    """Warm kompress weights off the event loop. ``_load_kompress`` is a
+    """Warm kompress weights off the event loop. `_load_kompress` is a
     thread-locked singleton, so racing requests reuse the cached model.
     Leading-underscore symbol may be renamed upstream; ImportError falls
     back to lazy load."""
@@ -73,7 +73,7 @@ async def _preload_kompress_model() -> None:
 class KompressBackendOverride:
     """Force kompress to the PyTorch backend when configured.
 
-    ``MAGOS_KOMPRESS_BACKEND=pytorch`` stubs ``_is_onnx_available`` so
+    `MAGOS_KOMPRESS_BACKEND=pytorch` stubs `_is_onnx_available` so
     Headroom's loader takes the PyTorch branch on first compress call.
     No shutdown action needed.
     """
@@ -92,8 +92,8 @@ class KompressBackendOverride:
 class KompressPreload:
     """Schedule background kompress weight preload; cancel on shutdown.
 
-    The preload runs off the event loop (``asyncio.to_thread``) so it
-    does not block request handling. ``_load_kompress`` is a thread-locked
+    The preload runs off the event loop (`asyncio.to_thread`) so it
+    does not block request handling. `_load_kompress` is a thread-locked
     singleton, so racing requests reuse the cached model once it resolves.
     """
 

@@ -13,10 +13,10 @@ from magos.telemetry import get_logger
 
 
 def is_ccr_request(req: RoutedRequest) -> bool:
-    """True when ``req.body['tools']`` contains the ``headroom_retrieve`` tool.
+    """True when `req.body['tools']` contains the `headroom_retrieve` tool.
 
-    Recognises both Anthropic shape (top-level ``name``) and OpenAI shape
-    (``function.name``). Returns False for missing / empty / malformed tools.
+    Recognises both Anthropic shape (top-level `name`) and OpenAI shape
+    (`function.name`). Returns False for missing / empty / malformed tools.
     The compress rewrite is the only place that injects this tool, so
     presence is a self-describing signal that CCR is active for this
     request — no per-request side channel needed.
@@ -60,7 +60,7 @@ async def wrap_response(
     Short-circuits when the request didn't inject the CCR tool (cheapest
     fast path) or when the response contains no CCR tool calls. Otherwise
     constructs the continuation closure, instantiates a per-request
-    ``CCRResponseHandler``, and returns the post-continuation response.
+    `CCRResponseHandler`, and returns the post-continuation response.
     """
     if not is_ccr_request(req):
         return response
@@ -118,7 +118,7 @@ async def wrap_stream(
 
     Short-circuits when the request didn't inject the CCR tool: passes
     chunks through verbatim. Otherwise wraps with
-    ``StreamingCCRHandler.process_stream`` and forwards the chunks it
+    `StreamingCCRHandler.process_stream` and forwards the chunks it
     yields (which may be the original stream or a continuation stream).
     """
     if not is_ccr_request(req):

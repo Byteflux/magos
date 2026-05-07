@@ -1,6 +1,6 @@
-"""Dispatcher-level ``compress`` rewrite tests: skip/no-op + CCR injection.
+"""Dispatcher-level `compress` rewrite tests: skip/no-op + CCR injection.
 
-These exercise the dispatch logic in ``Compress.apply``: which endpoint shapes
+These exercise the dispatch logic in `Compress.apply`: which endpoint shapes
 get dispatched where, when the rewrite returns the request untouched, and when
 CCR tool injection fires.
 """

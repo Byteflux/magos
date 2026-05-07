@@ -1,4 +1,4 @@
-"""Tests for ``magos.registry.deprecation`` state machine."""
+"""Tests for `magos.registry.deprecation` state machine."""
 
 from __future__ import annotations
 

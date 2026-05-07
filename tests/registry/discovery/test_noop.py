@@ -1,4 +1,4 @@
-"""``NoopAdapter`` returns no models regardless of upstream state."""
+"""`NoopAdapter` returns no models regardless of upstream state."""
 
 from __future__ import annotations
 

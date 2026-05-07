@@ -1,4 +1,4 @@
-"""``/v1/chat/completions`` endpoint tests."""
+"""`/v1/chat/completions` endpoint tests."""
 
 from __future__ import annotations
 

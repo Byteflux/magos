@@ -1,7 +1,7 @@
 """LiteLLM payload builder + process-wide behavior toggles.
 
 Per-endpoint shape massaging lives in the sibling endpoint modules. See
-``docs/architecture/translation.md``.
+`docs/architecture/translation.md`.
 """
 
 from __future__ import annotations
@@ -11,21 +11,21 @@ from typing import Any
 import litellm
 
 # Drop unsupported params at the destination instead of raising
-# ``UnsupportedParamsError``. Supported providers still receive them (e.g.
-# Anthropic ``context_management``), so cross-shape routing tolerates new
+# `UnsupportedParamsError`. Supported providers still receive them (e.g.
+# Anthropic `context_management`), so cross-shape routing tolerates new
 # client-side fields without rule-level rewrites.
 litellm.drop_params = True
 
 # Body-derived headers the upstream HTTP client generates itself. Forwarding
-# the inbound values into ``extra_headers`` overrides the SDK's own and
+# the inbound values into `extra_headers` overrides the SDK's own and
 # breaks body parsing upstream.
 _DISPATCH_BLOCKED_HEADERS: frozenset[str] = frozenset(
     {"content-type", "content-length", "content-encoding", "accept-encoding"}
 )
 
 # Inbound auth headers; suppressed only when the operator picked an
-# upstream key via ``api_key``. The openai-sdk lets ``extra_headers``
-# override the ``api_key`` kwarg, so leaking the inbound bearer to a
+# upstream key via `api_key`. The openai-sdk lets `extra_headers`
+# override the `api_key` kwarg, so leaking the inbound bearer to a
 # different upstream produces a misleading "Invalid API key" 401.
 _INBOUND_AUTH_HEADERS: frozenset[str] = frozenset({"authorization", "x-api-key"})
 
@@ -33,7 +33,7 @@ _INBOUND_AUTH_HEADERS: frozenset[str] = frozenset({"authorization", "x-api-key"}
 def resolve_client_model(request_model: str, provider: str | None, dispatch_model: str) -> str:
     """Compute the client-facing model id to write into a translated response.
 
-    LiteLLM yields the dispatch model (e.g. ``custom_openai/Qwen/...``); the
+    LiteLLM yields the dispatch model (e.g. `custom_openai/Qwen/...`); the
     client expects the namespaced id it sent (or one constructed from the
     routing provider when the request used a bare alias). Falls back to the
     dispatch model only when the request carried no model at all.
@@ -64,10 +64,10 @@ def build_payload(
 ) -> dict[str, Any]:
     """Compose the kwargs handed to a LiteLLM SDK call.
 
-    ``dispatch_model`` overrides ``request["model"]``; ``forward_headers``
-    feed ``extra_headers`` (auth/version/beta preserved); ``api_key`` /
-    ``api_base`` override LiteLLM's per-provider defaults. ``api_base`` is
-    required for ``custom_openai`` upstreams (e.g. Vultr), where LiteLLM has
+    `dispatch_model` overrides `request["model"]`; `forward_headers`
+    feed `extra_headers` (auth/version/beta preserved); `api_key` /
+    `api_base` override LiteLLM's per-provider defaults. `api_base` is
+    required for `custom_openai` upstreams (e.g. Vultr), where LiteLLM has
     no built-in host.
     """
     out = dict(request)

@@ -1,7 +1,7 @@
-"""Pydantic schemas for ``providers`` / ``provider_order`` / ``registry``
-yaml blocks. Frozen + ``extra="forbid"`` so typos fail at load time.
+"""Pydantic schemas for `providers` / `provider_order` / `registry`
+yaml blocks. Frozen + `extra="forbid"` so typos fail at load time.
 
-See ``docs/registry/config.md``.
+See `docs/registry/config.md`.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ _UNIT_SECONDS: dict[str, int] = {
 
 
 def _parse_duration(value: object) -> int:
-    """Coerce ``"30s"`` / ``"2h"`` strings (or bare int seconds) to seconds."""
+    """Coerce `"30s"` / `"2h"` strings (or bare int seconds) to seconds."""
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     if not isinstance(value, str):
@@ -76,7 +76,7 @@ class ModelOverride(_Frozen):
 
 
 class ProviderConfig(_Frozen):
-    """One ``providers:`` entry. ``discovery: noop`` (or unset) is manual-only."""
+    """One `providers:` entry. `discovery: noop` (or unset) is manual-only."""
 
     api_key_env: str | None = Field(default=None, min_length=1)
     base_url: str | None = Field(default=None, min_length=1)
@@ -109,10 +109,10 @@ class RegistryYaml(_Frozen):
     pins: dict[str, str] = Field(default_factory=dict)
     """Per-raw-id provider pins for bare-id auto-routing.
 
-    Keyed by ``raw_id`` (the upstream model id without the magos
+    Keyed by `raw_id` (the upstream model id without the magos
     namespace prefix), value is the preferred provider name. Beats
-    ``provider_order`` and lex-smallest fallback. Pins to providers
+    `provider_order` and lex-smallest fallback. Pins to providers
     absent from the candidate set are ignored. See
-    ``docs/registry/auto-routing.md``.
+    `docs/registry/auto-routing.md`.
     """
     registry: RegistrySettings = Field(default_factory=RegistrySettings)

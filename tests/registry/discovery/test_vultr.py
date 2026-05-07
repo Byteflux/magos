@@ -1,4 +1,4 @@
-"""``VultrAdapter`` discovery tests."""
+"""`VultrAdapter` discovery tests."""
 
 from __future__ import annotations
 

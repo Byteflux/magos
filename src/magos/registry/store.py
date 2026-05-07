@@ -1,7 +1,7 @@
-"""On-disk persistence for ``RegistryState`` (unversioned JSON).
+"""On-disk persistence for `RegistryState` (unversioned JSON).
 
 Parse failure is treated as missing (next refresh rebuilds). Atomic
-writes use ``write_temp -> fsync -> os.replace`` on the same filesystem.
+writes use `write_temp -> fsync -> os.replace` on the same filesystem.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def _entry_from_dict(data: dict[str, Any]) -> ModelEntry:
 
 
 def serialize(state: RegistryState) -> bytes:
-    """Render a ``RegistryState`` as canonical JSON bytes."""
+    """Render a `RegistryState` as canonical JSON bytes."""
     payload: dict[str, Any] = {
         "refreshed_at": {p: ts.isoformat() for p, ts in state.refreshed_at.items()},
         "entries": [_entry_to_dict(e) for e in state.entries.values()],
@@ -70,7 +70,7 @@ def serialize(state: RegistryState) -> bytes:
 
 
 def deserialize(raw: bytes) -> RegistryState:
-    """Parse JSON bytes into a ``RegistryState``; raises on malformed input."""
+    """Parse JSON bytes into a `RegistryState`; raises on malformed input."""
     payload = orjson.loads(raw)
     refreshed_raw = payload.get("refreshed_at") or {}
     refreshed_at = {p: datetime.fromisoformat(ts) for p, ts in refreshed_raw.items()}
@@ -99,11 +99,11 @@ def load(path: Path) -> RegistryState:
 
 
 def save(state: RegistryState, path: Path) -> None:
-    """Write ``state`` atomically to ``path`` (write_temp -> fsync -> replace)."""
+    """Write `state` atomically to `path` (write_temp -> fsync -> replace)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = serialize(state)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    # ``os.open`` (rather than ``Path.write_bytes``) so we can ``fsync``
+    # `os.open` (rather than `Path.write_bytes`) so we can `fsync`
     # the descriptor before the rename; needed for durability across crashes.
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
     try:
