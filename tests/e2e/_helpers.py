@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from magos.api import create_app
+from magos.api import build_api
 
 MODEL = os.environ.get("MAGOS_E2E_MODEL", "gpt-4o-mini")
 ANTHROPIC_MODEL = os.environ.get("MAGOS_E2E_ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
@@ -45,7 +45,7 @@ def anthropic_translate_app() -> Any:
             ]
         }
     )
-    return create_app(routing=cfg)
+    return build_api(routing=cfg)
 
 
 def maybe_skip_anthropic_oauth() -> None:

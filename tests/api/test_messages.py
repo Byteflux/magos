@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.api.handlers import get_anthropic_messages_completion
 from magos.registry.schema import RegistryYaml
 from magos.registry.state import ModelEntry, RegistryState
@@ -139,7 +139,7 @@ def test_messages_translates_namespaced_id_to_litellm_id_via_registry(
         }
     )
 
-    app = create_app(routing=routing, registry=registry_cfg)
+    app = build_api(routing=routing, registry=registry_cfg)
     app.dependency_overrides[get_anthropic_messages_completion] = lambda: fake_anthropic
     try:
         with TestClient(app) as client:
@@ -237,7 +237,7 @@ def test_unmatched_request_returns_404_with_anthropic_envelope() -> None:
         "max_tokens": 16,
         "messages": [{"role": "user", "content": "x"}],
     }
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 404

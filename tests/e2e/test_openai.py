@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 
 from ._helpers import MODEL, PROMPT
 
@@ -18,7 +18,7 @@ def test_openai_non_streaming_real() -> None:
         "messages": [{"role": "user", "content": PROMPT}],
         "max_tokens": 16,
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/chat/completions", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -33,7 +33,7 @@ def test_openai_streaming_real() -> None:
         "stream": True,
     }
     with (
-        TestClient(create_app()) as client,
+        TestClient(build_api()) as client,
         client.stream("POST", "/v1/chat/completions", json=body) as resp,
     ):
         assert resp.status_code == 200
@@ -53,7 +53,7 @@ def test_openai_responses_real() -> None:
         "input": PROMPT,
         "max_output_tokens": 16,
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/responses", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()

@@ -10,7 +10,7 @@ from collections.abc import Iterator
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from tests.api._helpers import translate_only_cfg
 
 # Capture the real Kompress ONNX availability check at module import time,
@@ -44,7 +44,7 @@ def test_lifespan_forces_pytorch_when_kompress_backend_set(
     assert _kc_module._is_onnx_available() is True
 
     cfg = translate_only_cfg()
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app):
         pass
 
@@ -61,7 +61,7 @@ def test_lifespan_default_leaves_onnx_check_untouched(
     monkeypatch.delenv("MAGOS_KOMPRESS_BACKEND", raising=False)
 
     cfg = translate_only_cfg()
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app):
         pass
 

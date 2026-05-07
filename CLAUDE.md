@@ -53,8 +53,8 @@ src/magos/
   serve.py           # process orchestrator: uvicorn + (optional) mitmproxy on one loop
 
   api/               # FastAPI entry point for client traffic
-    __init__.py     # re-exports create_app
-    app.py          # create_app, app.state wiring
+    __init__.py     # re-exports build_api
+    build.py        # build_api — composition root; wires all collaborators into the FastAPI app
     lifespan/       # ordered LifespanComponent runner
       __init__.py   # Protocol + _COMPONENTS list + lifespan asynccontextmanager
       kompress.py   # KompressBackendOverride + KompressPreload + helpers
@@ -66,8 +66,8 @@ src/magos/
     admin.py        # /admin/registry/* mount
 
   proxy/             # mitmproxy ingress + egress observer
-    __init__.py     # public surface (MagosIngressAddon, build_ingress_master, install_log_bridge)
-    listener.py     # build_ingress_master factory (DumpMaster + addons)
+    __init__.py     # public surface (MagosIngressAddon, build_proxy, install_log_bridge)
+    build.py        # build_proxy — composition root; wires addons into a mitmproxy DumpMaster
     log_bridge.py   # mitmproxy stdlib-logging records -> structlog
     addons/
       ingress.py    # MagosIngressAddon: TLS termination + rewrite to api

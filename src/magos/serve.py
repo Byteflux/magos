@@ -10,11 +10,11 @@ import asyncio
 import uvicorn
 
 from magos import __version__
-from magos.api import create_app
+from magos.api import build_api
 from magos.config.loader import MagosConfig, load_full_config
 from magos.config.schema import HttpIngressConfig, MitmIngressConfig
 from magos.config.settings import MagosSettings
-from magos.proxy.listener import build_ingress_master
+from magos.proxy import build_proxy
 from magos.proxy.log_bridge import install_log_bridge
 from magos.telemetry import get_logger
 
@@ -72,7 +72,7 @@ async def serve_async(*, settings: MagosSettings) -> None:
         config_path=settings.config_path,
     )
 
-    app = create_app(routing=cfg.routing, registry=cfg.registry)
+    app = build_api(routing=cfg.routing, registry=cfg.registry)
     uvi_config = uvicorn.Config(
         app,
         host=bind_host,
@@ -102,7 +102,7 @@ async def serve_async(*, settings: MagosSettings) -> None:
         return
 
     install_log_bridge()
-    master = build_ingress_master(mitm_cfg, target_host=bind_host, target_port=bind_port)
+    master = build_proxy(mitm_cfg, target_host=bind_host, target_port=bind_port)
     mitm_task = asyncio.create_task(master.run(), name="magos.mitm")
     log.info(
         "ingress.started",

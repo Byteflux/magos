@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.registry.schema import RegistryYaml
 from magos.registry.state import ModelEntry, RegistryState
 from magos.routing import RoutingConfig
@@ -89,7 +89,7 @@ def _client_with_state(state: RegistryState | None) -> TestClient:
     lifespan (which would clobber a stub refresher and try to start
     background tasks).
     """
-    app = create_app(routing=_routing_only(), registry=RegistryYaml())
+    app = build_api(routing=_routing_only(), registry=RegistryYaml())
     app.state.refresher = _StubRefresher(state) if state is not None else None
     return TestClient(app)
 

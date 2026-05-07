@@ -1,8 +1,9 @@
-"""FastAPI app factory. See ``docs/architecture/startup.md``."""
+"""Composition root for the FastAPI surface. The only place that imports
+broadly across magos packages to assemble the object graph for one HTTP
+process.
+"""
 
 from __future__ import annotations
-
-from pathlib import Path
 
 from fastapi import FastAPI
 
@@ -11,7 +12,7 @@ from magos.api.admin import mount_admin_registry_endpoints
 from magos.api.handlers import register_handlers
 from magos.api.lifespan import lifespan
 from magos.api.models import register_models_endpoint
-from magos.config.loader import load_full_config
+from magos.config.loader import load_full_config, resolve_models_path
 from magos.config.settings import MagosSettings
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
@@ -20,18 +21,15 @@ from magos.service import build_request_service
 from magos.telemetry.metrics import mount_metrics_endpoint
 
 
-def _resolve_models_path(registry_cfg: RegistryYaml, override: str | None) -> Path:
-    from magos.config.loader import resolve_models_path  # noqa: PLC0415
-
-    return resolve_models_path(registry_cfg, override=override)
-
-
-def create_app(
+def build_api(
     routing: RoutingConfig | None = None,
     *,
     registry: RegistryYaml | None = None,
 ) -> FastAPI:
-    """Build the FastAPI app. ``routing`` passed in skips the yaml load (test seam)."""
+    """Construct the FastAPI app with all collaborators wired in.
+
+    ``routing`` passed in skips the yaml load (test seam).
+    """
     settings = MagosSettings()
     if routing is None:
         full = load_full_config(settings.config_path)
@@ -48,7 +46,7 @@ def create_app(
     app.state.refresher = (
         Refresher(
             registry_cfg,
-            _resolve_models_path(registry_cfg, settings.models_path),
+            resolve_models_path(registry_cfg, override=settings.models_path),
         )
         if registry_cfg.providers
         else None

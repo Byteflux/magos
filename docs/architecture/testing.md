@@ -16,9 +16,9 @@
   it looks like dead code, isn't. See [headroom/pipeline.md](../headroom/pipeline.md)
   "CacheAligner" for the full bisection.
 - **Test app construction**: tests call
-  `create_app(routing=..., registry=...)` to inject config without a
-  YAML round-trip. `create_app` accepts both kwargs
-  (`ingress/http/app.py`). The
+  `build_api(routing=..., registry=...)` to inject config without a
+  YAML round-trip. `build_api` accepts both kwargs
+  (`api/build.py`). The
   `app.state.{routing,refresher,registry_config}` slots are designed
   for direct replacement too (per `ingress/http/app.py`'s docstring),
   but no current test exercises that path.

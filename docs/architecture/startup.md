@@ -2,10 +2,10 @@
 
 ## Startup order
 
-Two phases: `create_app()` (synchronous, builds the FastAPI app) and
+Two phases: `build_api()` (synchronous, builds the FastAPI app) and
 `lifespan()` (async, runs once when uvicorn starts the app). The
 lifespan is a thin runner over an ordered list of `LifespanComponent`
-objects (`ingress/http/lifespan.py`); each component implements
+objects (`api/lifespan/`); each component implements
 `start()` / `stop()` and is run / unwound via an `AsyncExitStack`.
 
 **`magos.serve.serve_async()`, top-level orchestrator:**
@@ -16,18 +16,18 @@ objects (`ingress/http/lifespan.py`); each component implements
 2. Resolve FastAPI bind via `resolve_bind(settings, http_cfg)`:
    `MAGOS_HOST` env > `ingress.http.host` yaml > schema default
    (`127.0.0.1`). Same for port.
-3. Build the FastAPI app via `create_app(routing=..., registry=...)`
+3. Build the FastAPI app via `build_api(routing=..., registry=...)`
    and the uvicorn `Server`.
 4. Start the FastAPI task; wait on `Server.started` (poll, no event
    surface) so the lifespan completes before any ingress accepts.
 5. If `ingress.mitm.enabled` and `intercept_hosts` non-empty:
    install the structlog bridge, build the `DumpMaster` via
-   `build_ingress_master`, start the mitm task.
+   `build_proxy`, start the mitm task.
 6. `asyncio.wait(..., FIRST_COMPLETED)`: when one task ends, signal
    the other to shut down (uvicorn `should_exit`, mitm `shutdown()`),
    then surface any exception.
 
-**`magos.api.app.create_app()`, sync, builds app object:**
+**`magos.api.build.build_api()`, sync, builds app object:**
 
 1. Stash on `app.state`: `routing` (RoutingConfig), `registry_config`
    (RegistryYaml), `refresher` (Refresher | None, None when
@@ -51,7 +51,7 @@ order via `AsyncExitStack`:
    False-stub. See [headroom/backend.md](../headroom/backend.md).
 2. **`MetricsMeter`**: only if `MAGOS_METRICS_ENABLED=1`. Wires the
    Prometheus exporter into the global meter provider; the `/metrics`
-   endpoint mounted in `create_app` reads from this.
+   endpoint mounted in `build_api` reads from this.
 3. **`MagosCompressionWarmup`**: only if any rule uses `compress`.
    Calls `magos.compression.prebuild_from_routing(cfg)`, which builds
    a `TransformPipeline` per `(PipelineConfig, provider)` pair and

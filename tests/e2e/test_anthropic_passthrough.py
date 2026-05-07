@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 
 from ._helpers import (
     ANTHROPIC_MODEL,
@@ -32,7 +32,7 @@ def test_anthropic_passthrough_with_oauth_headers_real() -> None:
         "max_tokens": 16,
         "messages": [{"role": "user", "content": PROMPT}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages", json=body, headers=anthropic_inbound_headers())
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -55,7 +55,7 @@ def test_anthropic_passthrough_streaming_with_oauth_headers_real() -> None:
         "stream": True,
     }
     with (
-        TestClient(create_app()) as client,
+        TestClient(build_api()) as client,
         client.stream(
             "POST", "/v1/messages", json=body, headers=anthropic_inbound_headers()
         ) as resp,

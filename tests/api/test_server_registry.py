@@ -10,7 +10,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.registry.discovery.base import (
     DiscoveredModel,
     DiscoveryResult,
@@ -62,7 +62,7 @@ class _StaticAdapter:
 
 
 def test_app_without_registry_skips_refresher_and_admin(tmp_path: Path) -> None:
-    app = create_app(routing=_routing_only(), registry=RegistryYaml())
+    app = build_api(routing=_routing_only(), registry=RegistryYaml())
     assert app.state.refresher is None
     with TestClient(app) as client:
         # /admin/registry not mounted when refresher is None.
@@ -90,7 +90,7 @@ def test_app_with_registry_starts_refresher_and_serves_admin(
     )
 
     cfg = _registry_yaml(models_path, {"openrouter": {"discovery": "openrouter"}})
-    app = create_app(routing=_routing_only(), registry=cfg)
+    app = build_api(routing=_routing_only(), registry=cfg)
     assert isinstance(app.state.refresher, Refresher)
 
     with TestClient(app) as client:
@@ -104,7 +104,7 @@ def test_admin_refresh_unknown_provider_returns_404(tmp_path: Path) -> None:
     models_path = tmp_path / "models.json"
     save_state(RegistryState(), models_path)
     cfg = _registry_yaml(models_path, {"openrouter": {"discovery": "openrouter"}})
-    app = create_app(routing=_routing_only(), registry=cfg)
+    app = build_api(routing=_routing_only(), registry=cfg)
     with TestClient(app) as client:
         response = client.post("/admin/registry/refresh", params={"provider": "missing"})
         assert response.status_code == 404
@@ -123,7 +123,7 @@ def test_admin_refresh_returns_refreshed_provider_list(tmp_path: Path) -> None:
             "other": {"discovery": "noop"},
         },
     )
-    app = create_app(routing=_routing_only(), registry=cfg)
+    app = build_api(routing=_routing_only(), registry=cfg)
     with TestClient(app) as client:
         response = client.post("/admin/registry/refresh")
     assert response.status_code == 200
@@ -140,7 +140,7 @@ def test_admin_refresh_scoped_to_one_provider(tmp_path: Path) -> None:
         models_path,
         {"manual": {"discovery": "noop"}, "other": {"discovery": "noop"}},
     )
-    app = create_app(routing=_routing_only(), registry=cfg)
+    app = build_api(routing=_routing_only(), registry=cfg)
     with TestClient(app) as client:
         response = client.post("/admin/registry/refresh", params={"provider": "manual"})
     assert response.status_code == 200
@@ -167,7 +167,7 @@ def test_admin_prune_reports_deprecated_counts(tmp_path: Path) -> None:
         models_path,
     )
     cfg = _registry_yaml(models_path, {"manual": {"discovery": "noop"}})
-    app = create_app(routing=_routing_only(), registry=cfg)
+    app = build_api(routing=_routing_only(), registry=cfg)
     with TestClient(app) as client:
         response = client.post("/admin/registry/prune")
     assert response.status_code == 200

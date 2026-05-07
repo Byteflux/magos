@@ -15,7 +15,7 @@ from magos.config.settings import MagosSettings
 
 
 def test_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    # conftest.py sets MAGOS_CONFIG_PATH so create_app() finds the test
+    # conftest.py sets MAGOS_CONFIG_PATH so build_api() finds the test
     # fixture; clear it here to verify the field default in isolation.
     monkeypatch.delenv("MAGOS_CONFIG_PATH", raising=False)
     monkeypatch.delenv("MAGOS_HOME", raising=False)

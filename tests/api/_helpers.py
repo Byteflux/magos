@@ -1,6 +1,6 @@
 """Shared helpers for ingress HTTP tests.
 
-Each test injects a routing config via ``create_app(routing=...)`` and
+Each test injects a routing config via ``build_api(routing=...)`` and
 overrides the matching completion dependency so no real upstream is
 contacted. Passthrough wire behaviour itself is unit-tested in
 ``tests/dispatch/test_passthrough.py``; the helpers here just stand up a
@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.api.handlers import (
     get_anthropic_messages_completion,
     get_completion,
@@ -72,7 +72,7 @@ def client_with(
     routing: RoutingConfig | None = None,
 ) -> Iterator[TestClient]:
     cfg = routing if routing is not None else translate_only_cfg()
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     if chat_completion is not None:
         app.dependency_overrides[get_completion] = lambda: chat_completion
     if anthropic_completion is not None:

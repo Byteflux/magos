@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from magos.api.app import create_app
+from magos.api.build import build_api
 
-__all__ = ["create_app"]
+__all__ = ["build_api"]

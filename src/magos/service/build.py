@@ -21,10 +21,8 @@ def build_request_service(
     refresher: Refresher | None,
     registry_cfg: RegistryYaml,
 ) -> RequestService:
-    """Construct the ``RequestService`` from long-lived collaborators.
-
-    Phase C3 will expand this factory to wire injected ``Compressor`` /
-    ``Transform`` collaborators into the routing pipeline.
+    """Composition root for the application service layer; constructs the
+    router and gateway and returns a fully-wired ``RequestService``.
     """
     router = RuleBasedRouter(
         cfg,

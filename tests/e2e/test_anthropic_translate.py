@@ -13,7 +13,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 
 from ._helpers import (
     ANTHROPIC_MODEL,
@@ -30,7 +30,7 @@ def test_anthropic_non_streaming_real() -> None:
         "max_tokens": 16,
         "messages": [{"role": "user", "content": PROMPT}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -47,7 +47,7 @@ def test_anthropic_streaming_real() -> None:
         "stream": True,
     }
     with (
-        TestClient(create_app()) as client,
+        TestClient(build_api()) as client,
         client.stream("POST", "/v1/messages", json=body) as resp,
     ):
         assert resp.status_code == 200
@@ -106,7 +106,7 @@ def test_anthropic_multi_turn_with_system_real() -> None:
             {"role": "user", "content": "Now say goodbye."},
         ],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -123,7 +123,7 @@ def test_unmatched_route_returns_404_anthropic_envelope_real() -> None:
         "max_tokens": 16,
         "messages": [{"role": "user", "content": PROMPT}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages", json=body)
     assert resp.status_code == 404, resp.text
     payload = resp.json()
@@ -138,7 +138,7 @@ def test_anthropic_count_tokens_real() -> None:
         "model": MODEL,
         "messages": [{"role": "user", "content": "Hello world, count me."}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages/count_tokens", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -180,7 +180,7 @@ def test_openai_shape_anthropic_upstream_real() -> None:
         "messages": [{"role": "user", "content": PROMPT}],
         "max_tokens": 16,
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/chat/completions", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -202,7 +202,7 @@ def test_anthropic_count_tokens_anthropic_native_real() -> None:
         "model": ANTHROPIC_MODEL,
         "messages": [{"role": "user", "content": "Hello world, count me."}],
     }
-    with TestClient(create_app()) as client:
+    with TestClient(build_api()) as client:
         resp = client.post("/v1/messages/count_tokens", json=body)
     assert resp.status_code == 200, resp.text
     data = resp.json()

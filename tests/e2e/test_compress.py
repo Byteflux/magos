@@ -13,7 +13,7 @@ import json
 
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 
 from ._helpers import ANTHROPIC_MODEL, MODEL, PROMPT, maybe_skip_anthropic_oauth
 
@@ -47,7 +47,7 @@ def test_compress_token_mode_uses_magos_compression_registry() -> None:
         "max_tokens": 16,
     }
 
-    with TestClient(create_app(routing=cfg)) as client:
+    with TestClient(build_api(routing=cfg)) as client:
         resp = client.post("/v1/chat/completions", json=body)
 
     assert resp.status_code == 200, resp.text
@@ -92,7 +92,7 @@ def test_compress_token_mode_freezes_prefix_across_turns() -> None:
         "max_tokens": 16,
     }
 
-    with TestClient(create_app(routing=cfg)) as client:
+    with TestClient(build_api(routing=cfg)) as client:
         r1 = client.post("/v1/messages", json=body_turn1, headers=headers)
         assert r1.status_code == 200, r1.text
 
@@ -182,7 +182,7 @@ def test_ccr_end_to_end_with_compression() -> None:
         "max_tokens": 64,
     }
 
-    with TestClient(create_app(routing=cfg)) as client:
+    with TestClient(build_api(routing=cfg)) as client:
         r = client.post("/v1/messages", json=body)
         assert r.status_code == 200, r.text
 

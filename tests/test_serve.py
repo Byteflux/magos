@@ -148,7 +148,7 @@ class _StubMaster:
         self._stopping.set()
 
 
-def _stub_create_app(**_kwargs: Any) -> object:
+def _stub_build_api(**_kwargs: Any) -> object:
     return object()
 
 
@@ -163,7 +163,7 @@ def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     state: dict[str, Any] = {"ingress_cfg": MagosIngressConfig()}
 
-    def fake_create_app(**kwargs: Any) -> object:
+    def fake_build_api(**kwargs: Any) -> object:
         state["create_app_kwargs"] = kwargs
         return object()
 
@@ -190,10 +190,10 @@ def patched_orchestrator(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         real = real_load_full_config(_FIXTURE_YAML)
         return dataclasses.replace(real, ingress=state["ingress_cfg"])
 
-    monkeypatch.setattr("magos.serve.create_app", fake_create_app)
+    monkeypatch.setattr("magos.serve.build_api", fake_build_api)
     monkeypatch.setattr("magos.serve.uvicorn.Config", fake_uvi_config)
     monkeypatch.setattr("magos.serve.uvicorn.Server", fake_uvi_server)
-    monkeypatch.setattr("magos.serve.build_ingress_master", fake_build_master)
+    monkeypatch.setattr("magos.serve.build_proxy", fake_build_master)
     monkeypatch.setattr("magos.serve.install_log_bridge", fake_install_bridge)
     # serve.py captures load_full_config at import time, so patch the
     # name on the serve module itself rather than at the source.

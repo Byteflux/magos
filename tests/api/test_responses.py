@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.routing import RoutingConfig
 
 from ._helpers import client_with
@@ -126,7 +126,7 @@ def test_unmatched_responses_endpoint_returns_404_openai_envelope() -> None:
         }
     )
     body = {"model": "gpt-4o", "input": "x"}
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/responses", json=body)
     assert resp.status_code == 404
@@ -177,7 +177,7 @@ def test_responses_retrieve_passthrough_forwards_get(monkeypatch: pytest.MonkeyP
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.get("/v1/responses/resp_abc")
 
@@ -229,7 +229,7 @@ def test_responses_cancel_passthrough_forwards_delete(monkeypatch: pytest.Monkey
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.delete("/v1/responses/resp_xyz")
 
@@ -279,7 +279,7 @@ def test_responses_input_items_passthrough_forwards_get(
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.get("/v1/responses/resp_abc/input_items")
 
@@ -300,7 +300,7 @@ def test_responses_retrieve_unmatched_returns_404_openai_envelope() -> None:
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.get("/v1/responses/resp_nope")
     assert resp.status_code == 404
@@ -324,7 +324,7 @@ def test_responses_retrieve_translate_mode_returns_503(
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.get("/v1/responses/resp_abc")
     assert resp.status_code == 503

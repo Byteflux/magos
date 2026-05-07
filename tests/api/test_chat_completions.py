@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.routing import RoutingConfig
 
 from ._helpers import OPENAI_CHAT_RESPONSE, client_with
@@ -136,7 +136,7 @@ def test_unmatched_request_returns_404_with_openai_envelope() -> None:
         "model": "gpt-4",
         "messages": [{"role": "user", "content": "x"}],
     }
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/chat/completions", json=body)
     assert resp.status_code == 404

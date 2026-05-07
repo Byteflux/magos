@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import magos.compression as mc
-from magos.api import create_app
+from magos.api import build_api
 from magos.compression import PipelineConfig
 from magos.compression import registry as reg_mod
 from magos.routing import RoutingConfig
@@ -47,7 +47,7 @@ def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app):
         pass
 
@@ -73,7 +73,7 @@ def test_lifespan_skips_warmup_when_no_compress_rule(
     monkeypatch.setattr(mc, "eager_warmup", lambda _r: eager_calls.append(1))
 
     cfg = translate_only_cfg()
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app):
         pass
 
@@ -102,7 +102,7 @@ def test_lifespan_warmup_failure_does_not_block_startup(
             ]
         }
     )
-    app = create_app(routing=cfg)
+    app = build_api(routing=cfg)
     with TestClient(app) as client:
         resp = client.post("/v1/messages", json={"model": "x", "messages": []})
     assert resp.status_code != 500

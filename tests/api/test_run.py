@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 import pytest
 
-from magos.api import create_app
+from magos.api import build_api
 from magos.routing import RouteError
 
 from ._helpers import translate_only_cfg
@@ -47,7 +47,7 @@ def test_route_does_not_block_event_loop(monkeypatch: pytest.MonkeyPatch) -> Non
         lambda self, req: slow_route(req),
     )
 
-    app = create_app(routing=translate_only_cfg())
+    app = build_api(routing=translate_only_cfg())
     body = {"model": "x", "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
 
     async def fire_concurrent() -> float:

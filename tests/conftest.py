@@ -6,7 +6,7 @@ LiteLLM and other libraries read keys directly from the process
 environment, not from pydantic-settings, hence the explicit population.
 
 Also points ``MAGOS_CONFIG_PATH`` at the test fixture YAML before any test
-imports ``magos.api``, so ``create_app()`` calls without an explicit
+imports ``magos.api``, so ``build_api()`` calls without an explicit
 ``routing`` argument find a real config file.
 """
 
@@ -40,7 +40,7 @@ from magos.routing import RoutingConfig, load_config
 _TESTS_DIR = Path(__file__).resolve().parent
 _FIXTURE_YAML = _TESTS_DIR / "fixtures" / "magos.test.yaml"
 
-# Default routing config for tests that call ``create_app()`` without an
+# Default routing config for tests that call ``build_api()`` without an
 # explicit ``routing=`` argument; e2e tests can override via env.
 os.environ.setdefault("MAGOS_CONFIG_PATH", str(_FIXTURE_YAML))
 
