@@ -63,7 +63,7 @@ def test_routing_config_requires_at_least_one_rule() -> None:
 def test_routing_config_round_trips() -> None:
     cfg = RoutingConfig.model_validate(
         {
-            "pre_rewrites": [{"set_header": {"name": "x-magos", "value": "1"}}],
+            "pre_transforms": [{"set_header": {"name": "x-magos", "value": "1"}}],
             "rules": [
                 {
                     "name": "default",
@@ -74,4 +74,4 @@ def test_routing_config_round_trips() -> None:
         }
     )
     assert cfg.rules[0].name == "default"
-    assert isinstance(cfg.pre_rewrites[0], SetHeader)
+    assert isinstance(cfg.pre_transforms[0], SetHeader)

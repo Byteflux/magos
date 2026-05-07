@@ -8,7 +8,7 @@ Public surface:
 - :class:`MeasuredRouter` — decorator emitting an OTel counter.
 - :func:`route` — free convenience function (constructs a transient
   ``RuleBasedRouter`` for one-shot use; preferred for tests).
-- :func:`apply_pre_rewrites` — re-exported for the routing facade.
+- :func:`apply_pre_transforms` — re-exported for the routing facade.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from magos.routing.schema import RoutingConfig
 from .auto import AutoRouter, provider_cred_overrides
 from .base import Router
 from .measured import MeasuredRouter
-from .rule_based import RuleBasedRouter, _route, apply_pre_rewrites
+from .rule_based import RuleBasedRouter, _route, apply_pre_transforms
 
 
 def route(
@@ -60,7 +60,7 @@ __all__ = [
     "MeasuredRouter",
     "Router",
     "RuleBasedRouter",
-    "apply_pre_rewrites",
+    "apply_pre_transforms",
     "provider_cred_overrides",
     "route",
 ]

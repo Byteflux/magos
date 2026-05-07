@@ -6,7 +6,7 @@
 # the passthrough tests bypass entirely by exercising passthrough.py
 # directly with httpx.MockTransport.
 
-pre_rewrites: []
+pre_transforms: []
 
 rules:
   - name: anthropic-passthrough

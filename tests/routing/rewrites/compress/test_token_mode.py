@@ -9,7 +9,7 @@ import pytest
 from magos.compression import ApplyResult, PipelineConfig
 from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
-from magos.routing.rewrites import apply_rewrites
+from magos.routing.rewrites import apply_transforms
 from tests.routing._helpers import make_req
 
 # --- Chat-shape token-mode pipeline ---
@@ -52,7 +52,7 @@ def test_compress_token_mode_applies_pipeline_and_marks_dirty(
             "messages": [{"role": "user", "content": "verbose original"}],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(target_ratio=0.5))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(target_ratio=0.5))])
 
     assert out.body_dirty is True
     assert out.body["messages"] == [{"role": "user", "content": "shorter"}]
@@ -92,7 +92,7 @@ def test_compress_token_mode_chat_endpoint_uses_openai_provider(
         endpoint="/v1/chat/completions",
         body={"model": "gpt-4o", "messages": [{"role": "user", "content": "x"}]},
     )
-    apply_rewrites(req, [Compress(compress=CompressOptions())])
+    apply_transforms(req, [Compress(compress=CompressOptions())])
 
     assert seen_providers == ["openai"]
 
@@ -113,7 +113,7 @@ def test_compress_options_forward_to_apply_kwargs(monkeypatch: pytest.MonkeyPatc
     req = make_req(
         body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
     )
-    apply_rewrites(
+    apply_transforms(
         req,
         [
             Compress(
@@ -152,7 +152,7 @@ def test_compress_token_mode_inflation_returns_request_untouched(
     monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     req = make_req(body={"model": "x", "messages": original})
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     assert out is req  # body_dirty must NOT flip when nothing changed
 
@@ -176,7 +176,7 @@ def test_compress_zero_savings_returns_input_unchanged(
     monkeypatch.setattr(tm, "apply", fake_apply, raising=True)
 
     req = make_req(body={"model": "x", "messages": [{"role": "user", "content": "hi"}]})
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
     assert out is req
 
 
@@ -203,7 +203,7 @@ def test_compress_token_mode_passes_frozen_count_from_tracker(
     req = make_req(
         body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
     )
-    apply_rewrites(req, [Compress(compress=CompressOptions())])
+    apply_transforms(req, [Compress(compress=CompressOptions())])
 
     assert captured["frozen_message_count"] == 0
 
@@ -229,7 +229,7 @@ def test_compress_token_mode_registers_post_response_hook(
             "messages": [{"role": "user", "content": "x"}],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     assert len(out.post_response_hooks) == 1
 
@@ -272,7 +272,7 @@ def test_compress_token_mode_hook_updates_tracker(
     req = make_req(
         body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     # Now fire the registered hook with a fake Usage.
     out.post_response_hooks[0](Usage(input=200, output=100, cache_read=4000, cache_write=0))
@@ -305,7 +305,7 @@ def test_compress_token_mode_no_hook_when_inflation_reverted(
     req = make_req(
         body={"model": "claude-sonnet-4-5", "messages": [{"role": "user", "content": "x"}]}
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     # body unchanged, but hook still registered for tracker observability.
     assert out.body == req.body

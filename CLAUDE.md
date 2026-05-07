@@ -109,8 +109,8 @@ src/magos/
       __init__.py    # public surface + config_uses_compress walker
       _base.py       # _Frozen base
       grammar.py     # matchers + atoms + combinators + MatchExpr
-      rewrites.py    # rewrite primitives + CompressOptions + Rewrite union
-      structure.py   # Target + Rule + GuardedRewrites + RoutingConfig
+      rewrites.py    # transform primitives + CompressOptions (Rewrite union removed)
+      structure.py   # Target + Rule + GuardedTransforms + RoutingConfig
     request.py       # RoutedRequest dataclass
     decision.py      # RouteDecision frozen value (engine output, dispatch input)
     matchers.py      # match-expression evaluator (registry-aware)
@@ -297,7 +297,7 @@ uv run pre-commit run --all-files
   update every importer. A two-line `from .new import old` shim is
   technical debt that ages badly.
 - **Public dispatcher in `__init__.py`, private implementation in
-  siblings.** `routing/rewrites/__init__.py` exposes `apply_rewrites` +
+  siblings.** `routing/rewrites/__init__.py` exposes `apply_transforms` +
   `RewriteError` and dispatches to per-primitive applicators in
   `headers.py`, `model.py`, `jq_patch.py`, `compress.py`. Callers
   import from the package, not the implementation files.

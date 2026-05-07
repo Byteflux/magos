@@ -78,7 +78,7 @@ Per request, the FastAPI app does this:
    `Response` / `StreamingResponse` / `JSONResponse`. Routing is
    sync but offloaded to a worker thread (`asyncio.to_thread`) so a
    cold Kompress download cannot stall the event loop.
-3. **Route** (`routing/engine.py:route`). Applies pre-rewrites, walks
+3. **Route** (`routing/engine.py:route`). Applies pre-transforms, walks
    `rules` top-to-bottom, returns the first match's `RouteDecision` or
    a `RouteError`. If no rule matches, **auto-routing** (in
    `routing/auto_route.py`) consults the registry: exact

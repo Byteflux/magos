@@ -1,7 +1,7 @@
-"""Rewrite primitives: header / model / jq / compress operations.
+"""Transform primitives: header / model / jq / compress operations.
 
-Every primitive is a single-key ``_Frozen`` model so the ``Rewrite``
-union dispatches by present key in pydantic smart mode.
+Every primitive is a single-key ``_Frozen`` model dispatched by present
+key in pydantic smart mode.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ CompressMode = Literal["token", "cache"]
 class CompressOptions(_Frozen):
     """Compression knobs; see ``docs/headroom/pipeline.md``."""
 
-    mode: CompressMode = "token"
+    engine: CompressMode = "token"
     compress_user_messages: bool = False
     compress_system_messages: bool = True
     protect_recent: int = Field(default=4, ge=0)
@@ -199,13 +199,10 @@ class Compress(_Frozen, Rewriter):
         if not isinstance(messages, list) or not messages:
             return req
 
-        if opts.mode == "cache":
+        if opts.engine == "cache":
             return CacheCompressor(opts).apply(req, registry=registry)
 
         return TokenCompressor(opts).apply(req, registry=registry)
-
-
-Rewrite = SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress
 
 
 def _with_header(headers: Mapping[str, str], name: str, value: str) -> dict[str, str]:

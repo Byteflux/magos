@@ -56,8 +56,8 @@ def eager_warmup(registry: PipelineRegistry | None = None) -> None:
 def prebuild_from_routing(cfg: RoutingConfig, registry: PipelineRegistry | None = None) -> None:
     """Build every (PipelineConfig, provider) pipeline implied by ``cfg``.
 
-    Walks ``cfg.pre_rewrites`` (including ``GuardedRewrites``) and each
-    rule's ``rewrites``; for every token-mode ``Compress``, transcodes
+    Walks ``cfg.pre_transforms`` (including ``GuardedTransforms``) and each
+    rule's ``transforms``; for every token-mode ``Compress``, transcodes
     the options to a ``PipelineConfig`` and calls ``registry.get_or_build``
     for both providers. Calls ``eager_warmup(registry)`` at the end so
     transform models are loaded for the freshly-built pipelines.
@@ -95,18 +95,18 @@ def prebuild_from_routing(cfg: RoutingConfig, registry: PipelineRegistry | None 
 
 
 def _iter_token_mode_compress_options(cfg: RoutingConfig) -> Iterator[CompressOptions]:
-    """Yield each token-mode ``CompressOptions`` from pre_rewrites + rules."""
-    from magos.routing.schema import Compress, GuardedRewrites  # noqa: PLC0415
+    """Yield each token-mode ``CompressOptions`` from pre_transforms + rules."""
+    from magos.routing.schema import Compress, GuardedTransforms  # noqa: PLC0415
 
-    for entry in cfg.pre_rewrites:
+    for entry in cfg.pre_transforms:
         if isinstance(entry, Compress):
-            if entry.compress.mode == "token":
+            if entry.compress.engine == "token":
                 yield entry.compress
-        elif isinstance(entry, GuardedRewrites):
-            for inner in entry.rewrites:
-                if isinstance(inner, Compress) and inner.compress.mode == "token":
+        elif isinstance(entry, GuardedTransforms):
+            for inner in entry.transforms:
+                if isinstance(inner, Compress) and inner.compress.engine == "token":
                     yield inner.compress
     for rule in cfg.rules:
-        for rw in rule.rewrites:
-            if isinstance(rw, Compress) and rw.compress.mode == "token":
+        for rw in rule.transforms:
+            if isinstance(rw, Compress) and rw.compress.engine == "token":
                 yield rw.compress

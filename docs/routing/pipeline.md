@@ -24,9 +24,9 @@ the same directory without editing the yaml.
 
 ```
 inbound request
-  -> pre_rewrites          (global, applied unconditionally, top-to-bottom)
-  -> match                 (against rewritten request)
-  -> post_rewrites         (per matched rule, top-to-bottom)
+  -> pre_transforms        (global, applied unconditionally, top-to-bottom)
+  -> match                 (against transformed request)
+  -> post_transforms       (per matched rule, top-to-bottom)
   -> dispatch via action
 ```
 

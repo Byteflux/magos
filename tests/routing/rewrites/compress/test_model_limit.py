@@ -10,7 +10,7 @@ import pytest
 from magos.compression import ApplyResult, PipelineConfig
 from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
-from magos.routing.rewrites import apply_rewrites
+from magos.routing.rewrites import apply_transforms
 from magos.routing.rewrites import compress as rw
 from tests.routing._helpers import make_req
 
@@ -94,7 +94,7 @@ def test_compress_uses_explicit_model_limit_override(
             "messages": [{"role": "user", "content": "verbose"}],
         }
     )
-    apply_rewrites(req, [Compress(compress=CompressOptions(model_limit=50_000))])
+    apply_transforms(req, [Compress(compress=CompressOptions(model_limit=50_000))])
     assert captured["model_limit"] == 50_000
     assert called == [], "explicit model_limit must bypass _resolve_model_limit"
 
@@ -129,5 +129,5 @@ def test_compress_model_limit_auto_detect_per_model(
     monkeypatch.setattr(rw.model_limit, "_MODEL_LIMIT_CACHE", {"gpt-4o": 128_000})
 
     req = make_req(body={"model": "gpt-4o", "messages": [{"role": "user", "content": "verbose"}]})
-    apply_rewrites(req, [Compress(compress=CompressOptions())])
+    apply_transforms(req, [Compress(compress=CompressOptions())])
     assert captured["model_limit"] == 128_000

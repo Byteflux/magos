@@ -41,7 +41,7 @@ def test_lifespan_warms_compress_pipeline_when_rule_uses_compress(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "rewrites": [{"compress": {}}],
+                    "transforms": [{"compress": {}}],
                     "target": {"provider": "anthropic", "gateway": "translate"},
                 }
             ]
@@ -96,7 +96,7 @@ def test_lifespan_warmup_failure_does_not_block_startup(
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "rewrites": [{"compress": {}}],
+                    "transforms": [{"compress": {}}],
                     "target": {"provider": "anthropic", "gateway": "translate"},
                 }
             ]

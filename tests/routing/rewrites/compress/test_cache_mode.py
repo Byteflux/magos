@@ -9,7 +9,7 @@ import pytest
 from magos.compression import ApplyResult
 from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
-from magos.routing.rewrites import apply_rewrites
+from magos.routing.rewrites import apply_transforms
 from tests.routing._helpers import make_req
 
 # --- Chat-shape cache mode ---
@@ -36,7 +36,7 @@ def test_compress_cache_mode_runs_aligner_only(monkeypatch: pytest.MonkeyPatch) 
             ],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
     assert out.body_dirty is True
     sys_content = out.body["messages"][0]["content"]
     static_prefix = sys_content.split("[Dynamic Context]")[0]
@@ -59,7 +59,7 @@ def test_responses_cache_mode_aligns_instructions() -> None:
             "input": "hello",
         },
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
 
     assert out.body_dirty is True
     new_instructions = out.body["instructions"]
@@ -81,7 +81,7 @@ def test_responses_cache_mode_noop_when_no_dynamic_content() -> None:
             "input": "hello",
         },
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
     assert out is req
 
 
@@ -90,7 +90,7 @@ def test_responses_cache_mode_noop_when_instructions_missing() -> None:
         endpoint="/v1/responses",
         body={"model": "gpt-4o", "input": "hello"},
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
     assert out is req
 
 
@@ -99,7 +99,7 @@ def test_responses_cache_mode_noop_when_instructions_empty() -> None:
         endpoint="/v1/responses",
         body={"model": "gpt-4o", "instructions": "   ", "input": "hello"},
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
     assert out is req
 
 
@@ -121,5 +121,5 @@ def test_responses_token_mode_does_not_call_pipeline(
             "input": "hello",
         },
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="token"))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(engine="token"))])
     assert out is req

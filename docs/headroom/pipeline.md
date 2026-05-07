@@ -32,7 +32,7 @@ library entry. This buys us:
   the builds, `eager_warmup` walks each unique transform calling
   `eager_load_compressors()`.
 
-`mode: cache` continues to use the standalone `CacheAligner` in
+`engine: cache` continues to use the standalone `CacheAligner` in
 `cache_mode.py`; it does not go through the registry.
 
 The transform list magos builds (`src/magos/compression/build.py`) for
@@ -51,7 +51,7 @@ CacheAligner(disabled) -> ContentRouter -> IntelligentContextManager
 - Computes a stable prefix hash; tracks across requests.
 - Skips `frozen_message_count` messages (already in provider cache).
 - Default `enabled=False` for the standalone transform; the full
-  pipeline flips it on. Magos flips it on for `mode: cache`.
+  pipeline flips it on. Magos flips it on for `engine: cache`.
 - Default `use_dynamic_detector=True` cascades into
   `sentence_transformers` to `sklearn` to `pandas` to `pyarrow`, and pyarrow's
   native `.pyd` segfaults during `create_module` on Windows when

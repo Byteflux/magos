@@ -9,7 +9,7 @@
 #   - atoms: model / header / endpoint / jq / model_field
 #   - matchers (for non-jq, non-model_field atoms): { literal: ... } | { glob: ... } | { regex: ... }
 #   - combinators: all_of / any_of / not (recursive)
-# Rewrite ops:
+# Transform ops:
 #   - set_model / set_header / add_header / remove_header / jq_patch / compress
 # Target fields:
 #   - provider, gateway (translate|passthrough), base_url, api_key_env, auth_header
@@ -41,13 +41,13 @@ ingress:
     intercept_hosts:
       - api.anthropic.com
 
-# Default: Headroom compression on every request. Token mode runs the full
+# Default: Headroom compression on every request. Token engine runs the full
 # pipeline (CacheAligner + ContentRouter + IntelligentContext) where the
 # endpoint supports it (/v1/messages, /v1/messages/count_tokens,
 # /v1/chat/completions); /v1/responses no-ops in token mode (use a per-rule
-# ``compress: { mode: cache }`` if you want cache-alignment there). To
-# disable globally, set ``pre_rewrites: []``.
-pre_rewrites:
+# ``compress: { engine: cache }`` if you want cache-alignment there). To
+# disable globally, set ``pre_transforms: []``.
+pre_transforms:
   - compress: {}
 
 rules:
@@ -150,8 +150,8 @@ rules:
       gateway: translate
 
   # Example: enable Headroom compression for long-context Claude requests.
-  # ``mode: token`` runs the full pipeline (CacheAligner + ContentRouter +
-  # IntelligentContext); ``mode: cache`` only stabilises the prefix for
+  # ``engine: token`` runs the full pipeline (CacheAligner + ContentRouter +
+  # IntelligentContext); ``engine: cache`` only stabilises the prefix for
   # provider prompt-cache hits without rewriting message content.
   #
   # - name: claude-compress-long-context
@@ -160,9 +160,9 @@ rules:
   #       - endpoint: { literal: /v1/messages }
   #       - model: { regex: "^(anthropic/)?claude-.*" }
   #       - jq: ".messages | length > 30"
-  #   rewrites:
+  #   transforms:
   #     - compress:
-  #         mode: token
+  #         engine: token
   #         protect_recent: 8
   #         target_ratio: 0.6
   #         # CCR (reversible compression) is on by default; set
@@ -174,14 +174,14 @@ rules:
   #     gateway: translate
 
   # Example: cache-align the OpenAI Responses ``instructions`` prefix.
-  # /v1/responses supports ``mode: cache`` only (against ``instructions``);
+  # /v1/responses supports ``engine: cache`` only (against ``instructions``);
   # token-mode compression of the ``input`` field is not implemented.
   #
   # - name: responses-cache-align
   #   match:
   #     endpoint: { literal: /v1/responses }
-  #   rewrites:
-  #     - compress: { mode: cache }
+  #   transforms:
+  #     - compress: { engine: cache }
   #   target:
   #     provider: openai
   #     gateway: translate

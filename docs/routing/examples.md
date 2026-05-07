@@ -3,7 +3,7 @@
 ## Alias normalisation before match
 
 ```yaml
-pre_rewrites:
+pre_transforms:
   - jq_patch: 'if .model == "sonnet"
                  then .model = "claude-haiku-4-5-20251001"
                  else . end'
@@ -28,7 +28,7 @@ rules:
         - header:
             name: { literal: x-magos-tier }
             value: { literal: cheap }
-    rewrites:
+    transforms:
       - set_model: gpt-4o-mini
     target:
       provider: openai

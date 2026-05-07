@@ -17,8 +17,8 @@ from magos.routing.errors import (
 )
 from magos.routing.match import matches
 from magos.routing.request import RoutedRequest
-from magos.routing.rewrites import RewriteError, apply_rewrites
-from magos.routing.schema import GuardedRewrites, RoutingConfig, Rule, Target
+from magos.routing.rewrites import RewriteError, apply_transforms
+from magos.routing.schema import GuardedTransforms, RoutingConfig, Rule, Target
 
 
 class RuleBasedRouter(Router):
@@ -67,21 +67,21 @@ class RuleBasedRouter(Router):
         )
 
 
-def apply_pre_rewrites(
+def apply_pre_transforms(
     req: RoutedRequest,
     cfg: RoutingConfig,
     *,
     registry: RegistryState | None = None,
 ) -> RoutedRequest:
-    """Run global pre-match rewrites; guarded entries see prior rewrites' effects."""
+    """Run global pre-match transforms; guarded entries see prior transforms' effects."""
     out = req
-    for entry in cfg.pre_rewrites:
-        if isinstance(entry, GuardedRewrites):
+    for entry in cfg.pre_transforms:
+        if isinstance(entry, GuardedTransforms):
             if not matches(entry.match, out, registry=registry):
                 continue
-            out = apply_rewrites(out, entry.rewrites, registry=registry)
+            out = apply_transforms(out, entry.transforms, registry=registry)
         else:
-            out = apply_rewrites(out, [entry], registry=registry)
+            out = apply_transforms(out, [entry], registry=registry)
     return out
 
 
@@ -97,12 +97,12 @@ def _route(
     auto: AutoRouter | None = None,
 ) -> RouteDecision | RouteError:
     """Core routing pipeline. Shared by ``RuleBasedRouter.route`` and ``route()``."""
-    pre_applied = apply_pre_rewrites(req, cfg, registry=registry)
+    pre_applied = apply_pre_transforms(req, cfg, registry=registry)
     for rule in cfg.rules:
         if not matches(rule.match, pre_applied, registry=registry):
             continue
         try:
-            post_applied = apply_rewrites(pre_applied, rule.rewrites, registry=registry)
+            post_applied = apply_transforms(pre_applied, rule.transforms, registry=registry)
         except RewriteError as exc:
             model = str(pre_applied.body.get("model", ""))
             return RouteError(

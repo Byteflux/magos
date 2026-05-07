@@ -14,7 +14,7 @@ import pytest
 from magos.compression import ApplyResult
 from magos.compression.engine import token as tm
 from magos.routing import Compress, CompressOptions
-from magos.routing.rewrites import apply_rewrites
+from magos.routing.rewrites import apply_transforms
 from tests.routing._helpers import make_req
 
 # --- Skip / no-op cases ---
@@ -25,19 +25,19 @@ def test_compress_skipped_on_responses_endpoint() -> None:
         endpoint="/v1/responses",
         body={"model": "x", "input": "hello"},
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
     assert out is req
 
 
 def test_compress_no_messages_is_noop() -> None:
     req = make_req(body={"model": "x"})
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
     assert out is req
 
 
 def test_compress_empty_messages_is_noop() -> None:
     req = make_req(body={"model": "x", "messages": []})
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
     assert out is req
 
 
@@ -53,7 +53,7 @@ def test_compress_unsupported_endpoint_does_not_call_pipeline(
         endpoint="/v1/responses",
         body={"model": "x", "input": "hello"},
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
     assert out is req
 
 
@@ -61,7 +61,7 @@ def test_responses_aux_endpoints_skip_compress() -> None:
     """The /v1/responses/{id} family has no body to compress; must no-op."""
     for endpoint in ("/v1/responses/{id}", "/v1/responses/{id}/input_items"):
         req = make_req(endpoint=endpoint, body={}, raw=b"")
-        out = apply_rewrites(req, [Compress(compress=CompressOptions(mode="cache"))])
+        out = apply_transforms(req, [Compress(compress=CompressOptions(engine="cache"))])
         assert out is req, f"{endpoint} should no-op"
 
 
@@ -100,7 +100,7 @@ def test_compress_ccr_injects_tool_when_markers_present(
             "messages": [{"role": "user", "content": "verbose"}],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     tools = out.body.get("tools", [])
     tool_names = [t.get("name") for t in tools]
@@ -136,7 +136,7 @@ def test_compress_ccr_disabled_skips_injection(
             "messages": [{"role": "user", "content": "x"}],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions(ccr_enabled=False))])
+    out = apply_transforms(req, [Compress(compress=CompressOptions(ccr_enabled=False))])
 
     tools = out.body.get("tools", [])
     tool_names = [t.get("name") for t in tools]
@@ -166,6 +166,6 @@ def test_compress_ccr_no_markers_no_injection(
             "messages": [{"role": "user", "content": "verbose"}],
         }
     )
-    out = apply_rewrites(req, [Compress(compress=CompressOptions())])
+    out = apply_transforms(req, [Compress(compress=CompressOptions())])
 
     assert "tools" not in out.body or out.body.get("tools") == []

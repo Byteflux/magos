@@ -1,4 +1,4 @@
-"""Top-level routing structure: targets, rules, guarded pre-rewrites, root config."""
+"""Top-level routing structure: targets, rules, guarded pre-transforms, root config."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pydantic import Field
 
 from ._base import _Frozen
 from .grammar import MatchExpr
-from .rewrites import Rewrite
+from .rewrites import AddHeader, Compress, JqPatch, RemoveHeader, SetHeader, SetModel
 
 GatewayMode = Literal["translate", "passthrough"]
 AuthHeaderShape = Literal["bearer", "x-api-key"]
@@ -26,20 +26,28 @@ class Target(_Frozen):
 class Rule(_Frozen):
     name: str | None = None
     match: MatchExpr
-    rewrites: list[Rewrite] = Field(default_factory=list)
+    transforms: list[SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress] = Field(
+        default_factory=list
+    )
     target: Target
 
 
-class GuardedRewrites(_Frozen):
-    """Pre-rewrite group gated by a match expression. See ``docs/routing/grammar.md``."""
+class GuardedTransforms(_Frozen):
+    """Pre-transform group gated by a match expression. See ``docs/routing/grammar.md``."""
 
     match: MatchExpr
-    rewrites: list[Rewrite] = Field(min_length=1)
+    transforms: list[SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress] = Field(
+        min_length=1
+    )
 
 
-PreRewrite = Rewrite | GuardedRewrites
+PreTransform = (
+    SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress | GuardedTransforms
+)
 
 
 class RoutingConfig(_Frozen):
-    pre_rewrites: list[PreRewrite] = Field(default_factory=list)
+    pre_transforms: list[
+        SetModel | SetHeader | RemoveHeader | AddHeader | JqPatch | Compress | GuardedTransforms
+    ] = Field(default_factory=list)
     rules: list[Rule] = Field(min_length=1)

@@ -11,8 +11,8 @@ Two distinct subsystems shipped in one package:
    Google). Insert `cache_control` markers, track prefix hashes, score
    breakpoint placement.
 
-Magos uses (1) directly. (2) is opt-in via `mode: cache` in the
-`compress` rewrite, which runs only the `CacheAligner` transform, no
+Magos uses (1) directly. (2) is opt-in via `engine: cache` in the
+`compress` transform, which runs only the `CacheAligner` transform, no
 breakpoint insertion. Auto-`cache_control` injection via
 `AnthropicCacheOptimizer` is not wired; revisit if cache hit rates need
 improving beyond prefix stabilisation.

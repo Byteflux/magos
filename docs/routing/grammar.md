@@ -1,15 +1,15 @@
 # YAML grammar
 
 ```yaml
-pre_rewrites: []          # global rewrites; optional. Each entry is either
-                          # a Rewrite (unconditional) or a guarded group:
-                          #   { match: <expr>, rewrites: [<Rewrite>, ...] }
+pre_transforms: []        # global transforms; optional. Each entry is either
+                          # a Transform (unconditional) or a guarded group:
+                          #   { match: <expr>, transforms: [<Transform>, ...] }
                           # Guarded groups apply only when match is true at
-                          # that point in the pre-rewrite chain.
+                          # that point in the pre-transform chain.
 rules:                    # required, at least one
   - name: human-readable  # optional; appears in route.matched logs
     match: <expr>
-    rewrites: []          # per-rule post-rewrites; optional
+    transforms: []        # per-rule post-transforms; optional
     target:
       provider: <string>  # required
       gateway: translate | passthrough
@@ -53,7 +53,7 @@ Combinators:
 
 A bare atom at the top of `match` is shorthand for a single-atom expression.
 
-## Rewrite ops
+## Transform ops
 
 Each is a single-key dict applied in list order:
 
@@ -94,12 +94,12 @@ under `providers:` so the registry knows the mapping; see
 
 ### `compress`
 
-Runs Headroom against `body.messages`. Two modes:
+Runs Headroom against `body.messages`. Two engines:
 
-- `mode: token` (default): full pipeline (CacheAligner + ContentRouter
+- `engine: token` (default): full pipeline (CacheAligner + ContentRouter
   + IntelligentContext). Messages may be rewritten or dropped. Maximises
   token savings.
-- `mode: cache`: CacheAligner only. Extracts dynamic content (dates,
+- `engine: cache`: CacheAligner only. Extracts dynamic content (dates,
   whitespace) from system prompts so the prefix is byte-stable across
   requests. Does not touch user/assistant messages. Improves provider
   prompt-cache hit rate without changing semantics.
@@ -107,10 +107,10 @@ Runs Headroom against `body.messages`. Two modes:
 Endpoint scope:
 
 - `/v1/messages`, `/v1/messages/count_tokens`, `/v1/chat/completions`:
-  full support for both modes against `body['messages']`.
-- `/v1/responses`: `mode: cache` only, against `body['instructions']`.
+  full support for both engines against `body['messages']`.
+- `/v1/responses`: `engine: cache` only, against `body['instructions']`.
   Token-mode compression of the `input` field is unsupported (different
-  shape, no upstream Headroom path); `mode: token` silently no-ops here.
+  shape, no upstream Headroom path); `engine: token` silently no-ops here.
 - `/v1/responses/{id}` family (retrieve / cancel / list input items):
   no-op (no body to compress).
 
@@ -122,9 +122,9 @@ All `CompressConfig` knobs are surfaced verbatim, plus an explicit
 toggles:
 
 ```yaml
-rewrites:
+transforms:
   - compress:
-      mode: token              # token | cache
+      engine: token              # token | cache
       compress_user_messages: false
       compress_system_messages: true
       protect_recent: 4        # last N messages untouched

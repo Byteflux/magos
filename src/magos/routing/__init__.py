@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from magos.routing.decision import RouteDecision
-from magos.routing.engine import apply_pre_rewrites, route
+from magos.routing.engine import apply_pre_transforms, route
 from magos.routing.errors import (
     RouteError,
     error_envelope,
@@ -13,7 +13,7 @@ from magos.routing.errors import (
 from magos.routing.loader import RoutingConfigError, load_config
 from magos.routing.match import matches
 from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
-from magos.routing.rewrites import RewriteError, apply_rewrites
+from magos.routing.rewrites import RewriteError, apply_transforms
 from magos.routing.schema import (
     AddHeader,
     AllOf,
@@ -24,6 +24,7 @@ from magos.routing.schema import (
     EndpointAtom,
     GatewayMode,
     GlobMatcher,
+    GuardedTransforms,
     HeaderAtom,
     HeaderPair,
     JqAtom,
@@ -37,9 +38,9 @@ from magos.routing.schema import (
     ModelFieldOp,
     NamedValue,
     Not,
+    PreTransform,
     RegexMatcher,
     RemoveHeader,
-    Rewrite,
     RoutingConfig,
     Rule,
     SetHeader,
@@ -60,6 +61,7 @@ __all__ = [
     "EndpointAtom",
     "GatewayMode",
     "GlobMatcher",
+    "GuardedTransforms",
     "HeaderAtom",
     "HeaderPair",
     "JqAtom",
@@ -73,9 +75,9 @@ __all__ = [
     "ModelFieldOp",
     "NamedValue",
     "Not",
+    "PreTransform",
     "RegexMatcher",
     "RemoveHeader",
-    "Rewrite",
     "RewriteError",
     "RouteDecision",
     "RouteError",
@@ -86,8 +88,8 @@ __all__ = [
     "SetHeader",
     "SetModel",
     "Target",
-    "apply_pre_rewrites",
-    "apply_rewrites",
+    "apply_pre_transforms",
+    "apply_transforms",
     "config_uses_compress",
     "error_envelope",
     "format_dispatch_error_message",

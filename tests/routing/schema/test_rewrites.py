@@ -1,4 +1,4 @@
-"""Rewrite primitives: dispatch by key + ``CompressOptions`` knobs."""
+"""Transform primitives: dispatch by key + ``CompressOptions`` knobs."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from magos.routing.schema import (
     SetModel,
 )
 
-# --- Rewrite union dispatches by key ---
+# --- Transform union dispatches by key ---
 
 
 @pytest.mark.parametrize(
@@ -32,11 +32,11 @@ def test_rewrite_dispatch(payload: dict[str, object], cls: type) -> None:
     rule = Rule.model_validate(
         {
             "match": {"endpoint": {"literal": "/v1/messages"}},
-            "rewrites": [payload],
+            "transforms": [payload],
             "target": {"provider": "openai", "gateway": "translate"},
         }
     )
-    assert isinstance(rule.rewrites[0], cls)
+    assert isinstance(rule.transforms[0], cls)
 
 
 # --- CompressOptions pipeline-shape knobs ---

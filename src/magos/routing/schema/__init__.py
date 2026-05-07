@@ -3,8 +3,8 @@
 Three concerns split across siblings:
 
 - :mod:`grammar` — match grammar: matchers, atoms, combinators, ``MatchExpr``.
-- :mod:`rewrites` — rewrite primitives, ``CompressOptions``, ``Rewrite`` union.
-- :mod:`structure` — top-level: ``Target``, ``Rule``, ``GuardedRewrites``,
+- :mod:`rewrites` — transform primitives (``SetModel``, ``SetHeader``, etc.), ``CompressOptions``.
+- :mod:`structure` — top-level: ``Target``, ``Rule``, ``GuardedTransforms``,
   ``RoutingConfig``.
 
 ``config_uses_compress`` lives here since it walks the assembled config.
@@ -38,15 +38,14 @@ from .rewrites import (
     JqPatch,
     NamedValue,
     RemoveHeader,
-    Rewrite,
     SetHeader,
     SetModel,
 )
 from .structure import (
     AuthHeaderShape,
     GatewayMode,
-    GuardedRewrites,
-    PreRewrite,
+    GuardedTransforms,
+    PreTransform,
     RoutingConfig,
     Rule,
     Target,
@@ -54,19 +53,19 @@ from .structure import (
 
 
 def config_uses_compress(cfg: RoutingConfig) -> bool:
-    """True iff any pre-rewrite or rule rewrite is a ``compress`` op.
+    """True iff any pre-transform or rule transform is a ``compress`` op.
 
-    Walks into ``GuardedRewrites`` so a guarded pre-rewrite still
+    Walks into ``GuardedTransforms`` so a guarded pre-transform still
     counts; the engine evaluates them at request time.
     """
-    for entry in cfg.pre_rewrites:
+    for entry in cfg.pre_transforms:
         if isinstance(entry, Compress):
             return True
-        if isinstance(entry, GuardedRewrites) and any(
-            isinstance(rw, Compress) for rw in entry.rewrites
+        if isinstance(entry, GuardedTransforms) and any(
+            isinstance(rw, Compress) for rw in entry.transforms
         ):
             return True
-    return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.rewrites)
+    return any(isinstance(rw, Compress) for rule in cfg.rules for rw in rule.transforms)
 
 
 __all__ = [
@@ -80,7 +79,7 @@ __all__ = [
     "EndpointAtom",
     "GatewayMode",
     "GlobMatcher",
-    "GuardedRewrites",
+    "GuardedTransforms",
     "HeaderAtom",
     "HeaderPair",
     "JqAtom",
@@ -94,10 +93,9 @@ __all__ = [
     "ModelFieldOp",
     "NamedValue",
     "Not",
-    "PreRewrite",
+    "PreTransform",
     "RegexMatcher",
     "RemoveHeader",
-    "Rewrite",
     "RoutingConfig",
     "Rule",
     "SetHeader",

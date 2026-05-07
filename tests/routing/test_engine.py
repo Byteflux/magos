@@ -109,16 +109,16 @@ def test_unmatched_carries_endpoint_for_envelope_shaping() -> None:
     assert err.endpoint == "/v1/chat/completions"
 
 
-# --- Pre-rewrites apply before match ---
+# --- Pre-transforms apply before match ---
 
 
-def test_pre_rewrite_changes_what_matches() -> None:
+def test_pre_transform_changes_what_matches() -> None:
     # An alias-normalising pre-rewrite redirects "sonnet" to a real id
     # before the matcher sees it; the literal-match rule for the real id
     # then succeeds.
     cfg = _cfg(
         {
-            "pre_rewrites": [
+            "pre_transforms": [
                 {
                     "jq_patch": (
                         'if .model == "sonnet" then .model = "claude-haiku-4-5-20251001" else . end'
@@ -139,13 +139,13 @@ def test_pre_rewrite_changes_what_matches() -> None:
     assert decision.request.body_dirty is True
 
 
-# --- Guarded pre-rewrites ---
+# --- Guarded pre-transforms ---
 
 
 def _guarded_cfg(pre: list[dict[str, Any]]) -> RoutingConfig:
     return _cfg(
         {
-            "pre_rewrites": pre,
+            "pre_transforms": pre,
             "rules": [
                 {
                     "name": "translate",
@@ -157,12 +157,12 @@ def _guarded_cfg(pre: list[dict[str, Any]]) -> RoutingConfig:
     )
 
 
-def test_guarded_pre_rewrite_applies_when_match_passes() -> None:
+def test_guarded_pre_transform_applies_when_match_passes() -> None:
     cfg = _guarded_cfg(
         [
             {
                 "match": {"endpoint": {"literal": "/v1/messages"}},
-                "rewrites": [{"set_header": {"name": "x-marker", "value": "yes"}}],
+                "transforms": [{"set_header": {"name": "x-marker", "value": "yes"}}],
             }
         ]
     )
@@ -171,12 +171,12 @@ def test_guarded_pre_rewrite_applies_when_match_passes() -> None:
     assert decision.request.headers["x-marker"] == "yes"
 
 
-def test_guarded_pre_rewrite_skipped_when_match_fails() -> None:
+def test_guarded_pre_transform_skipped_when_match_fails() -> None:
     cfg = _guarded_cfg(
         [
             {
                 "match": {"endpoint": {"literal": "/v1/chat/completions"}},
-                "rewrites": [{"set_header": {"name": "x-marker", "value": "yes"}}],
+                "transforms": [{"set_header": {"name": "x-marker", "value": "yes"}}],
             }
         ]
     )
@@ -185,13 +185,13 @@ def test_guarded_pre_rewrite_skipped_when_match_fails() -> None:
     assert "x-marker" not in decision.request.headers
 
 
-def test_bare_and_guarded_pre_rewrites_chain_in_order() -> None:
+def test_bare_and_guarded_pre_transforms_chain_in_order() -> None:
     cfg = _guarded_cfg(
         [
             {"set_header": {"name": "x-bare", "value": "1"}},
             {
                 "match": {"header": {"name": {"literal": "x-bare"}, "value": {"literal": "1"}}},
-                "rewrites": [{"set_header": {"name": "x-guarded", "value": "2"}}],
+                "transforms": [{"set_header": {"name": "x-guarded", "value": "2"}}],
             },
         ]
     )
@@ -201,16 +201,16 @@ def test_bare_and_guarded_pre_rewrites_chain_in_order() -> None:
     assert decision.request.headers["x-guarded"] == "2"
 
 
-# --- Post-rewrites apply after match ---
+# --- Post-transforms apply after match ---
 
 
-def test_post_rewrites_run_for_matched_rule() -> None:
+def test_post_transforms_run_for_matched_rule() -> None:
     cfg = _cfg(
         {
             "rules": [
                 {
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "rewrites": [{"set_header": {"name": "x-magos-route", "value": "openai"}}],
+                    "transforms": [{"set_header": {"name": "x-magos-route", "value": "openai"}}],
                     "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]
@@ -221,14 +221,14 @@ def test_post_rewrites_run_for_matched_rule() -> None:
     assert decision.request.headers["x-magos-route"] == "openai"
 
 
-def test_post_rewrite_failure_returns_503() -> None:
+def test_post_transform_failure_returns_503() -> None:
     cfg = _cfg(
         {
             "rules": [
                 {
                     "name": "broken",
                     "match": {"endpoint": {"literal": "/v1/messages"}},
-                    "rewrites": [{"jq_patch": ".model"}],  # returns scalar, not object
+                    "transforms": [{"jq_patch": ".model"}],  # returns scalar, not object
                     "target": {"provider": "openai", "gateway": "translate"},
                 }
             ]

@@ -68,20 +68,20 @@ def test_warmup_default_uses_module_registry() -> None:
 
 def _make_routing_config(
     rule_compress_options: list[Any] | None = None,
-    pre_rewrites_compress_options: list[Any] | None = None,
+    pre_transforms_compress_options: list[Any] | None = None,
     guarded_pre_compress_options: list[Any] | None = None,
 ) -> Any:
     """Build a RoutingConfig with the supplied Compress options arrangement.
 
     - rule_compress_options: each entry becomes a rule with that one Compress.
-    - pre_rewrites_compress_options: each entry becomes a top-level pre_rewrite Compress.
+    - pre_transforms_compress_options: each entry becomes a top-level pre_transform Compress.
     - guarded_pre_compress_options: each entry becomes a Compress inside a single
-      GuardedRewrites pre_rewrite (all share one match).
+      GuardedTransforms pre_transform (all share one match).
     """
     from magos.routing.schema import (  # noqa: PLC0415
         Compress,
         EndpointAtom,
-        GuardedRewrites,
+        GuardedTransforms,
         LiteralMatcher,
         RoutingConfig,
         Rule,
@@ -92,36 +92,36 @@ def _make_routing_config(
     rules = [
         Rule(
             match=match,
-            rewrites=[Compress(compress=opts)],
+            transforms=[Compress(compress=opts)],
             target=Target(provider="anthropic", gateway="passthrough", base_url="https://x"),
         )
         for opts in (rule_compress_options or [])
     ]
     if not rules:
-        # RoutingConfig requires at least one rule; add an empty-rewrites one.
+        # RoutingConfig requires at least one rule; add an empty-transforms one.
         rules = [
             Rule(
                 match=match,
-                rewrites=[],
+                transforms=[],
                 target=Target(provider="anthropic", gateway="passthrough", base_url="https://x"),
             )
         ]
-    pre: list[Any] = [Compress(compress=opts) for opts in (pre_rewrites_compress_options or [])]
+    pre: list[Any] = [Compress(compress=opts) for opts in (pre_transforms_compress_options or [])]
     if guarded_pre_compress_options:
         pre.append(
-            GuardedRewrites(
+            GuardedTransforms(
                 match=match,
-                rewrites=[Compress(compress=opts) for opts in guarded_pre_compress_options],
+                transforms=[Compress(compress=opts) for opts in guarded_pre_compress_options],
             )
         )
-    return RoutingConfig(pre_rewrites=pre, rules=rules)
+    return RoutingConfig(pre_transforms=pre, rules=rules)
 
 
 def test_prebuild_from_routing_empty_config_builds_nothing(monkeypatch: Any) -> None:
     from magos.compression import prebuild_from_routing  # noqa: PLC0415
     from magos.compression.registry import PipelineRegistry  # noqa: PLC0415
 
-    cfg = _make_routing_config()  # one rule, zero rewrites
+    cfg = _make_routing_config()  # one rule, zero transforms
     reg = PipelineRegistry()
 
     # Patch eager_warmup so we can confirm it was called once even with no builds.
@@ -197,7 +197,7 @@ def test_prebuild_from_routing_skips_cache_mode(monkeypatch: Any) -> None:
     from magos.compression.registry import PipelineRegistry  # noqa: PLC0415
     from magos.routing.schema import CompressOptions  # noqa: PLC0415
 
-    cfg = _make_routing_config(rule_compress_options=[CompressOptions(mode="cache")])
+    cfg = _make_routing_config(rule_compress_options=[CompressOptions(engine="cache")])
     reg = PipelineRegistry()
 
     monkeypatch.setattr("magos.compression.warmup.eager_warmup", lambda r=None: None)
@@ -207,13 +207,13 @@ def test_prebuild_from_routing_skips_cache_mode(monkeypatch: Any) -> None:
     assert list(reg.pipelines()) == []
 
 
-def test_prebuild_from_routing_walks_pre_rewrites(monkeypatch: Any) -> None:
-    """A token-mode Compress in pre_rewrites is honored."""
+def test_prebuild_from_routing_walks_pre_transforms(monkeypatch: Any) -> None:
+    """A token-mode Compress in pre_transforms is honored."""
     from magos.compression import prebuild_from_routing  # noqa: PLC0415
     from magos.compression.registry import PipelineRegistry  # noqa: PLC0415
     from magos.routing.schema import CompressOptions  # noqa: PLC0415
 
-    cfg = _make_routing_config(pre_rewrites_compress_options=[CompressOptions()])
+    cfg = _make_routing_config(pre_transforms_compress_options=[CompressOptions()])
     reg = PipelineRegistry()
 
     monkeypatch.setattr("magos.compression.warmup.eager_warmup", lambda r=None: None)
@@ -223,8 +223,8 @@ def test_prebuild_from_routing_walks_pre_rewrites(monkeypatch: Any) -> None:
     assert len(list(reg.pipelines())) == 2
 
 
-def test_prebuild_from_routing_walks_guarded_pre_rewrites(monkeypatch: Any) -> None:
-    """A token-mode Compress nested inside a GuardedRewrites pre_rewrite is honored."""
+def test_prebuild_from_routing_walks_guarded_pre_transforms(monkeypatch: Any) -> None:
+    """A token-mode Compress nested inside a GuardedTransforms pre_rewrite is honored."""
     from magos.compression import prebuild_from_routing  # noqa: PLC0415
     from magos.compression.registry import PipelineRegistry  # noqa: PLC0415
     from magos.routing.schema import CompressOptions  # noqa: PLC0415

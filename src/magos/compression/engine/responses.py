@@ -32,11 +32,11 @@ class ResponsesCompressor(Compressor):
         registry: RegistryState | None = None,
     ) -> RoutedRequest:
         opts = self._opts
-        if opts.mode != "cache":
+        if opts.engine != "cache":
             log.debug(
                 "compress.responses_token_mode_unsupported",
                 endpoint=req.endpoint,
-                hint="use mode: cache to stabilise the instructions prefix",
+                hint="use engine: cache to stabilise the instructions prefix",
             )
             return req
 

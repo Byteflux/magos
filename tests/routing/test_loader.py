@@ -105,14 +105,14 @@ def test_invalid_jq_atom_includes_rule_label(tmp_path: Path) -> None:
         load_config(p)
 
 
-def test_invalid_jq_patch_in_rewrites(tmp_path: Path) -> None:
+def test_invalid_jq_patch_in_transforms(tmp_path: Path) -> None:
     p = _write(
         tmp_path,
         """
         rules:
           - name: rewrite-fail
             match: { endpoint: { literal: /v1/messages } }
-            rewrites:
+            transforms:
               - jq_patch: '<<< not jq'
             target: { provider: openai, gateway: translate }
 """,
@@ -146,7 +146,7 @@ def test_body_touch_logs_under_passthrough(tmp_path: Path, monkeypatch: pytest.M
         rules:
           - name: rewrite-then-passthrough
             match: { endpoint: { literal: /v1/messages } }
-            rewrites:
+            transforms:
               - set_model: claude-haiku-4-5-20251001
             target:
               provider: anthropic
@@ -159,11 +159,11 @@ def test_body_touch_logs_under_passthrough(tmp_path: Path, monkeypatch: pytest.M
     events = [(e, kw) for e, kw in rec.records if e == "routing.passthrough_body_touch"]
     assert len(events) == 1
     assert events[0][1]["rule"] == "rewrite-then-passthrough"
-    assert events[0][1]["post_rewrites_touch"] is True
-    assert events[0][1]["pre_rewrites_touch"] is False
+    assert events[0][1]["post_transforms_touch"] is True
+    assert events[0][1]["pre_transforms_touch"] is False
 
 
-def test_header_only_rewrites_under_passthrough_silent(
+def test_header_only_transforms_under_passthrough_silent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     rec = _LogRecorder()
@@ -173,7 +173,7 @@ def test_header_only_rewrites_under_passthrough_silent(
         """
         rules:
           - match: { endpoint: { literal: /v1/messages } }
-            rewrites:
+            transforms:
               - set_header: { name: x-magos, value: '1' }
               - remove_header: x-debug
             target:
@@ -195,7 +195,7 @@ def test_pre_rewrite_body_touch_logs_per_passthrough_rule(
     p = _write(
         tmp_path,
         """
-        pre_rewrites:
+        pre_transforms:
           - set_model: claude-haiku-4-5-20251001
 
         rules:
@@ -218,7 +218,7 @@ def test_pre_rewrite_body_touch_logs_per_passthrough_rule(
     # Only the passthrough rule emits a warning, not the translate rule.
     assert len(events) == 1
     assert events[0][1]["rule"] == "pt"
-    assert events[0][1]["pre_rewrites_touch"] is True
+    assert events[0][1]["pre_transforms_touch"] is True
 
 
 def test_guarded_pre_rewrite_does_not_log_on_passthrough(
@@ -230,9 +230,9 @@ def test_guarded_pre_rewrite_does_not_log_on_passthrough(
     p = _write(
         tmp_path,
         """
-        pre_rewrites:
+        pre_transforms:
           - match: { endpoint: { literal: /v1/chat/completions } }
-            rewrites:
+            transforms:
               - set_model: claude-haiku-4-5-20251001
 
         rules:
@@ -257,18 +257,18 @@ def test_compress_rewrite_round_trip(tmp_path: Path) -> None:
         rules:
           - name: r
             match: { endpoint: { literal: /v1/messages } }
-            rewrites:
+            transforms:
               - compress:
-                  mode: token
+                  engine: token
                   target_ratio: 0.5
                   protect_recent: 8
             target: { provider: anthropic, gateway: translate }
         """,
     )
     cfg = load_config(p)
-    rw = cfg.rules[0].rewrites[0]
+    rw = cfg.rules[0].transforms[0]
     assert isinstance(rw, Compress)
-    assert rw.compress.mode == "token"
+    assert rw.compress.engine == "token"
     assert rw.compress.target_ratio == 0.5
     assert rw.compress.protect_recent == 8
     # Defaults preserved for unset fields.
@@ -283,15 +283,15 @@ def test_compress_rewrite_default_options(tmp_path: Path) -> None:
         """
         rules:
           - match: { endpoint: { literal: /v1/messages } }
-            rewrites:
+            transforms:
               - compress: {}
             target: { provider: anthropic, gateway: translate }
         """,
     )
     cfg = load_config(p)
-    rw = cfg.rules[0].rewrites[0]
+    rw = cfg.rules[0].transforms[0]
     assert isinstance(rw, Compress)
-    assert rw.compress.mode == "token"
+    assert rw.compress.engine == "token"
     assert rw.compress.protect_recent == 4
 
 
@@ -307,8 +307,8 @@ def test_compress_rewrite_under_passthrough_warns(
         rules:
           - name: pt
             match: { endpoint: { literal: /v1/messages } }
-            rewrites:
-              - compress: { mode: token }
+            transforms:
+              - compress: { engine: token }
             target:
               provider: anthropic
               gateway: passthrough
@@ -320,7 +320,7 @@ def test_compress_rewrite_under_passthrough_warns(
     events = [(e, kw) for e, kw in rec.records if e == "routing.passthrough_body_touch"]
     assert len(events) == 1
     assert events[0][1]["rule"] == "pt"
-    assert events[0][1]["post_rewrites_touch"] is True
+    assert events[0][1]["post_transforms_touch"] is True
 
 
 def test_compress_invalid_mode_rejected(tmp_path: Path) -> None:
@@ -329,8 +329,8 @@ def test_compress_invalid_mode_rejected(tmp_path: Path) -> None:
         """
         rules:
           - match: { endpoint: { literal: /v1/messages } }
-            rewrites:
-              - compress: { mode: bogus }
+            transforms:
+              - compress: { engine: bogus }
             target: { provider: anthropic, gateway: translate }
         """,
     )
