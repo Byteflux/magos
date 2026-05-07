@@ -18,7 +18,7 @@ def _chat_set_model_in_response(body: dict[str, Any], client_model: str) -> None
 
 
 def _chat_set_model_in_stream_event(
-    _payload: dict[str, Any], client_model: str
+    client_model: str,
 ) -> Callable[[dict[str, Any]], bool]:
     def _mutate(data: dict[str, Any]) -> bool:
         if "model" in data:
@@ -46,7 +46,6 @@ ADAPTER = TranslateAdapter(
     set_model_in_response=_chat_set_model_in_response,
     set_model_in_stream_event=_chat_set_model_in_stream_event,
     stream_bytes_iter=_openai_chat_bytes_iter,
-    traced_name="proxy.openai_chat_completions",
     log_shape="openai",
 )
 

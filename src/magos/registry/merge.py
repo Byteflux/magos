@@ -97,4 +97,4 @@ _ENTRY_FIELDS: tuple[str, ...] = (
 )
 
 
-__all__ = ["_SOURCE_ORDER", "merge"]
+__all__ = ["merge"]

@@ -113,30 +113,12 @@ def record_refresh_failure(provider: str, *, duration_seconds: float, error: Bas
     )
 
 
-def record_auto_route(
-    *,
-    raw_id: str,
-    provider: str,
-    candidates: tuple[str, ...],
-    reason: str,
-) -> None:
-    """Debug-level event when auto-routing picks a provider."""
-    log.debug(
-        "registry.auto_route",
-        raw_id=raw_id,
-        provider=provider,
-        candidates=list(candidates),
-        reason=reason,
-    )
-
-
 def reset_for_tests() -> None:
     """Clear cached gauge snapshots; intended for unit tests only."""
     _models_total_snapshot.clear()
 
 
 __all__ = [
-    "record_auto_route",
     "record_refresh_attempt",
     "record_refresh_failure",
     "record_refresh_success",

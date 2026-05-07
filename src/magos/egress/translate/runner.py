@@ -43,19 +43,19 @@ class TranslateAdapter:
     ``stream_bytes_iter`` is the async generator that reads chunks from the
     LiteLLM stream and emits SSE-framed bytes. Shape-specific because Anthropic
     yields pre-framed bytes while OpenAI shapes need explicit framing.
-    ``traced_name`` is the OTel span label for the non-streaming path.
-    ``log_shape`` is the label passed to ``log.info("dispatch", shape=...)``.
+    ``log_shape`` is the label passed to ``log.info("dispatch", shape=...)``;
+    diverges from ``shape`` for OpenAI Chat (``"openai"`` vs ``"openai-chat"``)
+    so the dispatch log keeps the historic label that operator dashboards key on.
     """
 
     shape: Shape
     endpoint: str
     default_dispatch: Callable[..., Awaitable[Any]]
     set_model_in_response: Callable[[dict[str, Any], str], None]
-    set_model_in_stream_event: Callable[[dict[str, Any], str], Callable[[dict[str, Any]], bool]]
+    set_model_in_stream_event: Callable[[str], Callable[[dict[str, Any]], bool]]
     stream_bytes_iter: Callable[
         [dict[str, Any], Callable[..., Awaitable[Any]]], AsyncIterator[bytes]
     ]
-    traced_name: str
     log_shape: str
     preprocess_body: Callable[[dict[str, Any], str, str], dict[str, Any]] | None = None
 
@@ -153,7 +153,7 @@ def stream_translate(
         dispatch_model=dispatch_model,
         stream=True,
     )
-    mutator = adapter.set_model_in_stream_event(payload, client_model)
+    mutator = adapter.set_model_in_stream_event(client_model)
     return tap_stream(
         rewrite_data_in_stream(adapter.stream_bytes_iter(payload, dispatch), mutator),
         adapter.shape,
