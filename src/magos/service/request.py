@@ -24,17 +24,14 @@ from pydantic import ValidationError
 from magos.egress import CompletionFn
 from magos.egress.dispatch import dispatch_decision
 from magos.egress.errors import DispatchError
-from magos.registry.refresher import Refresher
-from magos.registry.schema import RegistryYaml
 from magos.routing import (
     Endpoint,
     RoutedRequest,
     RouteError,
-    RoutingConfig,
     error_envelope,
     format_dispatch_error_message,
-    route,
 )
+from magos.routing.engine import Router
 from magos.telemetry import get_logger
 
 log = get_logger("magos.service")
@@ -64,13 +61,9 @@ class RequestService:
     def __init__(
         self,
         *,
-        cfg: RoutingConfig,
-        refresher: Refresher | None,
-        registry_cfg: RegistryYaml,
+        router: Router,
     ) -> None:
-        self._cfg = cfg
-        self._refresher = refresher
-        self._registry_cfg = registry_cfg
+        self._router = router
 
     async def process(
         self,
@@ -81,20 +74,7 @@ class RequestService:
         # Offload to a worker thread: routing is sync but can block on the
         # Kompress thread-locked singleton during a cold HF download (5-10s),
         # which would stall the asyncio loop and the embedded mitm TLS stream.
-        decision_or_err = await asyncio.to_thread(
-            route,
-            routed,
-            self._cfg,
-            registry=self._refresher.state if self._refresher is not None else None,
-            registry_settings=(
-                self._registry_cfg.registry if self._refresher is not None else None
-            ),
-            providers=self._registry_cfg.providers if self._refresher is not None else None,
-            pins=self._registry_cfg.pins if self._refresher is not None else None,
-            provider_order=(
-                self._registry_cfg.provider_order if self._refresher is not None else ()
-            ),
-        )
+        decision_or_err = await asyncio.to_thread(self._router.route, routed)
 
         if isinstance(decision_or_err, RouteError):
             return _render_route_error(decision_or_err)

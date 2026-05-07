@@ -11,7 +11,7 @@ from magos.routing.errors import (
     format_unmatched_message,
 )
 from magos.routing.loader import RoutingConfigError, load_config
-from magos.routing.matchers import matches
+from magos.routing.match import matches
 from magos.routing.request import ENDPOINTS, Endpoint, RoutedRequest
 from magos.routing.rewrites import RewriteError, apply_rewrites
 from magos.routing.schema import (

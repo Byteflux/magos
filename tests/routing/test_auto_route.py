@@ -1,18 +1,34 @@
-"""Tests for ``magos.routing.auto_route`` registry-driven fallback."""
+"""Tests for ``magos.routing.engine.auto`` registry-driven fallback."""
 
 from __future__ import annotations
 
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import ModelEntry, RegistryState
-from magos.routing.auto_route import (
-    _AUTO_ROUTE_RULE_NAME,
-    provider_cred_overrides,
-    try_auto_route,
-)
 from magos.routing.decision import RouteDecision
+from magos.routing.engine.auto import (
+    _AUTO_ROUTE_RULE_NAME,
+    AutoRouter,
+    provider_cred_overrides,
+)
 
 from ._helpers import make_registry
 from ._helpers import make_req as _req
+
+
+def _router(
+    *,
+    settings: RegistrySettings | None = None,
+    providers: dict[str, ProviderConfig] | None = None,
+    pins: dict[str, str] | None = None,
+    provider_order: tuple[str, ...] = (),
+) -> AutoRouter:
+    return AutoRouter(
+        registry_settings=settings,
+        providers=providers,
+        pins=pins,
+        provider_order=provider_order,
+    )
+
 
 # --- provider_cred_overrides ---
 
@@ -43,7 +59,7 @@ def test_provider_cred_overrides_omits_unset_fields() -> None:
     assert provider_cred_overrides(cfg) == {}
 
 
-# --- try_auto_route: registry hit ---
+# --- try_route: registry hit ---
 
 
 def _entry(
@@ -58,7 +74,7 @@ def test_try_auto_route_returns_decision_on_registry_hit() -> None:
     e = _entry()
     registry = make_registry(e)
     req = _req(body={"model": e.namespaced_id})
-    decision = try_auto_route(req, registry, settings=None, providers=None)
+    decision = _router().try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.dispatch_model == e.litellm_id
     assert decision.entry is e
@@ -68,7 +84,7 @@ def test_try_auto_route_sets_auto_route_rule_name() -> None:
     e = _entry()
     registry = make_registry(e)
     req = _req(body={"model": e.namespaced_id})
-    decision = try_auto_route(req, registry, settings=None, providers=None)
+    decision = _router().try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.rule.name == _AUTO_ROUTE_RULE_NAME
 
@@ -78,7 +94,7 @@ def test_try_auto_route_stamps_provider_creds_from_provider_cfg() -> None:
     registry = make_registry(e)
     providers = {"vultr": ProviderConfig(api_key_env="VULTR_KEY", base_url="https://vultr.example")}
     req = _req(body={"model": e.namespaced_id})
-    decision = try_auto_route(req, registry, settings=None, providers=providers)
+    decision = _router(providers=providers).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.action.api_key_env == "VULTR_KEY"
     assert decision.action.base_url == "https://vultr.example"
@@ -87,17 +103,17 @@ def test_try_auto_route_stamps_provider_creds_from_provider_cfg() -> None:
 def test_try_auto_route_returns_none_on_registry_miss() -> None:
     registry = RegistryState()
     req = _req(body={"model": "unknown-model"})
-    assert try_auto_route(req, registry, settings=None, providers=None) is None
+    assert _router().try_route(req, registry=registry) is None
 
 
 def test_try_auto_route_returns_none_on_empty_model() -> None:
     e = _entry()
     registry = make_registry(e)
     req = _req(body={})
-    assert try_auto_route(req, registry, settings=None, providers=None) is None
+    assert _router().try_route(req, registry=registry) is None
 
 
-# --- try_auto_route: on_unknown_model passthrough ---
+# --- try_route: on_unknown_model passthrough ---
 
 
 def test_try_auto_route_passthrough_on_unknown_when_configured() -> None:
@@ -105,7 +121,7 @@ def test_try_auto_route_passthrough_on_unknown_when_configured() -> None:
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "openai/gpt-99"})
-    decision = try_auto_route(req, registry, settings=settings, providers=None)
+    decision = _router(settings=settings).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.dispatch_model == "openai/gpt-99"
 
@@ -114,14 +130,14 @@ def test_try_auto_route_no_passthrough_without_setting() -> None:
     """Without ``on_unknown_model`` setting, miss returns None."""
     registry = RegistryState()
     req = _req(body={"model": "openai/gpt-99"})
-    assert try_auto_route(req, registry, settings=None, providers=None) is None
+    assert _router().try_route(req, registry=registry) is None
 
 
 def test_try_auto_route_unknown_passthrough_infers_provider_from_slash() -> None:
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "myco/my-model"})
-    decision = try_auto_route(req, registry, settings=settings, providers=None)
+    decision = _router(settings=settings).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.action.provider == "myco"
 
@@ -130,7 +146,7 @@ def test_try_auto_route_unknown_passthrough_bare_model_uses_auto_provider() -> N
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "bare-model-no-slash"})
-    decision = try_auto_route(req, registry, settings=settings, providers=None)
+    decision = _router(settings=settings).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.action.provider == "auto"
 
@@ -142,12 +158,12 @@ def test_try_auto_route_decision_is_auto_routed() -> None:
     e = _entry()
     registry = make_registry(e)
     req = _req(body={"model": e.namespaced_id})
-    decision = try_auto_route(req, registry, settings=None, providers=None)
+    decision = _router().try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.auto_routed is True
 
 
-# --- try_auto_route: bare-id resolution across providers ---
+# --- try_route: bare-id resolution across providers ---
 
 
 def test_bare_id_resolves_via_provider_order() -> None:
@@ -156,13 +172,7 @@ def test_bare_id_resolves_via_provider_order() -> None:
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)
     req = _req(body={"model": "claude-x"})
-    decision = try_auto_route(
-        req,
-        registry,
-        settings=None,
-        providers=None,
-        provider_order=("openrouter", "anthropic"),
-    )
+    decision = _router(provider_order=("openrouter", "anthropic")).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is b
     assert decision.action.provider == "openrouter"
@@ -174,14 +184,10 @@ def test_bare_id_pin_beats_provider_order() -> None:
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)
     req = _req(body={"model": "claude-x"})
-    decision = try_auto_route(
-        req,
-        registry,
-        settings=None,
-        providers=None,
+    decision = _router(
         pins={"claude-x": "anthropic"},
         provider_order=("openrouter", "anthropic"),
-    )
+    ).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is a
 
@@ -192,7 +198,7 @@ def test_bare_id_falls_back_to_lex_smallest() -> None:
     b = _entry(provider="alpha", raw_id="claude-x", litellm_id="alpha/claude-x")
     registry = make_registry(a, b)
     req = _req(body={"model": "claude-x"})
-    decision = try_auto_route(req, registry, settings=None, providers=None)
+    decision = _router().try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is b
     assert decision.action.provider == "alpha"
@@ -203,13 +209,9 @@ def test_bare_id_pin_to_absent_provider_is_ignored() -> None:
     a = _entry(provider="anthropic", raw_id="claude-x", litellm_id="anthropic/claude-x")
     registry = make_registry(a)
     req = _req(body={"model": "claude-x"})
-    decision = try_auto_route(
-        req,
-        registry,
-        settings=None,
-        providers=None,
+    decision = _router(
         pins={"claude-x": "openrouter"},  # openrouter has no claude-x entry
-    )
+    ).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is a
 
@@ -219,9 +221,7 @@ def test_bare_id_miss_falls_through_to_unknown_passthrough() -> None:
     registry = RegistryState()
     settings = RegistrySettings(on_unknown_model="passthrough")
     req = _req(body={"model": "ghost"})
-    decision = try_auto_route(
-        req, registry, settings=settings, providers=None, provider_order=("a",)
-    )
+    decision = _router(settings=settings, provider_order=("a",)).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.dispatch_model == "ghost"
 
@@ -232,12 +232,6 @@ def test_namespaced_hit_short_circuits_bare_id_path() -> None:
     b = _entry(provider="openrouter", raw_id="claude-x", litellm_id="openrouter/claude-x")
     registry = make_registry(a, b)
     req = _req(body={"model": "anthropic/claude-x"})
-    decision = try_auto_route(
-        req,
-        registry,
-        settings=None,
-        providers=None,
-        provider_order=("openrouter",),
-    )
+    decision = _router(provider_order=("openrouter",)).try_route(req, registry=registry)
     assert isinstance(decision, RouteDecision)
     assert decision.entry is a

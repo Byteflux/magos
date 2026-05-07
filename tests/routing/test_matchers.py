@@ -17,7 +17,7 @@ from magos.routing import (
     Not,
     RegexMatcher,
 )
-from magos.routing.matchers import matches
+from magos.routing.match import matches
 
 from ._helpers import make_req as _req
 

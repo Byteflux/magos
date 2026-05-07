@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from magos.registry.state import ModelEntry, RegistryState
-from magos.routing.matchers import matches
+from magos.routing.match import matches
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import ModelFieldAtom
 

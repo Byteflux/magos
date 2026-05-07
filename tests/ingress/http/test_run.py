@@ -42,7 +42,10 @@ def test_route_does_not_block_event_loop(monkeypatch: pytest.MonkeyPatch) -> Non
             endpoint=req.endpoint,
         )
 
-    monkeypatch.setattr("magos.service.request.route", slow_route)
+    monkeypatch.setattr(
+        "magos.routing.engine.rule_based.RuleBasedRouter.route",
+        lambda self, req: slow_route(req),
+    )
 
     app = create_app(routing=translate_only_cfg())
     body = {"model": "x", "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]}
