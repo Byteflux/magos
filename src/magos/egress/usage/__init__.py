@@ -2,8 +2,9 @@
 
 Three concerns split across siblings:
 
-- :mod:`core` — the ``Usage`` dataclass + per-shape extractors +
-  ``log_usage`` / ``log_usage_from_body`` (the non-streaming path).
+- :mod:`core` — the ``Usage`` dataclass + ``usage_from_body`` (a
+  generic extractor that walks the per-shape ``usage_keys`` map from
+  :mod:`magos.shapes`) + ``log_usage`` / ``log_usage_from_body``.
 - :mod:`accumulator` — ``UsageAccumulator``, the per-shape SSE event
   aggregator used during streaming.
 - :mod:`tap` — ``tap_stream``, the byte-passthrough generator that
@@ -21,9 +22,7 @@ from .core import (
     Usage,
     log_usage,
     log_usage_from_body,
-    usage_from_anthropic,
-    usage_from_openai_chat,
-    usage_from_openai_responses,
+    usage_from_body,
 )
 from .tap import tap_stream
 
@@ -33,7 +32,5 @@ __all__ = [
     "log_usage",
     "log_usage_from_body",
     "tap_stream",
-    "usage_from_anthropic",
-    "usage_from_openai_chat",
-    "usage_from_openai_responses",
+    "usage_from_body",
 ]

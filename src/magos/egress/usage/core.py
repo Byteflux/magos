@@ -1,9 +1,10 @@
-"""Per-shape usage extractors + the canonical ``egress.usage`` log event.
+"""Generic usage extractor + the canonical ``egress.usage`` log event.
 
-The ``Usage`` dataclass canonicalises Anthropic / OpenAI Chat / OpenAI
-Responses token counts into one shape; the per-shape ``usage_from_*``
-extractors do the wire-format-specific parsing. ``log_usage_from_body``
-is the convenience wrapper used by the non-streaming response path.
+``Usage`` canonicalises Anthropic / OpenAI Chat / OpenAI Responses token
+counts into one shape; ``usage_from_body`` walks the per-shape
+``usage_keys`` map from :mod:`magos.shapes` so the wire-format-specific
+field names live there, not here. ``log_usage_from_body`` is the
+convenience wrapper used by the non-streaming response path.
 ``cache_write`` is Anthropic-only; OpenAI shapes leave it 0.
 """
 
@@ -13,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from magos.shapes import Shape
+from magos.shapes import SHAPES, Shape
 from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.usage")
@@ -39,58 +40,32 @@ def _safe_int(value: Any) -> int:
     return value if isinstance(value, int) and value >= 0 else 0
 
 
-def usage_from_anthropic(body: Any) -> Usage:
-    """Extract usage from an Anthropic Messages response dict."""
+def _walk(body: Any, path: tuple[str, ...]) -> Any:
+    """Walk a dotted path through nested dicts, returning ``None`` on any miss."""
+    cur: Any = body
+    for key in path:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(key)
+    return cur
+
+
+def usage_from_body(shape: Shape, body: Any) -> Usage:
+    """Extract usage from ``body`` using the per-shape ``usage_keys`` map.
+
+    Reads :data:`magos.shapes.SHAPES[shape].usage_keys` to find the path
+    to each canonical field; missing / non-int / negative values default
+    to 0. Non-dict bodies return an empty ``Usage``.
+    """
     if not isinstance(body, dict):
         return Usage()
-    u = body.get("usage")
-    if not isinstance(u, dict):
-        return Usage()
+    keys = SHAPES[shape].usage_keys
     return Usage(
-        input=_safe_int(u.get("input_tokens")),
-        output=_safe_int(u.get("output_tokens")),
-        cache_read=_safe_int(u.get("cache_read_input_tokens")),
-        cache_write=_safe_int(u.get("cache_creation_input_tokens")),
+        input=_safe_int(_walk(body, keys["input"])) if "input" in keys else 0,
+        output=_safe_int(_walk(body, keys["output"])) if "output" in keys else 0,
+        cache_read=_safe_int(_walk(body, keys["cache_read"])) if "cache_read" in keys else 0,
+        cache_write=_safe_int(_walk(body, keys["cache_write"])) if "cache_write" in keys else 0,
     )
-
-
-def usage_from_openai_chat(body: Any) -> Usage:
-    """Extract usage from an OpenAI Chat Completions response dict."""
-    if not isinstance(body, dict):
-        return Usage()
-    u = body.get("usage")
-    if not isinstance(u, dict):
-        return Usage()
-    details = u.get("prompt_tokens_details")
-    cache_read = _safe_int(details.get("cached_tokens")) if isinstance(details, dict) else 0
-    return Usage(
-        input=_safe_int(u.get("prompt_tokens")),
-        output=_safe_int(u.get("completion_tokens")),
-        cache_read=cache_read,
-    )
-
-
-def usage_from_openai_responses(body: Any) -> Usage:
-    """Extract usage from an OpenAI Responses response dict."""
-    if not isinstance(body, dict):
-        return Usage()
-    u = body.get("usage")
-    if not isinstance(u, dict):
-        return Usage()
-    details = u.get("input_tokens_details")
-    cache_read = _safe_int(details.get("cached_tokens")) if isinstance(details, dict) else 0
-    return Usage(
-        input=_safe_int(u.get("input_tokens")),
-        output=_safe_int(u.get("output_tokens")),
-        cache_read=cache_read,
-    )
-
-
-_EXTRACTORS: dict[Shape, Callable[[Any], Usage]] = {
-    "anthropic": usage_from_anthropic,
-    "openai-chat": usage_from_openai_chat,
-    "openai-responses": usage_from_openai_responses,
-}
 
 
 def log_usage(
@@ -131,9 +106,8 @@ def log_usage_from_body(
     it is invoked with the ``Usage``. The hook MUST NOT raise; callers
     that need failure isolation should wrap their callback themselves.
     """
-    extractor = _EXTRACTORS[shape]
     model = body.get("model") if isinstance(body, dict) else None
-    usage = extractor(body)
+    usage = usage_from_body(shape, body)
     log_usage(shape, endpoint=endpoint, model=model, usage=usage, stream=stream)
     if on_complete is not None and not usage.is_empty:
         on_complete(usage)
