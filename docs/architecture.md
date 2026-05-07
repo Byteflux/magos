@@ -15,6 +15,28 @@ on the dates the references resolve. Split into focused sub-docs below.
 | [Tests](architecture/testing.md) | Markers, e2e gate, conftest preloads, test app construction, completion mocking |
 | [Gotchas](architecture/gotchas.md) | Subtleties worth not forgetting (the cheat sheet) |
 
+## Observability decorators
+
+The router and gateway both support optional Decorator wrapping assembled
+in `magos.service.build.build_request_service` (the composition root).
+
+### Router decorators
+
+| Class | Condition | Emits |
+|---|---|---|
+| `MeasuredRouter` (`magos.routing.engine.measured`) | `metrics_enabled=True` | `magos.router.decisions` OTel counter, labelled by `kind` (ok / error) and `code` |
+
+### Gateway decorators
+
+| Class | Condition | Emits |
+|---|---|---|
+| `TracingGateway` (`magos.dispatch.gateway.tracing`) | Always wired | `gateway.dispatch` OTel span with `magos.gateway`, `magos.provider`, `magos.endpoint`, `magos.dispatch_model` attributes. No-op until `MAGOS_OTEL_ENABLED=1` configures a real tracer. |
+| `MeasuredGateway` (`magos.dispatch.gateway.measured`) | `metrics_enabled=True` | `magos.gateway.dispatches` counter (labelled by `gateway`, `endpoint`, `outcome`) + `magos.gateway.duration_ms` histogram |
+
+Wiring order (innermost → outermost): `RoutedGateway → TracingGateway [→ MeasuredGateway]`.
+Both decorators are safe to add or remove independently; neither changes
+dispatch behaviour.
+
 See also: [routing](routing.md), [registry](registry.md),
 [ingress](ingress.md), [cli](cli.md), [deployment](deployment.md),
 [headroom](headroom.md).

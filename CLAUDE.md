@@ -160,6 +160,8 @@ src/magos/
       translate.py   # TranslateGateway (LiteLLM SDK + CCR wrap)
       count_tokens.py # CountTokensGateway
       routed.py      # RoutedGateway (selector by target.gateway)
+      measured.py    # MeasuredGateway (decorator: OTel counter + histogram)
+      tracing.py     # TracingGateway (decorator: OTel span per dispatch)
     translate/       # LiteLLM SDK marshalling
       payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
@@ -429,4 +431,4 @@ uv run pre-commit run --all-files
 
 ## Status
 
-Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), **Headroom compression** (`compress` rewrite primitive with token and cache-align modes), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. MCP endpoint is the only major surface still to come.
+Active development. Core proxy (Anthropic / OpenAI Chat Completions / OpenAI Responses shapes), byte-exact passthrough, token counting, observability, **declarative rule-based routing** (`magos.yaml`), **Headroom compression** (`compress` rewrite primitive with token and cache-align modes), and a **provider-driven model registry** with auto-routing, soft-delete deprecation, OTel metrics, and an operator CLI (`magos models …`) are implemented with unit + e2e coverage (incl. agent-sdk e2e). Wire-shape translation is delegated to LiteLLM's SDK. The internal architectural migration (Phases A–F) is complete: the codebase now uses named `Router`, `Gateway`, and `RequestService` abstractions with optional `MeasuredRouter`, `MeasuredGateway`, and `TracingGateway` decorators composed in `magos.service.build`. MCP endpoint is the only major surface still to come.

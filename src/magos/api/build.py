@@ -51,7 +51,12 @@ def build_api(
         if registry_cfg.providers
         else None
     )
-    app.state.service = build_request_service(cfg, app.state.refresher, registry_cfg)
+    app.state.service = build_request_service(
+        cfg,
+        app.state.refresher,
+        registry_cfg,
+        metrics_enabled=settings.metrics_enabled,
+    )
 
     if settings.metrics_enabled:
         mount_metrics_endpoint(app)
