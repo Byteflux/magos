@@ -68,9 +68,6 @@ ENDPOINT_TABLE: list[tuple[str, str, str, Any]] = [
     ),
 ]
 
-# Path patterns that carry a ``{response_id}`` path parameter.
-_HAS_PATH_PARAM = {"/v1/responses/{response_id}", "/v1/responses/{response_id}/input_items"}
-
 
 def register_handlers(app: FastAPI) -> None:
     """Register all LLM proxy endpoints from :data:`ENDPOINT_TABLE`."""
@@ -85,47 +82,21 @@ def _register_one(
     template_endpoint: Endpoint,
     dep_type: type,
 ) -> None:
-    has_param = path_pattern in _HAS_PATH_PARAM
-
     _te: Endpoint = template_endpoint  # captured by closure; not a FastAPI parameter.
 
-    if has_param:
-
-        async def _handler_with_param(  # type: ignore[unused-ignore]
-            request: Request,
-            response_id: str,
-            completion: CompletionFn,
-        ) -> Any:
-            actual = request.url.path
-            return await run_endpoint(
-                _te, request, completion, method=request.method, actual_path=actual
-            )
-
-        # Replace the static ``CompletionFn`` annotation with the Depends-annotated
-        # type alias so FastAPI injects the right upstream callable per endpoint.
-        _handler_with_param.__annotations__["completion"] = dep_type
-        _handler_with_param.__name__ = (
-            f"{http_method.lower()}_{path_pattern.replace('/', '_').strip('_')}"
+    async def _handler(  # type: ignore[unused-ignore]
+        request: Request,
+        completion: CompletionFn,
+    ) -> Any:
+        # ``request.url.path`` and ``request.method`` carry through both
+        # templated (``/v1/responses/resp_abc``) and non-templated paths;
+        # for the latter ``actual_path`` matches ``_te`` so it's a no-op.
+        return await run_endpoint(
+            _te, request, completion, method=request.method, actual_path=request.url.path
         )
-        app.add_api_route(
-            path_pattern,
-            _handler_with_param,
-            methods=[http_method],
-        )
-    else:
 
-        async def _handler(  # type: ignore[unused-ignore]
-            request: Request,
-            completion: CompletionFn,
-        ) -> Any:
-            return await run_endpoint(_te, request, completion)
-
-        # Replace the static ``CompletionFn`` annotation with the Depends-annotated
-        # type alias so FastAPI injects the right upstream callable per endpoint.
-        _handler.__annotations__["completion"] = dep_type
-        _handler.__name__ = f"{http_method.lower()}_{path_pattern.replace('/', '_').strip('_')}"
-        app.add_api_route(
-            path_pattern,
-            _handler,
-            methods=[http_method],
-        )
+    # Replace the static ``CompletionFn`` annotation with the Depends-annotated
+    # type alias so FastAPI injects the right upstream callable per endpoint.
+    _handler.__annotations__["completion"] = dep_type
+    _handler.__name__ = f"{http_method.lower()}_{path_pattern.replace('/', '_').strip('_')}"
+    app.add_api_route(path_pattern, _handler, methods=[http_method])
