@@ -277,6 +277,15 @@ uv run pre-commit run --all-files
   (LiteLLM SDK marshalling), `passthrough` (byte-exact forwarding),
   `observer` (mitmproxy log addon), not `proxy.py`, `addon.py`,
   `utils.py`. Re-name when the role changes; a wrong name compounds.
+- **Singular vs plural package names.** No formal PEP 8 rule, but a
+  soft pattern in stdlib and major libraries: singular when the
+  package holds an abstraction and its variants — an ABC plus its
+  subclasses; plural when it holds distinct peer entities that share
+  structure but not a polymorphic relationship. `shapes/` is plural
+  because anthropic / openai-chat / openai-responses are three `Shape`
+  *values* (not subclasses), mirroring `sqlalchemy.dialects`,
+  `pydantic.types`, `concurrent.futures`. The shorthand:
+  type-discrimination → singular; value-discrimination → plural.
 - **Small focused files.** Aim for one cohesive concept per module.
   When a single file grows past ~400 LOC and contains multiple variants
   / primitives / endpoint families, split it into a package: per-variant
