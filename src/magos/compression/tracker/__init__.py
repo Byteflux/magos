@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from headroom.cache.prefix_tracker import PrefixCacheTracker, PrefixFreezeConfig
 
-from .session_id import derive_session_id
-from .store import TrackerStore, get_store
+from magos.compression.tracker.session_id import derive_session_id
+from magos.compression.tracker.store import TrackerStore, get_store
 
 __all__ = [
     "PrefixCacheTracker",

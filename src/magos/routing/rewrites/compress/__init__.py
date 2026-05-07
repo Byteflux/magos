@@ -9,9 +9,13 @@ externally.
 
 from __future__ import annotations
 
-from . import model_limit
-from ._preload import _preload_sentence_transformers
-from .model_limit import _DEFAULT_MODEL_LIMIT, _MODEL_LIMIT_CACHE, _resolve_model_limit
+from magos.routing.rewrites.compress import model_limit
+from magos.routing.rewrites.compress._preload import _preload_sentence_transformers
+from magos.routing.rewrites.compress.model_limit import (
+    _DEFAULT_MODEL_LIMIT,
+    _MODEL_LIMIT_CACHE,
+    _resolve_model_limit,
+)
 
 __all__ = [
     "_DEFAULT_MODEL_LIMIT",

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from ._helpers import client_with
+from tests.api._helpers import client_with
 
 
 @pytest.mark.integration

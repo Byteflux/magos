@@ -9,9 +9,8 @@ from fastapi.responses import StreamingResponse
 
 from magos.dispatch import CompletionFn
 from magos.dispatch.errors import DispatchError
+from magos.dispatch.gateway.base import Gateway
 from magos.routing import RouteDecision
-
-from .base import Gateway
 
 _COUNT_TOKENS_ENDPOINT = "/v1/messages/count_tokens"
 

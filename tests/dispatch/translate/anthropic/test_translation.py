@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from ._helpers import proxy_anthropic_messages
+from tests.dispatch.translate.anthropic._helpers import proxy_anthropic_messages
 
 
 @pytest.mark.unit

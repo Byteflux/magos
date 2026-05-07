@@ -7,11 +7,11 @@ rewrite calls ``apply`` from this module instead of ``headroom.compress``.
 
 from __future__ import annotations
 
-from .build import ProviderName, build_pipeline
-from .config import PipelineConfig, pipeline_config_from_compress_options
-from .pipeline import ApplyResult, apply
-from .registry import PipelineRegistry, get_registry
-from .warmup import eager_warmup, prebuild_from_routing
+from magos.compression.build import ProviderName, build_pipeline
+from magos.compression.config import PipelineConfig, pipeline_config_from_compress_options
+from magos.compression.pipeline import ApplyResult, apply
+from magos.compression.registry import PipelineRegistry, get_registry
+from magos.compression.warmup import eager_warmup, prebuild_from_routing
 
 __all__ = [
     "ApplyResult",

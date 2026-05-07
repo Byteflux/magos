@@ -15,8 +15,7 @@ from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import RoutingConfig
 from magos.routing.engine import MeasuredRouter, Router, RuleBasedRouter
-
-from .request import RequestService
+from magos.service.request import RequestService
 
 
 def build_request_service(

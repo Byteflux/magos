@@ -17,10 +17,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+from magos.compression.config import pipeline_config_from_compress_options
+from magos.compression.registry import PipelineRegistry, get_registry
 from magos.telemetry import get_logger
-
-from .config import pipeline_config_from_compress_options
-from .registry import PipelineRegistry, get_registry
 
 if TYPE_CHECKING:
     from magos.routing.schema import CompressOptions, RoutingConfig

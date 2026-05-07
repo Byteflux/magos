@@ -16,11 +16,11 @@ directly (``shape.extract_usage(body)``). String names live only on
 
 from __future__ import annotations
 
-from .anthropic import SPEC as ANTHROPIC
-from .base import CompressionProvider, Shape, StreamEvent
-from .openai_chat import SPEC as OPENAI_CHAT
-from .openai_responses import SPEC as OPENAI_RESPONSES
-from .usage import Usage
+from magos.shapes.anthropic import SPEC as ANTHROPIC
+from magos.shapes.base import CompressionProvider, Shape, StreamEvent
+from magos.shapes.openai_chat import SPEC as OPENAI_CHAT
+from magos.shapes.openai_responses import SPEC as OPENAI_RESPONSES
+from magos.shapes.usage import Usage
 
 SHAPES: tuple[Shape, ...] = (ANTHROPIC, OPENAI_CHAT, OPENAI_RESPONSES)
 

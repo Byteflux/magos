@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from .base import _Frozen
+from magos.routing.schema.base import _Frozen
 
 
 class LiteralMatcher(_Frozen):

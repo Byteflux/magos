@@ -6,10 +6,9 @@ import json
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+from magos.dispatch.usage.accumulator import UsageAccumulator
+from magos.dispatch.usage.core import Usage, log_usage
 from magos.shapes import Shape
-
-from .accumulator import UsageAccumulator
-from .core import Usage, log_usage
 
 
 def _iter_complete_events(buf: bytes) -> tuple[list[bytes], bytes]:

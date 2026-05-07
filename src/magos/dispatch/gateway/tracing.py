@@ -14,9 +14,8 @@ from fastapi.responses import StreamingResponse
 from opentelemetry import trace
 
 from magos.dispatch import CompletionFn
+from magos.dispatch.gateway.base import Gateway
 from magos.routing import RouteDecision
-
-from .base import Gateway
 
 _tracer = trace.get_tracer("magos.gateway")
 

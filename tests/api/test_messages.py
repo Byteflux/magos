@@ -14,12 +14,7 @@ from magos.registry.schema import RegistryYaml
 from magos.registry.state import ModelEntry, RegistryState
 from magos.registry.store import save as save_state
 from magos.routing import RoutingConfig
-
-from ._helpers import (
-    ANTHROPIC_MESSAGE_RESPONSE,
-    anthropic_translate_cfg,
-    client_with,
-)
+from tests.api._helpers import ANTHROPIC_MESSAGE_RESPONSE, anthropic_translate_cfg, client_with
 
 
 @pytest.mark.integration

@@ -30,7 +30,7 @@ from headroom.transforms import (
 )
 from headroom.transforms.smart_crusher import SmartCrusherConfig
 
-from .config import PipelineConfig
+from magos.compression.config import PipelineConfig
 
 ProviderName = Literal["anthropic", "openai"]
 

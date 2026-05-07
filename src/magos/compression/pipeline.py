@@ -9,11 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from magos.compression.build import ProviderName
+from magos.compression.config import PipelineConfig
+from magos.compression.registry import get_registry
 from magos.telemetry import get_logger
-
-from .build import ProviderName
-from .config import PipelineConfig
-from .registry import get_registry
 
 log = get_logger("magos.compression")
 

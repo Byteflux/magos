@@ -14,8 +14,7 @@ from fastapi.testclient import TestClient
 
 from magos.api import build_api
 from magos.routing import RoutingConfig
-
-from ._helpers import client_with
+from tests.api._helpers import client_with
 
 
 @pytest.mark.integration

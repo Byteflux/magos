@@ -14,9 +14,8 @@ from fastapi.responses import StreamingResponse
 from opentelemetry import metrics
 
 from magos.dispatch import CompletionFn
+from magos.dispatch.gateway.base import Gateway
 from magos.routing import RouteDecision
-
-from .base import Gateway
 
 _meter = metrics.get_meter("magos.gateway")
 _dispatches_total = _meter.create_counter(

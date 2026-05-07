@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from .usage import Usage
+    from magos.shapes.usage import Usage
 
 CompressionProvider = Literal["anthropic", "openai"]
 
@@ -97,7 +97,7 @@ class Shape:
         field; missing / non-int / negative values default to 0. Non-dict
         bodies return an empty ``Usage``.
         """
-        from .usage import Usage  # avoid module-load cycle  # noqa: PLC0415
+        from magos.shapes.usage import Usage  # avoid module-load cycle  # noqa: PLC0415
 
         if not isinstance(body, dict):
             return Usage()

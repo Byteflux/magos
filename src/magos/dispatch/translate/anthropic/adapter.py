@@ -10,13 +10,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
+from magos.dispatch.translate.anthropic.dispatch import _dispatch_anthropic_messages
+from magos.dispatch.translate.anthropic.translation import strip_anthropic_extras
 from magos.dispatch.translate.runner import TranslateAdapter
 from magos.dispatch.translate.sse import sse_named_event
 from magos.shapes import ANTHROPIC
 from magos.telemetry import get_logger
-
-from .dispatch import _dispatch_anthropic_messages
-from .translation import strip_anthropic_extras
 
 log = get_logger("magos.dispatch.translate")
 

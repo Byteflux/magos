@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from magos.registry.discovery.noop import NoopAdapter
 from magos.registry.schema import ProviderConfig
-
-from ._helpers import err, run_discover
+from tests.registry.discovery._helpers import err, run_discover
 
 
 def test_noop_adapter_returns_empty_result() -> None:

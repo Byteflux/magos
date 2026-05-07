@@ -15,11 +15,10 @@ re-exported here for backward-compatible local imports.
 
 from __future__ import annotations
 
+from magos.dispatch.usage.accumulator import UsageAccumulator
+from magos.dispatch.usage.core import log_usage, log_usage_from_body
+from magos.dispatch.usage.tap import tap_stream
 from magos.shapes import Usage
-
-from .accumulator import UsageAccumulator
-from .core import log_usage, log_usage_from_body
-from .tap import tap_stream
 
 __all__ = [
     "Usage",

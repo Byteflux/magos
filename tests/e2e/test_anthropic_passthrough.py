@@ -11,8 +11,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from magos.api import build_api
-
-from ._helpers import (
+from tests.e2e._helpers import (
     ANTHROPIC_MODEL,
     PROMPT,
     anthropic_inbound_headers,

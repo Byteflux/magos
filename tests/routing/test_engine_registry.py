@@ -9,9 +9,8 @@ from magos.routing.engine import route
 from magos.routing.errors import RouteError
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import RoutingConfig
-
-from ._helpers import make_registry as _registry_with
-from ._helpers import make_req
+from tests.routing._helpers import make_registry as _registry_with
+from tests.routing._helpers import make_req
 
 
 def _routing_cfg() -> RoutingConfig:

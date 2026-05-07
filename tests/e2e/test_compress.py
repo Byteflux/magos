@@ -14,8 +14,7 @@ import json
 from fastapi.testclient import TestClient
 
 from magos.api import build_api
-
-from ._helpers import ANTHROPIC_MODEL, MODEL, PROMPT, maybe_skip_anthropic_oauth
+from tests.e2e._helpers import ANTHROPIC_MODEL, MODEL, PROMPT, maybe_skip_anthropic_oauth
 
 
 def test_compress_token_mode_uses_magos_compression_registry() -> None:

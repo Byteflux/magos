@@ -14,8 +14,7 @@ from pydantic import Field
 
 from magos.routing.jq_compat import evaluate_patch
 from magos.routing.rewrites.base import Rewriter
-
-from .base import _Frozen
+from magos.routing.schema.base import _Frozen
 
 if TYPE_CHECKING:
     from magos.registry.state import RegistryState

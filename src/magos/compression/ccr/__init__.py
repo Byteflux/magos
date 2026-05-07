@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from headroom.ccr import CCR_TOOL_NAME
 
-from .continuation import ContinuationCallable, make_continuation_callable
-from .handler import is_ccr_request, wrap_response, wrap_stream
+from magos.compression.ccr.continuation import ContinuationCallable, make_continuation_callable
+from magos.compression.ccr.handler import is_ccr_request, wrap_response, wrap_stream
 
 __all__ = [
     "CCR_TOOL_NAME",

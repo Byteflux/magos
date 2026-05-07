@@ -15,11 +15,10 @@ from magos.compression.ccr import wrap_response, wrap_stream
 from magos.dispatch import CompletionFn
 from magos.dispatch.auth import maybe_inject_api_key, resolve_api_key
 from magos.dispatch.errors import DispatchError
+from magos.dispatch.gateway.base import Gateway, make_on_complete
 from magos.dispatch.translate import TRANSLATE_HANDLERS
 from magos.dispatch.translate.runner import proxy_translate, stream_translate
 from magos.routing import RouteDecision
-
-from .base import Gateway, make_on_complete
 
 
 class TranslateGateway(Gateway):

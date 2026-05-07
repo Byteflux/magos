@@ -118,6 +118,9 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["magos"]
 
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

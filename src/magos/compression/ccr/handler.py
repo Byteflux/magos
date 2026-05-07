@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 from headroom.ccr import CCR_TOOL_NAME, CCRResponseHandler, ResponseHandlerConfig
 
+from magos.compression.ccr.continuation import make_continuation_callable
 from magos.routing.request import RoutedRequest
 from magos.telemetry import get_logger
-
-from .continuation import make_continuation_callable
 
 
 def is_ccr_request(req: RoutedRequest) -> bool:

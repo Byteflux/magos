@@ -12,7 +12,7 @@ Three concerns split across siblings:
 
 from __future__ import annotations
 
-from .grammar import (
+from magos.routing.schema.grammar import (
     AllOf,
     AnyOf,
     EndpointAtom,
@@ -30,7 +30,7 @@ from .grammar import (
     Not,
     RegexMatcher,
 )
-from .rewrites import (
+from magos.routing.schema.rewrites import (
     AddHeader,
     Compress,
     CompressMode,
@@ -41,7 +41,7 @@ from .rewrites import (
     SetHeader,
     SetModel,
 )
-from .structure import (
+from magos.routing.schema.structure import (
     AuthHeaderShape,
     GatewayMode,
     GuardedTransforms,

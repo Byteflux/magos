@@ -18,14 +18,13 @@ from collections.abc import Mapping
 from magos.registry.schema import ProviderConfig, RegistrySettings
 from magos.registry.state import RegistryState
 from magos.routing.decision import RouteDecision
+from magos.routing.engine.auto import AutoRouter, provider_cred_overrides
+from magos.routing.engine.base import Router
+from magos.routing.engine.measured import MeasuredRouter
+from magos.routing.engine.rule_based import RuleBasedRouter, _route, apply_pre_transforms
 from magos.routing.errors import RouteError
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import RoutingConfig
-
-from .auto import AutoRouter, provider_cred_overrides
-from .base import Router
-from .measured import MeasuredRouter
-from .rule_based import RuleBasedRouter, _route, apply_pre_transforms
 
 
 def route(

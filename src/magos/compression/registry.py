@@ -7,8 +7,8 @@ from collections.abc import Iterator
 
 from headroom.transforms import TransformPipeline
 
-from .build import ProviderName, build_pipeline
-from .config import PipelineConfig
+from magos.compression.build import ProviderName, build_pipeline
+from magos.compression.config import PipelineConfig
 
 
 class PipelineRegistry:

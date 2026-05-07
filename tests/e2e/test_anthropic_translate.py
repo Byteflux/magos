@@ -14,8 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from magos.api import build_api
-
-from ._helpers import (
+from tests.e2e._helpers import (
     ANTHROPIC_MODEL,
     MODEL,
     PROMPT,

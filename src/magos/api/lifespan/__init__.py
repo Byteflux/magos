@@ -19,12 +19,11 @@ from typing import Protocol, cast
 from fastapi import FastAPI
 
 from magos import __version__
+from magos.api.lifespan.components import MagosCompressionWarmup, MetricsMeter, RegistryRefresher
+from magos.api.lifespan.kompress import KompressBackendOverride, KompressPreload
 from magos.config.settings import MagosSettings
 from magos.routing import RoutingConfig
 from magos.telemetry import get_logger
-
-from .components import MagosCompressionWarmup, MetricsMeter, RegistryRefresher
-from .kompress import KompressBackendOverride, KompressPreload
 
 log = get_logger("magos.api.lifespan")
 

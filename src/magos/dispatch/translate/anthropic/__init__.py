@@ -17,7 +17,7 @@ Three concerns split across siblings:
 
 from __future__ import annotations
 
-from .adapter import ADAPTER
-from .dispatch import _dispatch_anthropic_messages
+from magos.dispatch.translate.anthropic.adapter import ADAPTER
+from magos.dispatch.translate.anthropic.dispatch import _dispatch_anthropic_messages
 
 __all__ = ["ADAPTER", "_dispatch_anthropic_messages"]

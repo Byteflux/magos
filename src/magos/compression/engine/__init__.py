@@ -7,10 +7,10 @@ Phase C3b can hoist construction to config-load time.
 
 from __future__ import annotations
 
-from .base import Compressor
-from .cache import CacheCompressor
-from .responses import ResponsesCompressor
-from .token import TokenCompressor
+from magos.compression.engine.base import Compressor
+from magos.compression.engine.cache import CacheCompressor
+from magos.compression.engine.responses import ResponsesCompressor
+from magos.compression.engine.token import TokenCompressor
 
 __all__ = [
     "CacheCompressor",

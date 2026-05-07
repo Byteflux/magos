@@ -8,8 +8,7 @@ import pytest
 from magos.registry.discovery.base import DiscoveryError, DiscoveryResult
 from magos.registry.discovery.vultr import VultrAdapter
 from magos.registry.schema import ProviderConfig
-
-from ._helpers import ok, run_discover
+from tests.registry.discovery._helpers import ok, run_discover
 
 
 def _run(cfg: ProviderConfig, transport: httpx.MockTransport) -> DiscoveryResult:

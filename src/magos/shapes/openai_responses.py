@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .base import Shape, StreamEvent
+from magos.shapes.base import Shape, StreamEvent
 
 SPEC = Shape(
     name="openai-responses",

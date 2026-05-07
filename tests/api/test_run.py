@@ -20,8 +20,7 @@ import pytest
 
 from magos.api import build_api
 from magos.routing import RouteError
-
-from ._helpers import translate_only_cfg
+from tests.api._helpers import translate_only_cfg
 
 
 @pytest.mark.unit

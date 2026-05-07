@@ -13,13 +13,13 @@ Public surface:
 
 from __future__ import annotations
 
-from .base import Gateway
-from .count_tokens import CountTokensGateway
-from .measured import MeasuredGateway
-from .passthrough import PassthroughGateway
-from .routed import RoutedGateway
-from .tracing import TracingGateway
-from .translate import TranslateGateway
+from magos.dispatch.gateway.base import Gateway
+from magos.dispatch.gateway.count_tokens import CountTokensGateway
+from magos.dispatch.gateway.measured import MeasuredGateway
+from magos.dispatch.gateway.passthrough import PassthroughGateway
+from magos.dispatch.gateway.routed import RoutedGateway
+from magos.dispatch.gateway.tracing import TracingGateway
+from magos.dispatch.gateway.translate import TranslateGateway
 
 __all__ = [
     "CountTokensGateway",

@@ -7,7 +7,7 @@ instance is constructed per app and shared by all in-flight requests.
 
 from __future__ import annotations
 
-from .build import build_request_service
-from .request import RequestService, RoutedResponse
+from magos.service.build import build_request_service
+from magos.service.request import RequestService, RoutedResponse
 
 __all__ = ["RequestService", "RoutedResponse", "build_request_service"]

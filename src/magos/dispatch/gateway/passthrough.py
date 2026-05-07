@@ -11,6 +11,7 @@ from fastapi.responses import StreamingResponse
 from magos.dispatch import CompletionFn
 from magos.dispatch.auth import maybe_inject_api_key
 from magos.dispatch.errors import DispatchError
+from magos.dispatch.gateway.base import Gateway, make_on_complete
 from magos.dispatch.passthrough import (
     _HTTP_ERROR_THRESHOLD,
     call_passthrough,
@@ -19,8 +20,6 @@ from magos.dispatch.passthrough import (
 from magos.dispatch.usage import log_usage_from_body, tap_stream
 from magos.routing import RouteDecision
 from magos.shapes import shape_for_endpoint
-
-from .base import Gateway, make_on_complete
 
 
 class PassthroughGateway(Gateway):

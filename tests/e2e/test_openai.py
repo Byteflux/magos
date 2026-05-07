@@ -8,8 +8,7 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 
 from magos.api import build_api
-
-from ._helpers import MODEL, PROMPT
+from tests.e2e._helpers import MODEL, PROMPT
 
 
 def test_openai_non_streaming_real() -> None:

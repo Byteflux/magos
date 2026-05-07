@@ -8,10 +8,9 @@ from fastapi import Response
 from fastapi.responses import StreamingResponse
 
 from magos.dispatch import CompletionFn
+from magos.dispatch.gateway.base import Gateway
 from magos.dispatch.tokens import count_tokens
 from magos.routing import RouteDecision
-
-from .base import Gateway
 
 
 class CountTokensGateway(Gateway):

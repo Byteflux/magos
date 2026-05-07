@@ -8,8 +8,7 @@ from magos.registry.state import ModelEntry, RegistryState
 from magos.routing.match import matches
 from magos.routing.request import RoutedRequest
 from magos.routing.schema import ModelFieldAtom
-
-from ._helpers import make_registry, make_req
+from tests.routing._helpers import make_registry, make_req
 
 
 def _request(model: str) -> RoutedRequest:

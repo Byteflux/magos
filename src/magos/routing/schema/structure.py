@@ -6,9 +6,16 @@ from typing import Literal
 
 from pydantic import Field
 
-from .base import _Frozen
-from .grammar import MatchExpr
-from .rewrites import AddHeader, Compress, JqPatch, RemoveHeader, SetHeader, SetModel
+from magos.routing.schema.base import _Frozen
+from magos.routing.schema.grammar import MatchExpr
+from magos.routing.schema.rewrites import (
+    AddHeader,
+    Compress,
+    JqPatch,
+    RemoveHeader,
+    SetHeader,
+    SetModel,
+)
 
 GatewayMode = Literal["translate", "passthrough"]
 AuthHeaderShape = Literal["bearer", "x-api-key"]

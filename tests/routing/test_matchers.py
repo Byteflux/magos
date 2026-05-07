@@ -18,8 +18,7 @@ from magos.routing import (
     RegexMatcher,
 )
 from magos.routing.match import matches
-
-from ._helpers import make_req as _req
+from tests.routing._helpers import make_req as _req
 
 # --- ModelAtom ---
 
