@@ -1,18 +1,17 @@
 """``UsageAccumulator``: stateful streaming usage aggregator.
 
-Walks each shape's :data:`magos.shapes.ShapeSpec.stream_events` declaration
-to find the right event name, the path to the usage dict within event
-data, and the per-field key paths inside it. Wire-format-specific facts
-live in :mod:`magos.shapes`, not here.
+Walks the ``Shape``'s ``stream_events`` declaration to find the right
+event name, the path to the usage dict within event data, and the
+per-field key paths inside it. Wire-format-specific facts live on
+:class:`magos.shapes.Shape`, not here.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from magos.shapes import SHAPES, Shape
-
-from .core import Usage, _safe_int, _walk
+from magos.shapes import Shape, Usage
+from magos.shapes._base import _safe_int, _walk
 
 _FIELD_ATTR: dict[str, str] = {
     "input": "_input",
@@ -26,7 +25,7 @@ class UsageAccumulator:
     """Stateful usage accumulator fed parsed SSE events as the stream passes."""
 
     def __init__(self, shape: Shape) -> None:
-        self._spec = SHAPES[shape]
+        self._shape = shape
         self._input = 0
         self._output = 0
         self._cache_read = 0
@@ -46,7 +45,7 @@ class UsageAccumulator:
         )
 
     def feed(self, event_name: str | None, data: dict[str, Any]) -> None:
-        for ev in self._spec.stream_events:
+        for ev in self._shape.stream_events:
             if ev.event_name is not None and ev.event_name != event_name:
                 continue
             usage = _walk(data, ev.usage_path)

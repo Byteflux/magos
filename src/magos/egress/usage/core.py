@@ -1,71 +1,20 @@
-"""Generic usage extractor + the canonical ``egress.usage`` log event.
+"""``log_usage`` + ``log_usage_from_body``: canonical ``egress.usage`` log event.
 
-``Usage`` canonicalises Anthropic / OpenAI Chat / OpenAI Responses token
-counts into one shape; ``usage_from_body`` walks the per-shape
-``usage_keys`` map from :mod:`magos.shapes` so the wire-format-specific
-field names live there, not here. ``log_usage_from_body`` is the
-convenience wrapper used by the non-streaming response path.
-``cache_write`` is Anthropic-only; OpenAI shapes leave it 0.
+The ``Usage`` dataclass and the per-shape extraction logic live in
+:mod:`magos.shapes` (``Shape.extract_usage`` is the canonical extractor;
+``Usage`` is re-exported here for backward-compatible imports inside
+:mod:`magos.egress.usage`).
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any
 
-from magos.shapes import SHAPES, Shape
+from magos.shapes import Shape, Usage
 from magos.telemetry import get_logger
 
 log = get_logger("magos.egress.usage")
-
-
-@dataclass(frozen=True, slots=True)
-class Usage:
-    """Canonicalised token counts for one request."""
-
-    input: int = 0
-    output: int = 0
-    cache_read: int = 0
-    cache_write: int = 0
-
-    @property
-    def is_empty(self) -> bool:
-        return (
-            self.input == 0 and self.output == 0 and self.cache_read == 0 and self.cache_write == 0
-        )
-
-
-def _safe_int(value: Any) -> int:
-    return value if isinstance(value, int) and value >= 0 else 0
-
-
-def _walk(body: Any, path: tuple[str, ...]) -> Any:
-    """Walk a dotted path through nested dicts, returning ``None`` on any miss."""
-    cur: Any = body
-    for key in path:
-        if not isinstance(cur, dict):
-            return None
-        cur = cur.get(key)
-    return cur
-
-
-def usage_from_body(shape: Shape, body: Any) -> Usage:
-    """Extract usage from ``body`` using the per-shape ``usage_keys`` map.
-
-    Reads :data:`magos.shapes.SHAPES[shape].usage_keys` to find the path
-    to each canonical field; missing / non-int / negative values default
-    to 0. Non-dict bodies return an empty ``Usage``.
-    """
-    if not isinstance(body, dict):
-        return Usage()
-    keys = SHAPES[shape].usage_keys
-    return Usage(
-        input=_safe_int(_walk(body, keys["input"])) if "input" in keys else 0,
-        output=_safe_int(_walk(body, keys["output"])) if "output" in keys else 0,
-        cache_read=_safe_int(_walk(body, keys["cache_read"])) if "cache_read" in keys else 0,
-        cache_write=_safe_int(_walk(body, keys["cache_write"])) if "cache_write" in keys else 0,
-    )
 
 
 def log_usage(
@@ -81,7 +30,7 @@ def log_usage(
         return
     log.info(
         "egress.usage",
-        shape=shape,
+        shape=shape.name,
         endpoint=endpoint,
         model=model,
         stream=stream,
@@ -107,8 +56,11 @@ def log_usage_from_body(
     that need failure isolation should wrap their callback themselves.
     """
     model = body.get("model") if isinstance(body, dict) else None
-    usage = usage_from_body(shape, body)
+    usage = shape.extract_usage(body)
     log_usage(shape, endpoint=endpoint, model=model, usage=usage, stream=stream)
     if on_complete is not None and not usage.is_empty:
         on_complete(usage)
     return usage
+
+
+__all__ = ["Usage", "log_usage", "log_usage_from_body"]

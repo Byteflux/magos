@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from ._spec import ShapeSpec, StreamEvent
+from ._base import Shape, StreamEvent
 
-SPEC = ShapeSpec(
+SPEC = Shape(
     name="openai-responses",
     endpoints=("/v1/responses", "/v1/responses/{id}"),
     compression_provider="openai",

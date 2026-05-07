@@ -12,6 +12,7 @@ from typing import Any
 
 from magos.egress.translate.runner import TranslateAdapter
 from magos.egress.translate.sse import sse_named_event
+from magos.shapes import ANTHROPIC
 from magos.telemetry import get_logger
 
 from .dispatch import _dispatch_anthropic_messages
@@ -74,7 +75,7 @@ def _preprocess_body(
 
 
 ADAPTER = TranslateAdapter(
-    shape="anthropic",
+    shape=ANTHROPIC,
     endpoint="/v1/messages",
     default_dispatch=_dispatch_anthropic_messages,
     set_model_in_response=_set_model_in_response,

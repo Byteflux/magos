@@ -11,6 +11,7 @@ import litellm
 from magos.egress.translate.payload import coerce_to_dict
 from magos.egress.translate.runner import TranslateAdapter
 from magos.egress.translate.sse import sse_event
+from magos.shapes import OPENAI_CHAT
 
 
 def _chat_set_model_in_response(body: dict[str, Any], client_model: str) -> None:
@@ -40,7 +41,7 @@ async def _openai_chat_bytes_iter(
 
 
 ADAPTER = TranslateAdapter(
-    shape="openai-chat",
+    shape=OPENAI_CHAT,
     endpoint="/v1/chat/completions",
     default_dispatch=litellm.acompletion,
     set_model_in_response=_chat_set_model_in_response,

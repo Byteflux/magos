@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from magos.egress.usage import Usage
+    from magos.shapes import Usage
 
 PostResponseHook = Callable[["Usage"], None]
 """Closure fired by egress dispatch after the upstream's ``Usage`` is captured.

@@ -18,10 +18,10 @@ from headroom.ccr import CCRToolInjector
 
 from magos.cache import PrefixCacheTracker, derive_session_id, get_store
 from magos.compression import ProviderName, apply, pipeline_config_from_compress_options
-from magos.egress.usage import Usage
 from magos.registry.state import RegistryState
 from magos.routing.request import PostResponseHook, RoutedRequest
 from magos.routing.schema import CompressOptions
+from magos.shapes import Usage
 from magos.telemetry import get_logger
 
 from ._preload import _preload_sentence_transformers

@@ -13,6 +13,7 @@ import litellm
 from magos.egress.translate.payload import coerce_to_dict
 from magos.egress.translate.runner import TranslateAdapter
 from magos.egress.translate.sse import sse_named_event
+from magos.shapes import OPENAI_RESPONSES
 
 
 def _responses_set_model_in_response(body: dict[str, Any], client_model: str) -> None:
@@ -49,7 +50,7 @@ async def _openai_responses_bytes_iter(
 
 
 ADAPTER = TranslateAdapter(
-    shape="openai-responses",
+    shape=OPENAI_RESPONSES,
     endpoint="/v1/responses",
     default_dispatch=litellm.aresponses,
     set_model_in_response=_responses_set_model_in_response,

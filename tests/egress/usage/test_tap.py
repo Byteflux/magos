@@ -10,6 +10,7 @@ from typing import Any
 from structlog.testing import capture_logs
 
 from magos.egress.usage import tap_stream
+from magos.shapes import ANTHROPIC, OPENAI_CHAT, OPENAI_RESPONSES, Shape
 
 
 async def _bytes_iter(chunks: list[bytes]) -> AsyncIterator[bytes]:
@@ -42,11 +43,11 @@ def _anthropic_message_stop() -> bytes:
 
 
 async def _drain(
-    chunks: list[bytes], shape: str, endpoint: str
+    chunks: list[bytes], shape: Shape, endpoint: str
 ) -> tuple[list[bytes], list[dict[str, Any]]]:
     forwarded: list[bytes] = []
     with capture_logs() as logs:
-        async for chunk in tap_stream(_bytes_iter(chunks), shape, endpoint=endpoint):  # type: ignore[arg-type]
+        async for chunk in tap_stream(_bytes_iter(chunks), shape, endpoint=endpoint):
             forwarded.append(chunk)
     return forwarded, [dict(e) for e in logs if e.get("event") == "egress.usage"]
 
@@ -57,7 +58,7 @@ def test_tap_stream_anthropic_logs_combined_usage() -> None:
         _anthropic_message_delta(),
         _anthropic_message_stop(),
     ]
-    forwarded, matches = asyncio.run(_drain(chunks, "anthropic", "/v1/messages"))
+    forwarded, matches = asyncio.run(_drain(chunks, ANTHROPIC, "/v1/messages"))
     assert b"".join(forwarded) == b"".join(chunks)
     assert len(matches) == 1
     entry = matches[0]
@@ -78,7 +79,7 @@ def test_tap_stream_openai_chat_terminal_chunk() -> None:
         ),
         b"data: [DONE]\n\n",
     ]
-    _, matches = asyncio.run(_drain(chunks, "openai-chat", "/v1/chat/completions"))
+    _, matches = asyncio.run(_drain(chunks, OPENAI_CHAT, "/v1/chat/completions"))
     assert len(matches) == 1
     entry = matches[0]
     assert entry["input"] == 5
@@ -100,7 +101,7 @@ def test_tap_stream_openai_responses_completed() -> None:
         },
     }
     chunk = f"event: response.completed\ndata: {json.dumps(completed)}\n\n".encode()
-    _, matches = asyncio.run(_drain([chunk], "openai-responses", "/v1/responses"))
+    _, matches = asyncio.run(_drain([chunk], OPENAI_RESPONSES, "/v1/responses"))
     assert len(matches) == 1
     assert matches[0]["input"] == 11
     assert matches[0]["output"] == 22
@@ -112,7 +113,7 @@ def test_tap_stream_handles_event_split_across_chunks() -> None:
     raw = _anthropic_message_start() + _anthropic_message_delta()
     split_at = len(raw) // 2
     chunks = [raw[:split_at], raw[split_at:]]
-    _, matches = asyncio.run(_drain(chunks, "anthropic", "/v1/messages"))
+    _, matches = asyncio.run(_drain(chunks, ANTHROPIC, "/v1/messages"))
     assert len(matches) == 1
     assert matches[0]["input"] == 100
     assert matches[0]["output"] == 250
@@ -121,7 +122,7 @@ def test_tap_stream_handles_event_split_across_chunks() -> None:
 def test_tap_stream_no_usage_emits_no_log() -> None:
     """Streams that don't carry usage (e.g. include_usage off) stay silent."""
     chunks = [b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n', b"data: [DONE]\n\n"]
-    _, matches = asyncio.run(_drain(chunks, "openai-chat", "/v1/chat/completions"))
+    _, matches = asyncio.run(_drain(chunks, OPENAI_CHAT, "/v1/chat/completions"))
     assert matches == []
 
 
@@ -134,7 +135,7 @@ def test_tap_stream_flushes_trailing_event_without_blank_line() -> None:
     """
     head = _anthropic_message_start()  # well-formed, ends with \n\n
     tail = _anthropic_message_delta().rstrip(b"\n")  # truncated terminator
-    _, matches = asyncio.run(_drain([head, tail], "anthropic", "/v1/messages"))
+    _, matches = asyncio.run(_drain([head, tail], ANTHROPIC, "/v1/messages"))
     assert len(matches) == 1
     entry = matches[0]
     assert entry["input"] == 100
@@ -143,7 +144,7 @@ def test_tap_stream_flushes_trailing_event_without_blank_line() -> None:
 
 def test_tap_stream_ignores_non_json_data_lines() -> None:
     """``data: [DONE]`` and other non-JSON sentinels must not crash the parser."""
-    _, matches = asyncio.run(_drain([b"data: [DONE]\n\n"], "openai-chat", "/v1/chat/completions"))
+    _, matches = asyncio.run(_drain([b"data: [DONE]\n\n"], OPENAI_CHAT, "/v1/chat/completions"))
     assert matches == []
 
 
@@ -160,7 +161,7 @@ def test_tap_stream_fires_on_complete_after_final_usage() -> None:
         seen: list[Any] = []
         bytes_out = b""
         async for chunk in tap_stream(
-            upstream(), "anthropic", endpoint="/v1/messages", on_complete=seen.append
+            upstream(), ANTHROPIC, endpoint="/v1/messages", on_complete=seen.append
         ):
             bytes_out += chunk
         return bytes_out, seen

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from magos.egress.usage import Usage, UsageAccumulator
+from magos.shapes import ANTHROPIC, OPENAI_CHAT, OPENAI_RESPONSES
 
 
 def test_accumulator_anthropic_combines_message_start_and_delta() -> None:
-    acc = UsageAccumulator("anthropic")
+    acc = UsageAccumulator(ANTHROPIC)
     acc.feed(
         "message_start",
         {
@@ -26,7 +27,7 @@ def test_accumulator_anthropic_combines_message_start_and_delta() -> None:
 
 
 def test_accumulator_openai_chat_takes_terminal_chunk() -> None:
-    acc = UsageAccumulator("openai-chat")
+    acc = UsageAccumulator(OPENAI_CHAT)
     # Earlier chunks have no usage field.
     acc.feed(None, {"choices": [{"delta": {"content": "h"}}]})
     acc.feed(
@@ -45,7 +46,7 @@ def test_accumulator_openai_chat_takes_terminal_chunk() -> None:
 
 
 def test_accumulator_openai_responses_uses_response_completed() -> None:
-    acc = UsageAccumulator("openai-responses")
+    acc = UsageAccumulator(OPENAI_RESPONSES)
     acc.feed(
         "response.completed",
         {
@@ -63,7 +64,7 @@ def test_accumulator_openai_responses_uses_response_completed() -> None:
 
 
 def test_usage_accumulator_ignores_unhandled_events() -> None:
-    acc = UsageAccumulator("anthropic")
+    acc = UsageAccumulator(ANTHROPIC)
     acc.feed("ping", {"foo": "bar"})
     acc.feed("content_block_start", {"type": "content_block_start"})
     assert acc.snapshot() == Usage()

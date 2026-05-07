@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from ._spec import ShapeSpec, StreamEvent
+from ._base import Shape, StreamEvent
 
-SPEC = ShapeSpec(
+SPEC = Shape(
     name="anthropic",
     endpoints=("/v1/messages",),
     compression_provider="anthropic",

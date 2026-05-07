@@ -1,41 +1,43 @@
 """Wire-shape data: per-shape field locations and usage maps.
 
-Three values: ``anthropic``, ``openai-chat``, ``openai-responses`` — the
-distinct request/response/streaming wire formats the proxy speaks.
+Three peer-level shape *values* live here (``ANTHROPIC``,
+``OPENAI_CHAT``, ``OPENAI_RESPONSES``), each a frozen ``Shape`` instance
+describing one wire format the proxy speaks. Plural package name
+(rather than singular ``shape/``) reflects that these are
+value-discriminated peer entities, not subclasses of a single
+abstraction — the same pattern as ``sqlalchemy.dialects`` /
+``pydantic.types`` / ``concurrent.futures``.
 
-This package is **data only**. Each shape module exposes a frozen
-``ShapeSpec`` describing where messages / system / instructions live in
-the body, the response usage-key map, and the Headroom compression
-provider. Consumers (usage extraction, session-id derivation, cache-mode
-compression, etc.) read these as plain data rather than branching on
-shape names.
-
-The discipline that keeps this from rotting: no functions that take a
-``Shape`` and *do work* belong here. Behaviour stays in its concern; only
-flat lookups live here. See ``CLAUDE.md`` for the rationale.
+Consumers receive ``Shape`` instances from ``shape_for_endpoint`` (or
+from configuration via ``shape_by_name``) and call methods on them
+directly (``shape.extract_usage(body)``). String names live only on
+``Shape.name`` and at the yaml boundary.
 """
 
 from __future__ import annotations
 
-from ._spec import CompressionProvider, Shape, ShapeSpec, StreamEvent
+from ._base import CompressionProvider, Shape, StreamEvent
 from .anthropic import SPEC as ANTHROPIC
 from .openai_chat import SPEC as OPENAI_CHAT
 from .openai_responses import SPEC as OPENAI_RESPONSES
+from .usage import Usage
 
-SHAPES: dict[Shape, ShapeSpec] = {
-    ANTHROPIC.name: ANTHROPIC,
-    OPENAI_CHAT.name: OPENAI_CHAT,
-    OPENAI_RESPONSES.name: OPENAI_RESPONSES,
-}
+SHAPES: tuple[Shape, ...] = (ANTHROPIC, OPENAI_CHAT, OPENAI_RESPONSES)
 
-_ENDPOINT_TO_SHAPE: dict[str, Shape] = {
-    endpoint: spec.name for spec in SHAPES.values() for endpoint in spec.endpoints
+_BY_ENDPOINT: dict[str, Shape] = {
+    endpoint: shape for shape in SHAPES for endpoint in shape.endpoints
 }
+_BY_NAME: dict[str, Shape] = {shape.name: shape for shape in SHAPES}
 
 
 def shape_for_endpoint(endpoint: str) -> Shape | None:
     """Map a routed endpoint to the response shape, or ``None`` for n/a."""
-    return _ENDPOINT_TO_SHAPE.get(endpoint)
+    return _BY_ENDPOINT.get(endpoint)
+
+
+def shape_by_name(name: str) -> Shape | None:
+    """Look up a ``Shape`` by its string name. Used at the yaml boundary."""
+    return _BY_NAME.get(name)
 
 
 __all__ = [
@@ -45,7 +47,8 @@ __all__ = [
     "SHAPES",
     "CompressionProvider",
     "Shape",
-    "ShapeSpec",
     "StreamEvent",
+    "Usage",
+    "shape_by_name",
     "shape_for_endpoint",
 ]
