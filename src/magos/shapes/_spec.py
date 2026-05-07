@@ -11,6 +11,29 @@ CompressionProvider = Literal["anthropic", "openai"]
 
 
 @dataclass(frozen=True, slots=True)
+class StreamEvent:
+    """Where one streaming SSE event carries usage data.
+
+    A shape may declare multiple events (Anthropic splits input vs
+    output across ``message_start`` / ``message_delta``); the generic
+    accumulator walks every entry whose ``event_name`` matches.
+    ``event_name=None`` means "match any chunk" (OpenAI Chat puts usage
+    on the terminal chunk regardless of event name).
+    """
+
+    event_name: str | None
+    usage_path: tuple[str, ...]
+    """Path to the usage dict within the event data."""
+
+    model_path: tuple[str, ...] | None
+    """Path to the model string within the event data, or ``None`` to skip."""
+
+    fields: Mapping[str, tuple[str, ...]]
+    """Canonical name (``input`` / ``output`` / ``cache_read`` / ``cache_write``)
+    -> path within the usage dict."""
+
+
+@dataclass(frozen=True, slots=True)
 class ShapeSpec:
     """Flat, data-only description of one wire shape.
 
@@ -36,3 +59,7 @@ class ShapeSpec:
     # (relative to the response body) to the integer token count.
     # ``cache_write`` is Anthropic-only; OpenAI shapes omit the key.
     usage_keys: Mapping[str, tuple[str, ...]]
+
+    # Streaming usage extraction. Each entry says "when this SSE event
+    # fires, the usage dict is at this path; pull these fields from it".
+    stream_events: tuple[StreamEvent, ...]

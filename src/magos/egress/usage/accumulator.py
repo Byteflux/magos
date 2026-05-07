@@ -1,19 +1,32 @@
-"""``UsageAccumulator``: stateful per-shape SSE event aggregator for streaming."""
+"""``UsageAccumulator``: stateful streaming usage aggregator.
+
+Walks each shape's :data:`magos.shapes.ShapeSpec.stream_events` declaration
+to find the right event name, the path to the usage dict within event
+data, and the per-field key paths inside it. Wire-format-specific facts
+live in :mod:`magos.shapes`, not here.
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
-from magos.shapes import Shape
+from magos.shapes import SHAPES, Shape
 
-from .core import Usage, _safe_int
+from .core import Usage, _safe_int, _walk
+
+_FIELD_ATTR: dict[str, str] = {
+    "input": "_input",
+    "output": "_output",
+    "cache_read": "_cache_read",
+    "cache_write": "_cache_write",
+}
 
 
 class UsageAccumulator:
     """Stateful usage accumulator fed parsed SSE events as the stream passes."""
 
     def __init__(self, shape: Shape) -> None:
-        self._shape = shape
+        self._spec = SHAPES[shape]
         self._input = 0
         self._output = 0
         self._cache_read = 0
@@ -33,60 +46,15 @@ class UsageAccumulator:
         )
 
     def feed(self, event_name: str | None, data: dict[str, Any]) -> None:
-        if self._shape == "anthropic":
-            self._feed_anthropic(event_name, data)
-        elif self._shape == "openai-chat":
-            self._feed_openai_chat(data)
-        else:
-            self._feed_openai_responses(event_name, data)
-
-    def _feed_anthropic(self, event_name: str | None, data: dict[str, Any]) -> None:
-        # Input + cache arrive on ``message_start.message.usage``; final
-        # output arrives on ``message_delta.usage``.
-        if event_name == "message_start":
-            message = data.get("message")
-            if isinstance(message, dict):
-                u = message.get("usage")
-                if isinstance(u, dict):
-                    self._input = _safe_int(u.get("input_tokens"))
-                    self._cache_read = _safe_int(u.get("cache_read_input_tokens"))
-                    self._cache_write = _safe_int(u.get("cache_creation_input_tokens"))
-                model = message.get("model")
-                if isinstance(model, str):
-                    self._model = model
-        elif event_name == "message_delta":
-            u = data.get("usage")
-            if isinstance(u, dict):
-                output = _safe_int(u.get("output_tokens"))
-                if output:
-                    self._output = output
-
-    def _feed_openai_chat(self, data: dict[str, Any]) -> None:
-        # Usage only on the terminal chunk, gated on
-        # ``stream_options.include_usage: true``.
-        u = data.get("usage")
-        if isinstance(u, dict):
-            self._input = _safe_int(u.get("prompt_tokens"))
-            self._output = _safe_int(u.get("completion_tokens"))
-            details = u.get("prompt_tokens_details")
-            if isinstance(details, dict):
-                self._cache_read = _safe_int(details.get("cached_tokens"))
-        model = data.get("model")
-        if isinstance(model, str):
-            self._model = model
-
-    def _feed_openai_responses(self, event_name: str | None, data: dict[str, Any]) -> None:
-        # Usage arrives on ``response.completed.response.usage``.
-        if event_name == "response.completed":
-            response = data.get("response")
-            if isinstance(response, dict):
-                u = response.get("usage")
-                if isinstance(u, dict):
-                    self._input = _safe_int(u.get("input_tokens"))
-                    self._output = _safe_int(u.get("output_tokens"))
-                    details = u.get("input_tokens_details")
-                    if isinstance(details, dict):
-                        self._cache_read = _safe_int(details.get("cached_tokens"))
-                model = response.get("model")
+        for ev in self._spec.stream_events:
+            if ev.event_name is not None and ev.event_name != event_name:
+                continue
+            usage = _walk(data, ev.usage_path)
+            if not isinstance(usage, dict):
+                continue
+            for canonical, key_path in ev.fields.items():
+                setattr(self, _FIELD_ATTR[canonical], _safe_int(_walk(usage, key_path)))
+            if ev.model_path is not None:
+                model = _walk(data, ev.model_path)
                 if isinstance(model, str):
                     self._model = model

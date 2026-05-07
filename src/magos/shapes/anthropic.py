@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._spec import ShapeSpec
+from ._spec import ShapeSpec, StreamEvent
 
 SPEC = ShapeSpec(
     name="anthropic",
@@ -17,4 +17,24 @@ SPEC = ShapeSpec(
         "cache_read": ("usage", "cache_read_input_tokens"),
         "cache_write": ("usage", "cache_creation_input_tokens"),
     },
+    stream_events=(
+        # Input + cache arrive on message_start.message.usage.
+        StreamEvent(
+            event_name="message_start",
+            usage_path=("message", "usage"),
+            model_path=("message", "model"),
+            fields={
+                "input": ("input_tokens",),
+                "cache_read": ("cache_read_input_tokens",),
+                "cache_write": ("cache_creation_input_tokens",),
+            },
+        ),
+        # Final output arrives on message_delta.usage.
+        StreamEvent(
+            event_name="message_delta",
+            usage_path=("usage",),
+            model_path=None,
+            fields={"output": ("output_tokens",)},
+        ),
+    ),
 )

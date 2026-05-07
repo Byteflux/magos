@@ -17,7 +17,7 @@ flat lookups live here. See ``CLAUDE.md`` for the rationale.
 
 from __future__ import annotations
 
-from ._spec import CompressionProvider, Shape, ShapeSpec
+from ._spec import CompressionProvider, Shape, ShapeSpec, StreamEvent
 from .anthropic import SPEC as ANTHROPIC
 from .openai_chat import SPEC as OPENAI_CHAT
 from .openai_responses import SPEC as OPENAI_RESPONSES
@@ -46,5 +46,6 @@ __all__ = [
     "CompressionProvider",
     "Shape",
     "ShapeSpec",
+    "StreamEvent",
     "shape_for_endpoint",
 ]

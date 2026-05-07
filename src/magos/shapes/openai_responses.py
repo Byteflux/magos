@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ._spec import ShapeSpec
+from ._spec import ShapeSpec, StreamEvent
 
 SPEC = ShapeSpec(
     name="openai-responses",
@@ -19,4 +19,17 @@ SPEC = ShapeSpec(
         "output": ("usage", "output_tokens"),
         "cache_read": ("usage", "input_tokens_details", "cached_tokens"),
     },
+    stream_events=(
+        # Usage arrives on response.completed.response.usage.
+        StreamEvent(
+            event_name="response.completed",
+            usage_path=("response", "usage"),
+            model_path=("response", "model"),
+            fields={
+                "input": ("input_tokens",),
+                "output": ("output_tokens",),
+                "cache_read": ("input_tokens_details", "cached_tokens"),
+            },
+        ),
+    ),
 )
