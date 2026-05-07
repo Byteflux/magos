@@ -16,6 +16,22 @@ from typing import Any, cast
 import structlog
 
 
+def _exception_formatter() -> Any:
+    """Return a structlog exception formatter that omits frame locals.
+
+    Defaults to `RichTracebackFormatter(show_locals=False)` when rich is
+    importable; otherwise falls back to `plain_traceback`. The locals dump
+    is the loud failure mode: it pretty-prints every frame's local variables
+    (request payload, headers including API keys, internal SDK state) into
+    a multi-page Rich box. Hiding it keeps the traceback compact and avoids
+    leaking secrets to logs.
+    """
+    try:
+        return structlog.dev.RichTracebackFormatter(show_locals=False)
+    except Exception:
+        return structlog.dev.plain_traceback
+
+
 def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
     """Configure structlog and bridge stdlib logging through it."""
     use_json = json if json is not None else os.environ.get("MAGOS_LOG_JSON", "0") == "1"
@@ -31,6 +47,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
             force_colors=colors,
             pad_event_to=0,
             sort_keys=False,
+            exception_formatter=_exception_formatter(),
         )
         timestamp_fmt = "%H:%M:%S"
     shared_processors: list[Any] = [

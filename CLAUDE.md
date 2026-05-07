@@ -157,6 +157,7 @@ src/magos/
       payload.py     # build_payload, header allowlists, canonical fields
       sse.py         # SSE framing helpers
       runner.py      # generic proxy_translate / stream_translate (per-adapter dispatch)
+      safe_stream.py # gateway-boundary wrapper: mid-stream exc -> log + per-shape SSE error
       anthropic/     # /v1/messages translate path
         __init__.py  # re-exports ADAPTER + _dispatch_anthropic_messages
         translation.py # output_config / additionalProperties / unknown-field stripping

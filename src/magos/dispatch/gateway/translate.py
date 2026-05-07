@@ -18,6 +18,7 @@ from magos.dispatch.errors import DispatchError
 from magos.dispatch.gateway.base import Gateway, make_on_complete
 from magos.dispatch.translate import TRANSLATE_HANDLERS
 from magos.dispatch.translate.runner import proxy_translate, stream_translate
+from magos.dispatch.translate.safe_stream import safe_stream
 from magos.routing import RouteDecision
 
 
@@ -67,9 +68,12 @@ class TranslateGateway(Gateway):
 
         if is_streaming:
             stream = stream_translate(adapter, dict(req.body), **translate_kwargs)
-            return StreamingResponse(
+            wrapped = safe_stream(
                 wrap_stream(stream, **ccr_kwargs),
-                media_type="text/event-stream",
+                shape=adapter.shape,
+                endpoint=adapter.endpoint,
+                model=str(req.body.get("model", "")),
             )
+            return StreamingResponse(wrapped, media_type="text/event-stream")
         response = await proxy_translate(adapter, dict(req.body), **translate_kwargs)
         return await wrap_response(response, **ccr_kwargs)
