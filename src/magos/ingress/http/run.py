@@ -1,7 +1,7 @@
-"""FastAPI adapter: ``Request`` -> ``RoutedRequest`` -> ``process_routed_request`` -> ``Response``.
+"""FastAPI adapter: ``Request`` -> ``RoutedRequest`` -> ``RequestService.process`` -> ``Response``.
 
 Body parsing and JSON shape validation happen here (FastAPI-specific errors).
-All routing/dispatch logic lives in :mod:`magos.process`.
+All routing/dispatch logic lives in :mod:`magos.service.request`.
 See ``docs/architecture/request-flow.md`` for the full lifecycle and
 exception ladder.
 """
@@ -17,10 +17,8 @@ from pydantic import ValidationError
 
 from magos.egress import CompletionFn
 from magos.ingress.http.headers import forwardable_headers
-from magos.process import RoutedResponse, process_routed_request
-from magos.registry.refresher import Refresher
-from magos.registry.schema import RegistryYaml
-from magos.routing import Endpoint, RoutedRequest, RoutingConfig
+from magos.routing import Endpoint, RoutedRequest
+from magos.service import RequestService, RoutedResponse
 
 __all__ = ["CompletionFn", "run_endpoint"]
 
@@ -33,13 +31,13 @@ async def run_endpoint(
     method: str = "POST",
     actual_path: str | None = None,
 ) -> Response | StreamingResponse | dict[str, Any]:
-    """Thin FastAPI adapter around :func:`~magos.process.process_routed_request`.
+    """Thin FastAPI adapter around :meth:`RequestService.process`.
 
     Steps:
     1. Read raw body bytes.
     2. Parse JSON; raise ``HTTPException(400)`` for parse / shape errors.
     3. Build ``RoutedRequest``.
-    4. Delegate to ``process_routed_request``.
+    4. Delegate to ``app.state.service.process``.
     5. Adapt ``RoutedResponse`` to a FastAPI ``Response``.
     """
     raw_body = await request.body()
@@ -59,18 +57,10 @@ async def run_endpoint(
         method=cast(Any, method),
         actual_path=actual_path,
     )
-    cfg = cast(RoutingConfig, request.app.state.routing)
-    refresher = cast("Refresher | None", request.app.state.refresher)
-    registry_cfg = cast(RegistryYaml, request.app.state.registry_config)
+    service = cast(RequestService, request.app.state.service)
 
     try:
-        result = await process_routed_request(
-            routed,
-            cfg=cfg,
-            refresher=refresher,
-            registry_cfg=registry_cfg,
-            completion=completion,
-        )
+        result = await service.process(routed, completion)
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=exc.errors()) from exc
 

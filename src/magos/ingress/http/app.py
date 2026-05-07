@@ -16,6 +16,7 @@ from magos.ingress.http.models import register_models_endpoint
 from magos.registry.refresher import Refresher
 from magos.registry.schema import RegistryYaml
 from magos.routing import RoutingConfig
+from magos.service import build_request_service
 from magos.telemetry.metrics import mount_metrics_endpoint
 
 
@@ -52,6 +53,7 @@ def create_app(
         if registry_cfg.providers
         else None
     )
+    app.state.service = build_request_service(cfg, app.state.refresher, registry_cfg)
 
     if settings.metrics_enabled:
         mount_metrics_endpoint(app)
