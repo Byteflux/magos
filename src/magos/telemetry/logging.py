@@ -3,6 +3,20 @@
 `configure_logging` is called once at startup; until it runs,
 `get_logger` falls back to structlog defaults. `MAGOS_LOG_JSON=1`
 flips the renderer from console to JSON.
+
+Two log levels apply, deliberately split:
+
+  * `level` (env: `MAGOS_LOG_LEVEL`, default INFO) controls `magos.*`
+    loggers and the structlog filtering bound logger. This is what
+    operators tune when they want more or less detail from our own code.
+  * `MAGOS_THIRD_PARTY_LOG_LEVEL` (default ERROR) controls every other
+    logger via the root level. The default is a high floor so noise from
+    uvicorn, litellm, httpx, transformers, mitmproxy, otel, etc. stays
+    silent unless something is actually broken. Raise this to `WARNING`
+    or `INFO` for debugging; we never lower it implicitly.
+
+Libraries with logging machinery that bypasses stdlib propagation (LiteLLM,
+transformers) get explicit shims aligned with the third-party floor.
 """
 
 from __future__ import annotations
@@ -32,9 +46,19 @@ def _exception_formatter() -> Any:
         return structlog.dev.plain_traceback
 
 
+def _resolve_level(name: str, default: int) -> int:
+    """Map a level name to a stdlib logging level int, falling back to `default`."""
+    resolved = getattr(logging, name.upper(), None)
+    return resolved if isinstance(resolved, int) else default
+
+
 def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
     """Configure structlog and bridge stdlib logging through it."""
     use_json = json if json is not None else os.environ.get("MAGOS_LOG_JSON", "0") == "1"
+    magos_level = _resolve_level(level, logging.INFO)
+    third_party_level = _resolve_level(
+        os.environ.get("MAGOS_THIRD_PARTY_LOG_LEVEL", "ERROR"), logging.ERROR
+    )
     if use_json:
         renderer: Any = structlog.processors.JSONRenderer()
         timestamp_fmt = "iso"
@@ -61,9 +85,7 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level.upper(), logging.INFO)
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(magos_level),
         cache_logger_on_first_use=True,
     )
 
@@ -78,15 +100,21 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
     handler.setFormatter(formatter)
     root = logging.getLogger()
     root.handlers = [handler]
-    root.setLevel(getattr(logging, level.upper(), logging.INFO))
+    # Root sits at the third-party floor (default ERROR) so anything we
+    # don't own stays silent unless explicitly raised. The `magos` logger
+    # is bumped below to `magos_level` so our own structured events flow.
+    root.setLevel(third_party_level)
+    logging.getLogger("magos").setLevel(magos_level)
 
     # uvicorn ships its own LOGGING_CONFIG; we pass log_config=None to uvicorn
     # so its loggers default to propagate=True. Reset any prior handlers
-    # (e.g. from a previous configure_logging call in tests) to be sure.
+    # (e.g. from a previous configure_logging call in tests) and unset the
+    # explicit level so they cascade from root (the third-party floor).
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         lg = logging.getLogger(name)
         lg.handlers = []
         lg.propagate = True
+        lg.setLevel(logging.NOTSET)
 
     # Silence transformers' weight-load report (emitted when Kompress loads
     # ModernBERT without the LM head). Env var is read at transformers import;
@@ -97,13 +125,15 @@ def configure_logging(level: str = "INFO", *, json: bool | None = None) -> None:
         with contextlib.suppress(AttributeError):
             transformers.logging.set_verbosity_error()
 
-    # Silence LiteLLM's chatty INFO logs (echoed twice: once via stdlib
-    # logging, once through our structlog bridge) and its hardcoded
-    # "Give Feedback" / "Provider List" print() banners on error paths.
-    # Env var is read at LiteLLM import; the module-level attr covers
-    # the already-imported case.
-    os.environ.setdefault("LITELLM_LOG", "WARNING")
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    # LiteLLM's logging bypasses stdlib propagation: it attaches its own
+    # handler at import gated on `LITELLM_LOG`, plus emits hardcoded
+    # `print()` banners ("Give Feedback", "Provider List") on error paths.
+    # Align the env var (read at import) and the stdlib logger level (covers
+    # the already-imported case) with the third-party floor; suppress_debug_info
+    # quiets the print banners.
+    floor_name = logging.getLevelName(third_party_level)
+    os.environ.setdefault("LITELLM_LOG", floor_name)
+    logging.getLogger("LiteLLM").setLevel(third_party_level)
     litellm = sys.modules.get("litellm")
     if litellm is not None:
         with contextlib.suppress(AttributeError):

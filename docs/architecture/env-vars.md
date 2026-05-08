@@ -24,7 +24,8 @@ on `MagosSettings`. It anchors defaults for `MAGOS_CONFIG_PATH` and
 | `MAGOS_MITM_HOST`            | (unset)       | Override `ingress.mitm.host`; yaml default is `127.0.0.1`           |
 | `MAGOS_MITM_PORT`            | (unset)       | Override `ingress.mitm.port`; yaml default is `6247`                |
 | `MAGOS_MITM_INTERCEPT_HOSTS` | (unset)       | Comma-separated hosts; overrides `ingress.mitm.intercept_hosts`     |
-| `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level                                        |
+| `MAGOS_LOG_LEVEL`            | `INFO`        | structlog level for `magos.*` loggers                  |
+| `MAGOS_THIRD_PARTY_LOG_LEVEL`| `ERROR`       | Floor for every non-`magos.*` logger (uvicorn, litellm, httpx, transformers, ...). Raise to `WARNING`/`INFO`/`DEBUG` for debugging. Read directly via `os.environ` in `telemetry/logging.py`. |
 | `MAGOS_LOG_JSON`             | `0`           | `1` flips renderer to JSON                             |
 | `MAGOS_LOG_COLOR`            | auto-TTY      | `0`/`1` overrides TTY autodetect (read directly via `os.environ` in `telemetry/logging.py`; not a `MagosSettings` field, so `.env` loading does not apply) |
 | `MAGOS_OTEL_ENABLED`         | `0`           | `1` ships OTel spans                                   |

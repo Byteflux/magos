@@ -109,7 +109,8 @@ Settings (read from the process env, optionally via `.env`):
 | `MAGOS_MITM_HOST`           | yaml `ingress.mitm.host` or `127.0.0.1` | mitm listen host. CLI `--mitm-host` wins. |
 | `MAGOS_MITM_PORT`           | yaml `ingress.mitm.port` or `6247`  | mitm listen port. CLI `--mitm-port` wins.  |
 | `MAGOS_MITM_INTERCEPT_HOSTS`| yaml `ingress.mitm.intercept_hosts` | Comma-separated allow-list of hosts to TLS-terminate. |
-| `MAGOS_LOG_LEVEL`           | `INFO`                        | structlog filter level.                    |
+| `MAGOS_LOG_LEVEL`           | `INFO`                        | structlog filter level for `magos.*`.      |
+| `MAGOS_THIRD_PARTY_LOG_LEVEL`| `ERROR`                      | Floor for non-`magos.*` loggers (uvicorn, litellm, etc.). Raise to `WARNING`/`INFO`/`DEBUG` for debugging. |
 | `MAGOS_LOG_JSON`            | `0`                           | `1` to emit JSON instead of structured text. |
 | `MAGOS_LOG_COLOR`           | auto (TTY)                    | `0`/`1` to force off/on regardless of TTY. Read directly via `os.environ` in `telemetry/logging.py`; not a `MagosSettings` field, so `.env` loading does not apply. |
 | `MAGOS_ACCESS_LOG`          | `1`                           | One structlog line per HTTP request.       |
