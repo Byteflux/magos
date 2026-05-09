@@ -17,6 +17,32 @@ Two log levels apply, deliberately split:
 
 Libraries with logging machinery that bypasses stdlib propagation (LiteLLM,
 transformers) get explicit shims aligned with the third-party floor.
+
+## Log-level convention
+
+The `magos.*` loggers follow this convention so operators can tune
+verbosity and alerts without inspecting individual call sites:
+
+  * **DEBUG** -- per-step internal mechanics (cache misses, no-op
+    transforms, model-limit resolution, registry refresh attempts).
+    Off at the default INFO level; flip on for local diagnosis.
+  * **INFO** -- significant lifecycle events and per-request milestones
+    (`server.ready`, `route.matched`, `dispatch`, `egress.usage`). The
+    "operational story" of the proxy. Volume scales with request rate.
+  * **WARNING** -- a recoverable problem: the client may have received a
+    degraded response, or an internal subsystem failed gracefully.
+    Examples: `route.dispatch_error` (returned 503 to client),
+    `compress.pipeline_warm_failed` (compression disabled but proxy
+    serves), `registry.refresh.failed` (kept old state). Operationally
+    noteworthy; not necessarily alert-worthy.
+  * **ERROR** -- an unhandled exception escaped a boundary. The proxy
+    couldn't fulfill its contract on this request; alert-worthy.
+    Reserved for unexpected paths -- expected failure modes (bad config,
+    upstream 5xx) belong at WARNING.
+  * **EXCEPTION** -- ERROR + traceback, via `log.exception`. Use only
+    when the traceback is the diagnosis (e.g. registry adapter raised
+    something we didn't anticipate). The Rich traceback formatter is
+    configured to omit frame locals to avoid leaking secrets.
 """
 
 from __future__ import annotations
