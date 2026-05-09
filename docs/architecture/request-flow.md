@@ -139,6 +139,18 @@ dormant.
    terminal-event usage block. `cache_write` is Anthropic-only;
    OpenAI shapes always report 0.
 
+## Request correlation
+
+`api/run.py:run_endpoint` binds a `request_id` via
+`structlog.contextvars` for the lifetime of the request task. Every
+log line emitted inside the request -- including mid-stream events
+that fire after the handler returns -- carries it. The id is read
+from the inbound `X-Request-ID` header when present (capped at 64
+chars) and otherwise generated as a 12-char hex token. The binding is
+intentionally never unbound: streaming responses are iterated by
+FastAPI *after* the handler returns, and contextvars are task-local in
+asyncio so each request's task gets a fresh context anyway.
+
 ## Exception ladder
 
 `magos.service.RequestService.process` folds upstream failures into a
