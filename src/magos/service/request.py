@@ -79,6 +79,7 @@ class RequestService:
         decision_or_err = await asyncio.to_thread(self._router.route, routed)
 
         if isinstance(decision_or_err, RouteError):
+            _log_route_error(decision_or_err)
             return _render_route_error(decision_or_err)
 
         endpoint: Endpoint = routed.endpoint
@@ -134,13 +135,19 @@ class RequestService:
 # ---------------------------------------------------------------------------
 
 
+def _log_route_error(err: RouteError) -> None:
+    """Emit a structured event for a `RouteError` returned by the router.
+
+    Kept separate from `_render_route_error` so the dispatch-error branch
+    (which already logs at WARN at the catch site) can render without
+    re-emitting an INFO duplicate.
+    """
+    event = "route.unmatched" if err.code == "unmatched" else "route.dispatch_error"
+    log.info(event, endpoint=err.endpoint, model=err.model, message=err.message)
+
+
 def _render_route_error(err: RouteError) -> RoutedResponse:
-    log.info(
-        "route." + ("unmatched" if err.code == "unmatched" else "dispatch_error"),
-        endpoint=err.endpoint,
-        model=err.model,
-        message=err.message,
-    )
+    """Convert a `RouteError` into a transport-agnostic JSON response."""
     body = error_envelope(endpoint=err.endpoint, code=err.code, message=err.message)
     return RoutedResponse(
         status=err.status,

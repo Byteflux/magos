@@ -49,7 +49,7 @@ class MagosCompressionWarmup:
             from magos.compression import prebuild_from_routing  # noqa: PLC0415
         except Exception as exc:
             log.warning(
-                "compress.pipeline_warm_failed",
+                "compress.warmup_unavailable",
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
@@ -60,7 +60,7 @@ class MagosCompressionWarmup:
             log.info("compress.pipeline_warmed")
         except Exception as exc:
             log.warning(
-                "compress.pipeline_warm_failed",
+                "compress.warmup_failed",
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
