@@ -52,10 +52,9 @@ async def _bytes_iter(
             yield chunk if isinstance(chunk, bytes) else str(chunk).encode()
     except Exception as exc:
         log.error(
-            "stream.dispatch_failed",
+            "egress.dispatch_failed",
             error=str(exc),
             error_type=type(exc).__name__,
-            model=payload.get("model"),
         )
         # Emit an Anthropic-shape error event so the client can surface the
         # failure cleanly instead of seeing a truncated stream and retrying.

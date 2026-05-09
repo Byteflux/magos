@@ -44,7 +44,7 @@ class TranslateAdapter:
     `stream_bytes_iter` is the async generator that reads chunks from the
     LiteLLM stream and emits SSE-framed bytes. Shape-specific because Anthropic
     yields pre-framed bytes while OpenAI shapes need explicit framing.
-    `log_shape` is the label passed to `log.info("dispatch", shape=...)`;
+    `log_shape` is the label passed to `log.debug("egress.dispatch", shape=...)`;
     diverges from `shape` for OpenAI Chat (`"openai"` vs `"openai-chat"`)
     so the dispatch log keeps the historic label that operator dashboards key on.
     """
@@ -86,7 +86,7 @@ async def proxy_translate(
         api_key=api_key,
         api_base=api_base,
     )
-    log.debug("dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model)
+    log.debug("egress.dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model)
     result = coerce_to_dict(await dispatch(**payload))
     adapter.set_model_in_response(result, client_model)
     log_usage_from_body(adapter.shape, result, endpoint=adapter.endpoint, on_complete=on_complete)
@@ -122,7 +122,9 @@ def stream_translate(
         api_key=api_key,
         api_base=api_base,
     )
-    log.debug("dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model, stream=True)
+    log.debug(
+        "egress.dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model, stream=True
+    )
     mutator = adapter.set_model_in_stream_event(client_model)
     return tap_stream(
         rewrite_data_in_stream(adapter.stream_bytes_iter(payload, dispatch), mutator),

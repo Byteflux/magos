@@ -32,9 +32,9 @@ verbosity and alerts without inspecting individual call sites:
   * **WARNING** -- a recoverable problem: the client may have received a
     degraded response, or an internal subsystem failed gracefully.
     Examples: `route.dispatch_error` (returned 503 to client),
-    `compress.pipeline_warm_failed` (compression disabled but proxy
-    serves), `registry.refresh.failed` (kept old state). Operationally
-    noteworthy; not necessarily alert-worthy.
+    `compress.warmup_failed` (compression disabled but proxy serves),
+    `registry.refresh.failure` (kept old state). Operationally noteworthy;
+    not necessarily alert-worthy.
   * **ERROR** -- an unhandled exception escaped a boundary. The proxy
     couldn't fulfill its contract on this request; alert-worthy.
     Reserved for unexpected paths -- expected failure modes (bad config,

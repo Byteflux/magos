@@ -159,12 +159,11 @@ class Refresher:
             await self._refresh_one(
                 provider_name, timeout_seconds=timeout_seconds, max_attempts=max_attempts
             )
-        except DiscoveryError as exc:
-            log.warning(
-                "registry.refresh.failed",
-                provider=provider_name,
-                error=str(exc),
-            )
+        except DiscoveryError:
+            # Already logged as `registry.refresh.failure` (with metrics)
+            # by `_refresh_one`'s call to `record_refresh_failure`. Swallowed
+            # here only so the background task survives.
+            pass
         except Exception as exc:
             log.exception(
                 "registry.refresh.unexpected_failure",
