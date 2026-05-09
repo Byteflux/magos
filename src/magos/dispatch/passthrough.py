@@ -40,9 +40,7 @@ async def stream_passthrough(
     prompt-cache lookup. `transport` is a test seam (httpx.MockTransport).
     """
     url = f"{upstream_base_url.rstrip('/')}{path}"
-    log.info(
-        "passthrough.stream", url=url, method=method, model=model_hint, body_size=len(raw_body)
-    )
+    log.debug("passthrough.stream", url=url, method=method, body_size=len(raw_body))
     async with (
         _make_client(transport) as client,
         client.stream(method, url, content=raw_body, headers=forward_headers) as resp,
@@ -77,7 +75,7 @@ async def call_passthrough(
 ) -> tuple[int, bytes, str]:
     """Non-streaming same-shape passthrough; returns `(status, body, content_type)`."""
     url = f"{upstream_base_url.rstrip('/')}{path}"
-    log.info("passthrough.call", url=url, method=method, model=model_hint, body_size=len(raw_body))
+    log.debug("passthrough.call", url=url, method=method, body_size=len(raw_body))
     async with _make_client(transport) as client:
         resp = await client.request(method, url, content=raw_body, headers=forward_headers)
     return (

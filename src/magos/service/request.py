@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from pydantic import ValidationError
+from structlog.contextvars import bind_contextvars
 
 from magos.dispatch import CompletionFn
 from magos.dispatch.errors import DispatchError
@@ -83,28 +84,29 @@ class RequestService:
             return _render_route_error(decision_or_err)
 
         endpoint: Endpoint = routed.endpoint
-        log.info(
-            "route.matched",
-            rule=decision_or_err.rule_label(),
-            endpoint=endpoint,
-            model=str(routed.body.get("model", "")),
-            gateway=decision_or_err.target.gateway,
-        )
+        model = str(routed.body.get("model", ""))
+        rule = decision_or_err.rule_label()
+        gateway = decision_or_err.target.gateway
+
+        # Bind once for the rest of the request; downstream events (dispatch,
+        # compress.applied, egress.usage, mid-stream errors) inherit these
+        # via structlog.contextvars, so individual log calls can stay terse
+        # without losing the routing context. Not unbound: streaming responses
+        # are iterated by FastAPI after this method returns; the request task
+        # owns its own contextvars and is GC'd when the request ends.
+        bind_contextvars(rule=rule, gateway=gateway, endpoint=endpoint, model=model)
+
+        log.debug("route.matched")
 
         try:
             raw = await self._gateway.dispatch(decision_or_err, completion=completion)
         except DispatchError as exc:
-            log.warning(
-                "route.dispatch_error",
-                rule=decision_or_err.rule_label(),
-                endpoint=endpoint,
-                error=str(exc),
-            )
+            log.warning("route.dispatch_error", error=str(exc))
             err = RouteError(
                 status=503,
                 code="dispatch_error",
                 message=format_dispatch_error_message(str(exc)),
-                model=str(routed.body.get("model", "")),
+                model=model,
                 endpoint=endpoint,
             )
             return _render_route_error(err)
@@ -113,12 +115,7 @@ class RequestService:
             # map it to a 400 with the structured Pydantic error detail.
             raise
         except Exception as exc:
-            log.error(
-                "upstream_failure",
-                endpoint=endpoint,
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
+            log.error("upstream_failure", error=str(exc), error_type=type(exc).__name__)
             return RoutedResponse(
                 status=502,
                 headers={},

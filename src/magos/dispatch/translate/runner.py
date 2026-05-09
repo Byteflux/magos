@@ -86,7 +86,7 @@ async def proxy_translate(
         api_key=api_key,
         api_base=api_base,
     )
-    log.info("dispatch", shape=adapter.log_shape, model=client_model, dispatch_model=dispatch_model)
+    log.debug("dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model)
     result = coerce_to_dict(await dispatch(**payload))
     adapter.set_model_in_response(result, client_model)
     log_usage_from_body(adapter.shape, result, endpoint=adapter.endpoint, on_complete=on_complete)
@@ -122,13 +122,7 @@ def stream_translate(
         api_key=api_key,
         api_base=api_base,
     )
-    log.info(
-        "dispatch",
-        shape=adapter.log_shape,
-        model=client_model,
-        dispatch_model=dispatch_model,
-        stream=True,
-    )
+    log.debug("dispatch", shape=adapter.log_shape, dispatch_model=dispatch_model, stream=True)
     mutator = adapter.set_model_in_stream_event(client_model)
     return tap_stream(
         rewrite_data_in_stream(adapter.stream_bytes_iter(payload, dispatch), mutator),
