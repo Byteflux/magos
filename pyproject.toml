@@ -17,7 +17,7 @@ requires-python = ">=3.12,<=3.14"
 dependencies = [
     "fastapi[standard]>=0.136.1",
     "fastmcp>=2.12.5",
-    "headroom-ai[all]==0.10.16",
+    "headroom-ai[proxy]==0.10.16",
     "jq>=1.8.0",
     "backoff>=2.2",
     "litellm>=1.82.3",
@@ -47,40 +47,11 @@ dev = [
     "mypy>=1.20.2",
     "pre-commit>=4.6.0",
     "ruff>=0.15.12",
-    "magos[cpu]",
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "claude-agent-sdk>=0.1.69",
     "types-PyYAML>=6.0.12",
 ]
-
-[project.optional-dependencies]
-cpu = ["torch>=2.11"]
-gpu = ["torch>=2.11"]
-
-[tool.uv]
-conflicts = [
-    [
-        { extra = "cpu" },
-        { extra = "gpu" },
-    ]
-]
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu", extra = "cpu" },
-    { index = "pytorch-gpu", extra = "gpu" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-gpu"
-url = "https://download.pytorch.org/whl/cu130"
-explicit = true
 
 [tool.ruff]
 line-length = 100

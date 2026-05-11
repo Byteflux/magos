@@ -16,12 +16,12 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --extra gpu --no-dev --no-editable
+    uv sync --frozen --no-install-project --no-dev --no-editable
 
 COPY README.md ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --extra gpu --no-dev --no-editable
+    uv sync --frozen --no-dev --no-editable
 
 
 FROM python:3.12-slim
@@ -29,7 +29,6 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH" \
     MAGOS_LOG_COLOR=1 \
-    MAGOS_KOMPRESS_BACKEND=pytorch \
     MAGOS_CONFIG_PATH=/etc/magos/magos.yaml \
     MAGOS_MODELS_PATH=/var/lib/magos/models.json
 
